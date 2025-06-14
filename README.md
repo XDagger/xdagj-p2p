@@ -12,41 +12,7 @@
 
 XDAGJ-P2P is an innovative peer-to-peer networking library designed specifically for the XDAG blockchain network. Built with modern Java technologies and comprehensive testing, it provides robust node discovery, efficient connection management, and scalable network topology. As an actively developed project, it aims to make XDAG stronger and more resilient through continuous optimization and feature enhancement.
 
-## 🏗️ Architecture Overview
-
-```mermaid
-graph TB
-    subgraph "XDAG Network Layer"
-        A[XDAG Nodes] --> B[XDAGJ-P2P]
-        B --> C[Network Discovery]
-        B --> D[Connection Management]
-        B --> E[Message Routing]
-    end
-    
-    subgraph "Discovery Mechanisms"
-        C --> F[Kademlia DHT]
-        C --> G[DNS Discovery]
-        C --> H[Seed Nodes]
-    end
-    
-    subgraph "Performance Core"
-        D --> I[Netty Async I/O]
-        D --> J[Connection Pool]
-        E --> K[Protocol Buffers]
-        E --> L[Tuweni Zero-Copy]
-    end
-    
-    F --> M[Distributed Hash Table]
-    G --> N[EIP-1459 Protocol]
-    I --> O[1K+ msg/sec]
-    L --> P[Ultra-fast Packets]
-```
-
 ## ⚡ Performance at a Glance
-
-<table>
-<tr>
-<td width="50%">
 
 ### 🚀 **Speed Metrics** (Target Performance)
 ```
@@ -56,9 +22,6 @@ Memory Usage:        < 100MB (1K peers)
 Network Success:     90%+ discovery rate
 Status:             v0.1 - Active Development
 ```
-
-</td>
-<td width="50%">
 
 ### 🔧 **Tech Stack**
 ```
@@ -70,190 +33,114 @@ Testing:     JUnit 5.12 + Mockito 5.12 + JMH 1.37
 Build:       Maven + JaCoCo + Protobuf Plugin
 ```
 
-</td>
-</tr>
-</table>
-
 ## 🎯 Why XDAGJ-P2P?
 
-<table>
-<tr>
-<td align="center" width="25%">
-<img src="https://img.shields.io/badge/🔥-Advanced_DHT-red?style=for-the-badge" />
-<br><b>Kademlia Protocol</b>
-<br>Industry-standard distributed hash table for lightning-fast peer discovery
-</td>
-<td align="center" width="25%">
-<img src="https://img.shields.io/badge/⚡-High_Performance-yellow?style=for-the-badge" />
-<br><b>Netty Powered</b>
-<br>Async I/O with zero-copy buffers for maximum throughput
-</td>
-<td align="center" width="25%">
-<img src="https://img.shields.io/badge/🌐-DNS_Fallback-blue?style=for-the-badge" />
-<br><b>EIP-1459 Support</b>
-<br>Reliable DNS discovery when DHT is unavailable
-</td>
-<td align="center" width="25%">
-<img src="https://img.shields.io/badge/🛡️-Battle_Tested-green?style=for-the-badge" />
-<br><b>Quality Focused</b>
-<br>389 tests with continuous improvement
-</td>
-</tr>
-</table>
-
-## 💎 XDAG Network Impact
-
-<table>
-<tr>
-<td align="center" width="33%">
-<h3>🚀 Network Speed</h3>
-<img src="https://img.shields.io/badge/1K+-Messages%2FSec-brightgreen?style=for-the-badge&logo=speedtest" />
-<br><b>High Performance</b>
-<br>Sub-500ms connection establishment
-</td>
-<td align="center" width="33%">
-<h3>🌐 Global Reach</h3>
-<img src="https://img.shields.io/badge/90%25+-Discovery%20Rate-blue?style=for-the-badge&logo=globe" />
-<br><b>Reliable Coverage</b>
-<br>Multi-region DNS optimization
-</td>
-<td align="center" width="33%">
-<h3>🛡️ Future Ready</h3>
-<img src="https://img.shields.io/badge/v0.1-Active%20Development-orange?style=for-the-badge&logo=rocket" />
-<br><b>Continuous Evolution</b>
-<br>389 tests & growing
-</td>
-</tr>
-</table>
-
-## 🔥 Technical Excellence
-
-### Core Technologies
+### 🔥 **Core Features**
 ```
-🚀  Java 21:         Latest LTS + Preview Features + Virtual Threads
-🏗️  Architecture:    Event-driven async + Zero-copy buffers
-🔗  Discovery:       Kademlia DHT + EIP-1459 DNS fallback  
-⚡  Performance:     Netty 4.2.1 NIO + Protocol Buffers 4.31.1
-📦  Packet Processing: ConsenSys Tuweni 2.7.0 (Zero-copy bytes handling)
-📋  Message Schema:  Extensible Protocol Buffers (Custom message types)
-🔐  Cryptography:    Hyperledger Besu Algorithms + BouncyCastle 1.80
-🧪  Quality:         JUnit 5.12 + Mockito 5.12 + JMH Benchmarks
-🌍  Cloud DNS:       AWS Route53 + Alibaba Cloud DNS
-📊  Monitoring:      JaCoCo Coverage + SLF4J 2.0 Logging
+Kademlia DHT:       Distributed hash table
+Netty Powered:      Async I/O + Zero-copy
+EIP-1459 DNS:       Reliable fallback protocol
+Quality Focus:      389 comprehensive tests
 ```
 
-### Advanced Features
-- **🎯 Smart Routing**: Optimized Kademlia with adaptive connection limits
-- **🌐 DNS Fallback**: EIP-1459 protocol with AWS/Alibaba Cloud support
-- **📦 Zero-Copy Processing**: ConsenSys Tuweni for ultra-fast packet handling
-- **📋 Custom Messages**: Extensible Protocol Buffers schema for any use case
-- **🔄 Auto-Recovery**: Graceful degradation and network partition handling
-- **📊 Real-time Stats**: Comprehensive network monitoring and metrics
-- **🚀 Future Vision**: Continuous optimization for XDAG ecosystem growth
-
-## 🏆 Enterprise-Grade Dependencies
-
-<table>
-<tr>
-<td width="50%">
-
-### 🔐 **Cryptography & Security**
+### 💎 **XDAG Network Impact**
 ```
-Hyperledger Besu Algorithms  v25.5.0
-BouncyCastle Provider        v1.80
-ConsenSys Tuweni Bytes       v2.7.0  (Zero-copy packet processing)
-JNA Native Library Support   v5.15.0
+Network Speed:      1K+ messages/sec
+Global Reach:       90%+ discovery rate
+Connection Time:    Sub-500ms setup
+Development:        v0.1 Active evolution
 ```
 
-</td>
-<td width="50%">
+## 🎯 Technology Stack
 
-### 🌐 **Network & Performance**
+### 🚀 **Core Technologies**
 ```
-Netty All-in-One            v4.2.1.Final
-Protocol Buffers            v4.31.1  (Custom message schemas)
-gRPC Netty                  v1.73.0
-Snappy Compression          v1.1.10.7
-```
-
-</td>
-</tr>
-<tr>
-<td width="50%">
-
-### ☁️ **Cloud & DNS**
-```
-AWS SDK Route53             v2.31.52
-Alibaba Cloud DNS           v3.4.7
-DNSJava                     v3.6.3
-Google Guava                v33.4.8-jre
+Java Runtime:       Java 21 LTS
+Network Engine:     Netty 4.2.1
+Message Protocol:   Protocol Buffers 4.31.1
+Packet Processing:  ConsenSys Tuweni 2.7.0
 ```
 
-</td>
-<td width="50%">
-
-### 🧪 **Testing & Quality**
+### 🔐 **Security & Infrastructure**
 ```
-JUnit Jupiter               v5.12.2
-Mockito                     v5.12.0
-JMH Benchmarking            v1.37
-JaCoCo Coverage             v0.8.12
+Cryptography:       Hyperledger Besu 25.5.0
+Crypto Provider:    BouncyCastle 1.80
+Cloud DNS:          AWS Route53 2.31.52
+Testing Framework:  JUnit 5.12 + 389 tests
 ```
 
-</td>
-</tr>
-</table>
+## ⚡ Performance Features
 
-## ⚡ Performance Optimizations
+### 🚀 **High-Performance Processing**
+```
+Zero-Copy Buffers:  Direct memory access
+Smart Messaging:    Custom extensible schemas
+Virtual Threads:    Lightweight concurrency
+Event-Driven I/O:   Non-blocking operations
+```
 
-### 🚀 **Zero-Copy Network Processing**
-- **ConsenSys Tuweni**: Enterprise-grade bytes handling from Ethereum ecosystem
-- **Direct Memory Access**: Eliminates unnecessary memory allocations during packet processing
-- **Immutable Bytes**: Thread-safe operations without defensive copying
-- **Efficient Serialization**: Optimized for blockchain network protocols
+### 🎯 **Network Optimization**
+```
+Discovery Protocol: Kademlia DHT + DNS fallback
+Connection Pool:    Adaptive limits + Auto-recovery
+Message Routing:    Type-safe + Backward compatible
+Performance Tests:  JMH benchmarks + Monitoring
+```
 
-### 📋 **Extensible Protocol Buffers Schema**
-- **Custom Message Types**: Easy to define new message formats for any blockchain protocol
-- **Built-in Compression**: Snappy compression support for bandwidth optimization
-- **Type Safety**: Strongly-typed message definitions prevent runtime errors
-- **Cross-Platform**: Generated Java classes work seamlessly across different environments
-- **Backward Compatibility**: Schema evolution without breaking existing implementations
-
-### 🏗️ **High-Performance Architecture**
-- **Netty NIO**: Non-blocking I/O with event loops for maximum throughput
-- **Protocol Buffers**: Binary serialization with minimal overhead
-- **Snappy Compression**: Ultra-fast compression for network bandwidth optimization
-- **Java 21 Virtual Threads**: Lightweight concurrency for handling thousands of connections
-
-## 🎯 Network Topology
+## 🏗️ Architecture Overview
 
 ```mermaid
-graph LR
-    subgraph "XDAG Network"
-        A[XDAG Node A] -.->|DHT Discovery| B[XDAG Node B]
-        B -.->|DHT Discovery| C[XDAG Node C]
-        C -.->|DHT Discovery| D[XDAG Node D]
-        A -->|TCP Connection| B
-        B -->|TCP Connection| C
-        C -->|TCP Connection| D
-        D -->|TCP Connection| A
+graph TB
+    subgraph "🌐 Application Layer"
+        A["XDAG Blockchain Nodes"]
     end
     
-    subgraph "Discovery Layer"
-        E[DNS Bootstrap<br/>bootstrap.xdag.io] --> A
-        F[Kademlia DHT<br/>Distributed Hash Table] --> B
-        G[Seed Nodes<br/>Known Peers] --> C
+    subgraph "🔗 P2P Network Layer"
+        B["XDAGJ-P2P Library"]
     end
     
-    H[New XDAG Node] --> E
-    H --> F
-    H --> G
+    subgraph "🛠️ Core Components"
+        C["Discovery"] 
+        D["Connection"]
+        E["Messaging"]
+    end
     
-    style A fill:#e1f5fe
-    style B fill:#e1f5fe
-    style C fill:#e1f5fe
-    style D fill:#e1f5fe
-    style H fill:#fff3e0
+    A --> B
+    B --> C
+    B --> D  
+    B --> E
+    
+    style A fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style B fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style C fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    style D fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    style E fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+```
+
+### 🎯 Component Details
+
+### 🔍 **Discovery Engine**
+```
+Kademlia DHT:       Distributed hash table protocol
+EIP-1459 DNS:       Reliable DNS discovery fallback
+Smart Peer Finding: Lightning-fast node discovery
+Network Coverage:   Multi-region optimization
+```
+
+### ⚡ **Connection Hub**
+```
+Netty Engine:       Async I/O + Event loops
+Zero-Copy Buffers:  Direct memory access
+Connection Pool:    Adaptive limits + Auto-recovery
+High Performance:   Sub-500ms establishment
+```
+
+### 📨 **Message Router**
+```
+Protocol Buffers:   Custom extensible schemas
+Type Safety:        Strongly-typed definitions
+Smart Routing:      Efficient message delivery
+Backward Compatible: Schema evolution support
 ```
 
 ## 🎯 Use Cases
@@ -378,3 +265,17 @@ mvn test
 mvn test -Dtest="*HandlerTest"
 mvn test -Dtest="*IntegrationTest"
 ```
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🤝 Contributing
+
+We welcome contributions! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+## 📞 Support
+
+- **GitHub Issues**: [Report bugs or request features](https://github.com/XDagger/xdagj-p2p/issues)
+- **Documentation**: [Complete user guide](docs/USER_GUIDE.md)
+- **Examples**: [Sample implementations](docs/EXAMPLES.md)
