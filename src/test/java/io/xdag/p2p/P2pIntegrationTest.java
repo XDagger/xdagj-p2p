@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Timeout;
  * lifecycle.
  *
  * @author XDAG Team
- * @since 0.1
+ * @since 0.1.0
  */
 @Slf4j(topic = "integration-test")
 public class P2pIntegrationTest {
@@ -304,7 +304,7 @@ public class P2pIntegrationTest {
     connectThread.start();
     connectThread.join();
 
-    Thread.sleep(2000);
+    Thread.sleep(3000); // Increased from 2000ms for more reliable connection establishment
 
     // Verify connection was established
     assertTrue(

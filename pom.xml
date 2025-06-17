@@ -6,7 +6,7 @@
 
     <groupId>io.xdag</groupId>
     <artifactId>xdagj-p2p</artifactId>
-    <version>0.1</version>
+    <version>0.1.0</version>
 
     <name>xdagj-p2p</name>
     <description>A Java p2p Library For XDAGJ</description>
@@ -140,7 +140,6 @@
                 </configuration>
             </plugin>
 
-            <!-- 添加 Protobuf 编译器插件 -->
             <plugin>
                 <groupId>org.xolstice.maven.plugins</groupId>
                 <artifactId>protobuf-maven-plugin</artifactId>
@@ -168,7 +167,6 @@
                 </executions>
             </plugin>
 
-            <!-- 添加 build-helper 插件，让 Maven 和 IDEA 识别生成的源码目录 -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>build-helper-maven-plugin</artifactId>

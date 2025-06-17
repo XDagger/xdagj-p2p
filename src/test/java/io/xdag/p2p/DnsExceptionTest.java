@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
  * enumeration, and exception chaining.
  *
  * @author XDAG Team
- * @since 0.1
+ * @since 0.1.0
  */
 @Slf4j(topic = "test")
 public class DnsExceptionTest {

@@ -9,7 +9,7 @@ import lombok.Getter;
  * maintenance and data exchange.
  *
  * @author XDAG Team
- * @since 0.1
+ * @since 0.1.0
  */
 @Getter
 public enum MessageType {

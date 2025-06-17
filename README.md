@@ -3,7 +3,7 @@
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://openjdk.java.net/)
 [![Maven](https://img.shields.io/badge/Maven-3.6+-blue.svg)](https://maven.apache.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-389%20Passed-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/Tests-417%20Total-brightgreen.svg)](#testing)
 
 > **🚀 Powering the Future of XDAG Network**  
 > *Next-generation P2P networking library designed to make XDAG blockchain faster, stronger, and more decentralized*
@@ -20,7 +20,7 @@ Connection Time:     < 500ms
 Message Throughput:  1,000+ msg/sec
 Memory Usage:        < 100MB (1K peers)
 Network Success:     90%+ discovery rate
-Status:             v0.1 - Active Development
+Status:             v0.1.0 - Active Development
 ```
 
 ### 🔧 **Tech Stack**
@@ -40,7 +40,7 @@ Build:       Maven + JaCoCo + Protobuf Plugin
 Kademlia DHT:       Distributed hash table
 Netty Powered:      Async I/O + Zero-copy
 EIP-1459 DNS:       Reliable fallback protocol
-Quality Focus:      389 comprehensive tests
+Quality Focus:      417 comprehensive tests
 ```
 
 ### 💎 **XDAG Network Impact**
@@ -48,7 +48,7 @@ Quality Focus:      389 comprehensive tests
 Network Speed:      1K+ messages/sec
 Global Reach:       90%+ discovery rate
 Connection Time:    Sub-500ms setup
-Development:        v0.1 Active evolution
+Development:        v0.1.0 Active evolution
 ```
 
 ## 🎯 Technology Stack
@@ -66,7 +66,7 @@ Packet Processing:  ConsenSys Tuweni 2.7.0
 Cryptography:       Hyperledger Besu 25.5.0
 Crypto Provider:    BouncyCastle 1.80
 Cloud DNS:          AWS Route53 2.31.52
-Testing Framework:  JUnit 5.12 + 389 tests
+Testing Framework:  JUnit 5.12 + 417 tests
 ```
 
 ## ⚡ Performance Features
@@ -167,7 +167,7 @@ Backward Compatible: Schema evolution support
 <dependency>
     <groupId>io.xdag</groupId>
     <artifactId>xdagj-p2p</artifactId>
-    <version>0.1</version>
+    <version>0.1.0</version>
 </dependency>
 ```
 
@@ -242,7 +242,7 @@ public void onMessage(Channel channel, Bytes data) {
 mvn clean package -DskipTests
 
 # Run P2P node
-java -jar target/xdagj-p2p-0.1-jar-with-dependencies.jar \
+java -jar target/xdagj-p2p-0.1.0-jar-with-dependencies.jar \
   -p 16783 \
   -s bootstrap.xdag.io:16783 \
   -d 1
@@ -252,7 +252,7 @@ java -jar target/xdagj-p2p-0.1-jar-with-dependencies.jar \
 
 XDAGJ-P2P includes a comprehensive test suite ensuring reliability and performance:
 
-- **389 Unit Tests**: Complete coverage of all components
+- **417 Unit Tests**: Complete coverage of all components
 - **Integration Tests**: End-to-end network scenarios  
 - **Performance Tests**: Throughput and latency benchmarks
 - **Stress Tests**: High-load and failure scenarios
