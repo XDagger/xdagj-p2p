@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [ master, develop ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ master, develop ]
 
@@ -34,32 +35,31 @@ jobs:
         find ~/.m2/repository -name "protoc-*exe" -type f -exec chmod +x {} \; 2>/dev/null || true
         find ~/.m2/repository -name "protoc-gen-*exe" -type f -exec chmod +x {} \; 2>/dev/null || true
     
+    # Get project info for consistent naming
+    - name: Get project info
+      id: project
+      run: |
+        echo "VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_OUTPUT
+        echo "ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)" >> $GITHUB_OUTPUT
+    
     - name: Run tests
       run: mvn clean test
     
     - name: Build package
       run: mvn package -DskipTests
     
+    # Upload test results for all builds (helps with debugging)
     - name: Upload test results
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: test-results
+        name: ${{ steps.project.outputs.ARTIFACT_ID }}-test-results-${{ steps.project.outputs.VERSION }}-${{ github.run_number }}
         path: target/surefire-reports/
     
-    # Only upload build artifacts on master branch pushes
-    - name: Get project version
-      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-      id: version
-      run: echo "VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_OUTPUT
-    
-    - name: Upload build artifacts
-      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    # Only upload release artifacts on tag pushes (from develop branch)
+    - name: Upload release artifacts
+      if: startsWith(github.ref, 'refs/tags/')
       uses: actions/upload-artifact@v4
       with:
-        name: maven-artifacts-${{ steps.version.outputs.VERSION }}
-        path: |
-          target/xdagj-p2p-${{ steps.version.outputs.VERSION }}.jar
-          target/xdagj-p2p-${{ steps.version.outputs.VERSION }}-sources.jar
-          target/xdagj-p2p-${{ steps.version.outputs.VERSION }}-javadoc.jar
-          target/xdagj-p2p-${{ steps.version.outputs.VERSION }}-jar-with-dependencies.jar 
+        name: ${{ steps.project.outputs.ARTIFACT_ID }}-${{ steps.project.outputs.VERSION }}
+        path: target/${{ steps.project.outputs.ARTIFACT_ID }}-${{ steps.project.outputs.VERSION }}.jar 

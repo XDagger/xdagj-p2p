@@ -32,6 +32,7 @@ public class CliConfigParser {
   private static final String OPT_PORT = "p";
   private static final String OPT_VERSION = "v";
   private static final String OPT_URL_SCHEMES = "u";
+  private static final String OPT_MAX_CONNECTIONS_SAME_IP = "msi";
 
   // DNS publish options
   private static final String OPT_PUBLISH = "publish";
@@ -111,6 +112,11 @@ public class CliConfigParser {
 
     if (cli.hasOption(OPT_MIN_ACTIVE_CONNECTIONS)) {
       config.setMinActiveConnections(parseIntOption(cli, OPT_MIN_ACTIVE_CONNECTIONS));
+    }
+
+    // Max connections with same IP
+    if (cli.hasOption(OPT_MAX_CONNECTIONS_SAME_IP)) {
+      config.setMaxConnectionsWithSameIp(parseIntOption(cli, OPT_MAX_CONNECTIONS_SAME_IP));
     }
 
     // Validate connection limits
@@ -316,12 +322,21 @@ public class CliConfigParser {
             .build());
 
     options.addOption(
+        Option.builder(OPT_MAX_CONNECTIONS_SAME_IP)
+            .longOpt("max-connections-same-ip")
+            .hasArg()
+            .desc("max connections from same IP, int, default 2")
+            .build());
+
+    // Port
+    options.addOption(
         Option.builder(OPT_PORT)
             .longOpt("port")
             .hasArg()
             .desc("UDP & TCP port, int, default 16783")
             .build());
 
+    // Version (Network ID)
     options.addOption(
         Option.builder(OPT_VERSION)
             .longOpt("version")
@@ -329,6 +344,7 @@ public class CliConfigParser {
             .desc("p2p version, int, default 1")
             .build());
 
+    // Discovery
     options.addOption(
         Option.builder(OPT_DISCOVER)
             .longOpt("discover")
@@ -336,6 +352,7 @@ public class CliConfigParser {
             .desc("enable p2p discover, 0/1, default 1")
             .build());
 
+    // Tree URLs
     options.addOption(
         Option.builder(OPT_URL_SCHEMES)
             .longOpt("url-schemes")
