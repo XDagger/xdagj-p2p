@@ -39,7 +39,7 @@ public class NodeBucketTest {
   }
 
   @Test
-  public void testAddNode_notFull() {
+  public void testAddNodeNotFull() {
     NodeEntry entry1 = createUniqueNodeEntry();
     assertNull(bucket.addNode(entry1));
     assertEquals(1, bucket.getNodesCount());
@@ -47,7 +47,7 @@ public class NodeBucketTest {
   }
 
   @Test
-  public void testAddNode_duplicate() {
+  public void testAddNodeDuplicate() {
     NodeEntry entry1 = createUniqueNodeEntry();
     bucket.addNode(entry1);
 
@@ -60,7 +60,7 @@ public class NodeBucketTest {
   }
 
   @Test
-  public void testAddNode_full() {
+  public void testAddNodeFull() {
     // Fill the bucket to capacity
     for (int i = 0; i < KademliaOptions.BUCKET_SIZE; i++) {
       assertNull(bucket.addNode(createUniqueNodeEntry()));

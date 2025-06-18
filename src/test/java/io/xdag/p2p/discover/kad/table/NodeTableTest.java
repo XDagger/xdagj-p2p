@@ -113,7 +113,7 @@ public class NodeTableTest {
   }
 
   @Test
-  public void addNode_bucketFullTest() throws Exception {
+  public void testAddNodeBucketFull() throws Exception {
     for (int i = 0; i < KademliaOptions.BUCKET_SIZE; i++) {
       TimeUnit.MILLISECONDS.sleep(10);
       addNode(new Node(p2pConfig, ids.get(i), ips[i], null, 16783, 16783));
@@ -176,7 +176,7 @@ public class NodeTableTest {
   }
 
   @Test
-  public void getClosestNodes_nodesMoreThanBucketCapacity() throws Exception {
+  public void testGetClosestNodesMoreThanBucketCapacity() throws Exception {
     byte[] bytes = new byte[64];
     bytes[0] = 15;
     Node nearNode = new Node(p2pConfig, Bytes.wrap(bytes), "127.0.0.19", null, 16783, 16783);
@@ -197,7 +197,7 @@ public class NodeTableTest {
   }
 
   @Test
-  public void getClosestNodes_isDiscoverNode() {
+  public void testGetClosestNodesIsDiscoverNode() {
     Node node = new Node(p2pConfig, ids.getFirst(), ips[0], null, 16783);
     nodeTable.addNode(node);
     List<Node> closest = nodeTable.getClosestNodes(homeNode.getId());

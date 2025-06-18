@@ -59,7 +59,7 @@ public class ConnPoolHandlerTest {
   }
 
   @Test
-  public void getNodes_chooseHomeNode() {
+  public void testGetNodesChooseHomeNode() {
     Node homeNode = new Node(p2pConfig, new InetSocketAddress(localIp, p2pConfig.getPort()));
     Set<InetSocketAddress> inetInUse = new HashSet<>();
     inetInUse.add(homeNode.getInetSocketAddressV4());
@@ -77,7 +77,7 @@ public class ConnPoolHandlerTest {
   }
 
   @Test
-  public void getNodes_orderByUpdateTimeDesc() {
+  public void testGetNodesOrderByUpdateTimeDesc() {
     Node node1 = new Node(p2pConfig, new InetSocketAddress(localIp, 90));
     node1.setUpdateTime(System.currentTimeMillis());
     Node node2 = new Node(p2pConfig, new InetSocketAddress(localIp, 100));
@@ -99,7 +99,7 @@ public class ConnPoolHandlerTest {
   }
 
   @Test
-  public void getNodes_banNodeLogic() {
+  public void testGetNodesBanNodeLogic() {
     InetSocketAddress bannedAddress = new InetSocketAddress(localIp, 90);
     Cache<InetAddress, Long> bannedNodes = CacheBuilder.newBuilder().build();
     bannedNodes.put(
@@ -116,7 +116,7 @@ public class ConnPoolHandlerTest {
   }
 
   @Test
-  public void getNodes_nodeInUse() {
+  public void testGetNodesNodeInUse() {
     Node node = new Node(p2pConfig, new InetSocketAddress(localIp, 90));
     List<Node> connectableNodes = List.of(node);
 
@@ -128,14 +128,14 @@ public class ConnPoolHandlerTest {
   }
 
   @Test
-  public void getNodes_emptyConnectableNodes() {
+  public void testGetNodesEmptyConnectableNodes() {
     List<Node> nodes =
         connPoolHandler.getNodes(new HashSet<>(), new HashSet<>(), new ArrayList<>(), 1);
     assertEquals(0, nodes.size());
   }
 
   @Test
-  public void getNodes_limitTest() {
+  public void testGetNodesLimit() {
     List<Node> connectableNodes = new ArrayList<>();
     for (int i = 0; i < 5; i++) {
       connectableNodes.add(new Node(p2pConfig, new InetSocketAddress(localIp, 90 + i)));

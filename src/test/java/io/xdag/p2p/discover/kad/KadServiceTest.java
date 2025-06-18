@@ -63,7 +63,7 @@ public class KadServiceTest {
   }
 
   @Test
-  public void testGetNodeHandler_new() {
+  public void testGetNodeHandlerNew() {
     NodeHandler handler = kadService.getNodeHandler(remoteNode);
     assertNotNull(handler);
     assertEquals(1, kadService.getAllNodes().size());
@@ -71,7 +71,7 @@ public class KadServiceTest {
   }
 
   @Test
-  public void testGetNodeHandler_existing() {
+  public void testGetNodeHandlerExisting() {
     NodeHandler handler1 = kadService.getNodeHandler(remoteNode);
     // Ensure the same node object is passed to get the same handler
     NodeHandler handler2 = kadService.getNodeHandler(remoteNode);
@@ -80,7 +80,7 @@ public class KadServiceTest {
   }
 
   @Test
-  public void testHandleEvent_ping() {
+  public void testHandleEventPing() {
     // Spy on the real KadService to verify internal method calls
     KadService spiedService = spy(kadService);
     NodeHandler mockNodeHandler = mock(NodeHandler.class);
@@ -129,7 +129,7 @@ public class KadServiceTest {
   }
 
   @Test
-  public void testSendOutbound_disabled() {
+  public void testSendOutboundDisabled() {
     // Mock the message sender
     @SuppressWarnings("unchecked")
     Consumer<UdpEvent> sender = mock(Consumer.class);
