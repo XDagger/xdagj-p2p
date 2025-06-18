@@ -30,10 +30,16 @@ public class Node implements Serializable, Cloneable {
   public Node(P2pConfig p2pConfig, InetSocketAddress address) {
     this.p2pConfig = p2pConfig;
     this.id = Bytes.wrap(NetUtils.getNodeId());
-    if (address.getAddress() instanceof Inet4Address) {
-      this.hostV4 = address.getAddress().getHostAddress();
+    if (address.getAddress() != null) {
+      if (address.getAddress() instanceof Inet4Address) {
+        this.hostV4 = address.getAddress().getHostAddress();
+      } else {
+        this.hostV6 = address.getAddress().getHostAddress();
+      }
     } else {
-      this.hostV6 = address.getAddress().getHostAddress();
+      // Fallback: use the hostname if address resolution failed
+      log.warn("Address resolution failed for {}, using hostname as fallback", address.getHostString());
+      this.hostV4 = address.getHostString();
     }
     this.port = address.getPort();
     this.bindPort = port;
@@ -80,7 +86,14 @@ public class Node implements Serializable, Cloneable {
   // use standard ipv6 format
   private void formatHostV6() {
     if (StringUtils.isNotEmpty(this.hostV6)) {
-      this.hostV6 = new InetSocketAddress(hostV6, port).getAddress().getHostAddress();
+      try {
+        InetSocketAddress addr = new InetSocketAddress(hostV6, port);
+        if (addr.getAddress() != null) {
+          this.hostV6 = addr.getAddress().getHostAddress();
+        }
+      } catch (Exception e) {
+        log.warn("Failed to format IPv6 address: {}", hostV6, e);
+      }
     }
   }
 
@@ -117,7 +130,7 @@ public class Node implements Serializable, Cloneable {
 
   public String getHostKey() {
     InetSocketAddress address = getPreferInetSocketAddress();
-    if (address == null) {
+    if (address == null || address.getAddress() == null) {
       log.warn(
           "Node has no valid address - hostV4: {}, hostV6: {}, port: {}", hostV4, hostV6, port);
       return null;
