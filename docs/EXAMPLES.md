@@ -48,15 +48,18 @@ io.xdag.p2p.example/
 ### Basic P2P Usage
 
 ```java
-// Create basic configuration
+// Start P2P service (configuration is handled internally)
+BasicExample example = new BasicExample();
+example.start();
+
+// Or use custom configuration
 ExampleConfig config = ExampleConfig.basic()
     .port(16783)
     .networkId(12345)
     .build();
-
-// Start P2P service
-BasicExample example = new BasicExample();
-example.start();
+// Note: BasicExample uses internal configuration, 
+// for custom config use P2pService directly:
+P2pService p2pService = new P2pService(config.toP2pConfig());
 ```
 
 ### DNS Discovery
@@ -75,10 +78,10 @@ publishExample.start();
 
 ```bash
 # Basic startup
-java -jar xdagj-p2p-jar-with-dependencies.jar -s 127.0.0.1:16783
+java -jar xdagj-p2p-0.1.0-jar-with-dependencies.jar -s 127.0.0.1:16783
 
 # DNS publishing
-java -jar xdagj-p2p-jar-with-dependencies.jar \
+java -jar xdagj-p2p-0.1.0-jar-with-dependencies.jar \
   -publish \
   --dns-private your-private-key \
   --domain nodes.example.org
@@ -90,16 +93,18 @@ java -jar xdagj-p2p-jar-with-dependencies.jar \
 
 ```java
 ExampleConfig.builder()
-    .port(16783)                    // Listen port
-    .networkId(11111)               // Network ID
-    .discoverEnable(true)           // Enable discovery
-    .minConnections(8)              // Minimum connections
-    .maxConnections(50)             // Maximum connections
-    .seedNodes(seedList)            // Seed nodes
-    .activeNodes(activeList)        // Active nodes
-    .trustNodes(trustList)          // Trust nodes
-    .treeUrls(urlList)              // DNS tree URLs
-    .publishConfig(publishConfig)   // DNS publish configuration
+    .port(16783)                        // Listen port
+    .networkId(11111)                   // Network ID
+    .discoverEnable(true)               // Enable discovery
+    .minConnections(8)                  // Minimum connections
+    .minActiveConnections(2)            // Minimum active connections
+    .maxConnections(30)                 // Maximum connections (default 30, not 50)
+    .maxConnectionsWithSameIp(2)        // Max connections with same IP
+    .seedNodes(seedList)                // Seed nodes
+    .activeNodes(activeList)            // Active nodes
+    .trustNodes(trustList)              // Trust nodes
+    .treeUrls(urlList)                  // DNS tree URLs
+    .publishConfig(publishConfig)       // DNS publish configuration
     .build();
 ```
 
@@ -115,6 +120,12 @@ ExampleConfig.builder()
 
 ```java
 public class MyEventHandler extends ExampleEventHandler {
+    public MyEventHandler() {
+        // messageTypes is inherited from P2pEventHandler
+        this.messageTypes = new HashSet<>();
+        this.messageTypes.add(MessageTypes.TEST.getType());
+    }
+
     @Override
     protected void onPeerConnected(Channel channel) {
         log.info("Custom connection handling: {}", channel.getInetSocketAddress());
@@ -132,27 +143,60 @@ public class MyEventHandler extends ExampleEventHandler {
 ### Custom Message Types
 
 ```java
-// 1. Add new type in MessageTypes
+// 1. Add new type in MessageTypes enum
 public enum MessageTypes {
+    FIRST((byte) 0x00),
     TEST((byte) 0x01),
-    CUSTOM((byte) 0x02);  // New message type
+    CUSTOM((byte) 0x02),  // New message type
+    LAST((byte) 0x8f);
+    
+    private final byte type;
+    
+    MessageTypes(byte type) {
+        this.type = type;
+    }
+    
+    public byte getType() {
+        return type;
+    }
 }
 
 // 2. Create message class
 public class CustomMessage {
-    private final MessageTypes type = MessageTypes.CUSTOM;
-    private final String content;
-    // ...
+    private final byte[] data;
+    
+    public CustomMessage(String content) {
+        this.data = content.getBytes();
+    }
+    
+    public byte[] getData() {
+        return data;
+    }
 }
 
-// 3. Handle in event handler
+// 3. Register and handle in event handler
+public MyEventHandler() {
+    this.messageTypes = new HashSet<>();
+    this.messageTypes.add(MessageTypes.TEST.getType());
+    this.messageTypes.add(MessageTypes.CUSTOM.getType()); // Register new type
+}
+
 @Override
 public void onMessage(Channel channel, Bytes data) {
     byte type = data.get(0);
+    byte[] messageData = data.slice(1).toArray();
+    
     switch (MessageTypes.fromByte(type)) {
+        case TEST:
+            TestMessage testMessage = new TestMessage(messageData);
+            onTestMessage(channel, testMessage);
+            break;
         case CUSTOM:
+            CustomMessage customMessage = new CustomMessage(new String(messageData));
             // Handle custom message
             break;
+        default:
+            log.warn("Unknown message type: {}", type);
     }
 }
 ```

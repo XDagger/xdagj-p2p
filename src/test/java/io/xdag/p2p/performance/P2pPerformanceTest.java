@@ -45,7 +45,7 @@ public class P2pPerformanceTest {
   private P2pConfig config;
   private Node localNode;
   private List<P2pService> testServices;
-  private Random random = new Random();
+  private final Random random = new Random();
 
   /** Global IP address pools representing different regions */
   private static final String[][] GLOBAL_IP_POOLS = {
@@ -180,7 +180,7 @@ public class P2pPerformanceTest {
     testMessageCodecPerformance(channelManager);
 
     // Test concurrent protocol processing
-    testConcurrentP2pProcessing(channelManager);
+    testConcurrentP2pProcessing();
   }
 
   @Test
@@ -557,7 +557,7 @@ public class P2pPerformanceTest {
         });
   }
 
-  private void testConcurrentP2pProcessing(ChannelManager channelManager) {
+  private void testConcurrentP2pProcessing() {
     log.info("🔄 Testing Concurrent P2P Processing:");
 
     int[] threadCounts = {1, 2, 4, 8};

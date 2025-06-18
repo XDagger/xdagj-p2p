@@ -30,7 +30,7 @@ Core:        Java 21 + Netty 4.2.1
 Protocol:    Kademlia DHT + EIP-1459 DNS
 Serialization: Protocol Buffers 4.31.1
 Crypto:      Hyperledger Besu + BouncyCastle 1.80
-Testing:     JUnit 5.12 + Mockito 5.12 + 417 tests
+Testing:     JUnit 5.12.2 + Mockito 5.12.0 + 417 tests
 Build:       Maven + JaCoCo + Protobuf Plugin
 ```
 
@@ -68,7 +68,7 @@ Packet Processing:  ConsenSys Tuweni 2.7.0
 Cryptography:       Hyperledger Besu 25.5.0
 Crypto Provider:    BouncyCastle 1.80
 Cloud DNS:          AWS Route53 2.31.52
-Testing Framework:  JUnit 5.12 + 417 tests
+Testing Framework:  JUnit 5.12.2 + 417 tests
 ```
 
 ## ⚡ Performance Features

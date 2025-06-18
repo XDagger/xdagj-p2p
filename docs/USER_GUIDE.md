@@ -35,27 +35,30 @@ $ java -jar target/xdagj-p2p-0.1.0-jar-with-dependencies.jar [options]
 available cli options:
 
 ```bash
-usage: available p2p discovery cli options:
- -a,--active-nodes <arg>             active node(s),
-                                     ip:port[,ip:port[...]]
+usage: P2P Discovery Options:
+ -a,--active-nodes <arg>             active node(s), ip:port[,ip:port[...]]
+    --change-threshold <arg>         change threshold of add and delete to publish, optional, should be > 0 
+                                     and < 1.0, default 0.1
  -d,--discover <arg>                 enable p2p discover, 0/1, default 1
  -h,--help                           print help message
- -M,--max-connection <arg>           max connection number, int, default
-                                     50
+    --host-zone-id <arg>             if server-type is aws, it's host zone id of aws's domain, optional, 
+                                     string
+    --known-urls <arg>               known dns urls to publish, url format tree://{pubkey}@{domain}, optional,
+                                     url[,url[...]]
+ -M,--max-connection <arg>           max connection number, int, default 50
  -m,--min-connection <arg>           min connection number, int, default 8
- -ma,--min-active-connection <arg>   min active connection number, int,
-                                     default 2
+ -ma,--min-active-connection <arg>   min active connection number, int, default 2
+    --max-merge-size <arg>           max merge size to merge node to a leaf node in dns tree, optional, should be [1~5],
+                                     default 5
  -p,--port <arg>                     UDP & TCP port, int, default 16783
- -s,--seed-nodes <arg>               seed node(s), required,
-                                     ip:port[,ip:port[...]]
+ -s,--seed-nodes <arg>               seed node(s), required, ip:port[,ip:port[...]]
+    --static-nodes <arg>             static nodes to publish, if exist then nodes from kad will be ignored, 
+                                     optional, ip:port[,ip:port[...]]
  -t,--trust-ips <arg>                trust ip(s), ip[,ip[...]]
+ -u,--url-schemes <arg>              dns url(s) to get nodes, url format tree://{pubkey}@{domain}, url[,url[...]]
  -v,--version <arg>                  p2p version, int, default 1
 
-available dns read cli options:
- -u,--url-schemes <arg>   dns url(s) to get nodes, url format
-                          tree://{pubkey}@{domain}, url[,url[...]]
-
-available dns publish cli options:
+usage: DNS Options:
     --access-key-id <arg>         access key id of aws or aliyun api,
                                   required, string
     --access-key-secret <arg>     access key secret of aws or aliyun api,
@@ -80,7 +83,7 @@ available dns publish cli options:
     --max-merge-size <arg>        max merge size to merge node to a leaf
                                   node in dns tree, optional, should be
                                   [1~5], default 5
- -publish,--publish               enable dns publish
+    --publish                     enable dns publish
     --server-type <arg>           dns server to publish, required, only
                                   aws or aliyun is support
     --static-nodes <arg>          static nodes to publish, if exist then
@@ -255,7 +258,7 @@ To use xdagj-p2p as a dependency in your project, add the following to your `pom
 </dependency>
 ```
 
-The standard dependency JAR (`xdagj-p2p-0.1.jar`) contains the core library code, making it suitable for use as a Maven dependency.
+The standard dependency JAR (`xdagj-p2p-0.1.0.jar`) contains the core library code, making it suitable for use as a Maven dependency.
 
 ## 2.2 Core classes
 
@@ -273,46 +276,71 @@ The standard dependency JAR (`xdagj-p2p-0.1.jar`) contains the core library code
 
 ## 2.3 Interface
 
+### P2pService Interface
+
 * `P2pService.start`
-    - @param: p2pConfig P2pConfig
+    - @param: (none)
     - @return: void
     - desc: the startup interface of p2p service
 * `P2pService.close`
-    - @param:
+    - @param: (none)
     - @return: void
     - desc: the close interface of p2p service
 * `P2pService.register`
     - @param: p2PEventHandler P2pEventHandler
     - @return: void
     - desc: register p2p event handler
-* `P2pService.connect`
+* `P2pService.connect` (Deprecated)
     - @param: address InetSocketAddress
     - @return: void
-    - desc: connect to a node with a socket address
+    - desc: connect to a node with a socket address (deprecated)
+* `P2pService.connect`
+    - @param: node Node, future ChannelFutureListener
+    - @return: ChannelFuture
+    - desc: connect to a node with callback listener
 * `P2pService.getAllNodes`
-    - @param:
+    - @param: (none)
     - @return: List<Node>
-    - desc: get all the nodes
+    - desc: get all the nodes (includes both table nodes and DNS nodes)
 * `P2pService.getTableNodes`
-    - @param:
+    - @param: (none)
     - @return: List<Node>
     - desc: get all the nodes that in the hash table
 * `P2pService.getConnectableNodes`
-    - @param:
+    - @param: (none)
     - @return: List<Node>
-    - desc: get all the nodes that can be connected
-* `P2pService.getP2pStats()`
-    - @param:
-    - @return: void
+    - desc: get all the nodes that can be connected (includes both manager nodes and DNS nodes)
+* `P2pService.getP2pStats`
+    - @param: (none)
+    - @return: P2pStats
     - desc: get statistics information of p2p service
+* `P2pService.updateNodeId`
+    - @param: channel Channel, nodeId String
+    - @return: void
+    - desc: update node identifier for a channel
+* `P2pService.getVersion`
+    - @param: (none)
+    - @return: int
+    - desc: get the current P2P protocol version
+
+### Channel Interface
+
 * `Channel.send`
-    - @param: data byte[]
+    - @param: message Message
     - @return: void
-    - desc: send messages to the peer node through the channel
+    - desc: send a P2P message through the channel
+* `Channel.send`
+    - @param: data Bytes
+    - @return: void
+    - desc: send raw bytes data through the channel
 * `Channel.close`
-    - @param:
+    - @param: (none)
     - @return: void
-    - desc: the close interface of channel
+    - desc: close the channel with default ban time
+* `Channel.close`
+    - @param: banTime long
+    - @return: void
+    - desc: close the channel and ban the peer for specified time
 
 ## 2.4 Steps for usage
 
@@ -327,31 +355,31 @@ The standard dependency JAR (`xdagj-p2p-0.1.jar`) contains the core library code
 
 New p2p config instance
 
-```bash
+```java
 P2pConfig config = new P2pConfig();
 ```
 
 Set p2p version
 
-```bash
+```java
 config.setVersion(11111);
 ```
 
 Set TCP and UDP listen port
 
-```bash
+```java
 config.setPort(16783);
 ```
 
 Turn node discovery on or off
 
-```bash
+```java
 config.setDiscoverEnable(true);
 ```
 
 Set discover seed nodes
 
-```bash
+```java
 // For XDAG mainnet
 List<InetSocketAddress> mainnetSeedNodeList = new ArrayList<>();
 mainnetSeedNodeList.add(new InetSocketAddress("bootstrap.xdag.io", 16783));
@@ -366,7 +394,7 @@ config.setSeedNodes(testnetSeedNodeList);
 ```
 
 Set active nodes
-```bash
+```java
 List<InetSocketAddress> activeNodeList = new ArrayList<>();
 activeNodeList.add(new InetSocketAddress("127.0.0.2", 16783));
 activeNodeList.add(new InetSocketAddress("127.0.0.3", 16783));
@@ -375,7 +403,7 @@ config.setActiveNodes(activeNodeList);
 
 Set trust ips
 
-```bash
+```java
 List<InetAddress> trustNodeList = new ArrayList<>();
 trustNodeList.add((new InetSocketAddress("127.0.0.2", 16783)).getAddress());
 config.setTrustNodes(trustNodeList);
@@ -383,25 +411,25 @@ config.setTrustNodes(trustNodeList);
 
 Set the minimum number of connections
 
-```bash
+```java
 config.setMinConnections(8);
 ```
 
 Set the minimum number of actively established connections
 
-```bash
+```java
 config.setMinActiveConnections(2);
 ```
 
 Set the maximum number of connections
 
-```bash
+```java
 config.setMaxConnections(30);
 ```
 
 Set the maximum number of connections with the same IP
 
-```bash
+```java
 config.setMaxConnectionsWithSameIp(2);
 ```
 
@@ -412,13 +440,13 @@ Suppose these scenes in xdagj-p2p:
 
 You can config a dns tree regardless of whether discovery service is enabled or not. Assume you have tree URLs for XDAG networks:
 
-```bash
-# For XDAG mainnet
+```java
+// For XDAG mainnet
 config.setDiscoverEnable(false);
 String[] mainnetUrls = new String[] {"tree://APFGGTFOBVE2ZNAB3CSMNNX6RRK3ODIRLP2AA5U4YFAA6MSYZUYTQ@mainnet.xdag.io"};
 config.setTreeUrls(Arrays.asList(mainnetUrls));
 
-# For XDAG testnet
+// For XDAG testnet
 config.setDiscoverEnable(false);
 String[] testnetUrls = new String[] {"tree://BQHGGTFOBVE2ZNAB3CSMNNX6RRK3ODIRLP2AA5U4YFAA6MSYZUYTQ@testnet.xdag.io"};
 config.setTreeUrls(Arrays.asList(testnetUrls));
@@ -429,7 +457,7 @@ After that, xdagj-p2p will download the nodes from the specified DNS tree period
 
 Implement definition message
 
-```bash
+```java
 public class TestMessage {
     protected MessageTypes type;
     protected byte[] data;
@@ -479,7 +507,7 @@ Inheritance implements the P2pEventHandler class.
 * `onMessage` is called back after receiving a message on the channel. Note that `data[0]` is the
   message type.
 
-```bash
+```java
 public class MyP2pEventHandler extends P2pEventHandler {
 
     public MyP2pEventHandler() {
@@ -509,15 +537,15 @@ public class MyP2pEventHandler extends P2pEventHandler {
 
 Start p2p service with P2pConfig and P2pEventHandler
 
-```bash
-P2pService p2pService = new P2pService();
+```java
+P2pService p2pService = new P2pService(config);
 MyP2pEventHandler myP2pEventHandler = new MyP2pEventHandler();
 try {
   p2pService.register(myP2pEventHandler);
 } catch (P2pException e) {
   // todo process exception
 }
-p2pService.start(config);
+p2pService.start();
 ```
 
 For details please
