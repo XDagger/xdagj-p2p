@@ -271,7 +271,15 @@ public class ConnPoolHandler extends P2pEventHandler {
       Set<InetSocketAddress> dynamicInet) {
     long now = System.currentTimeMillis();
     InetSocketAddress inetSocketAddress = node.getPreferInetSocketAddress();
+    if (inetSocketAddress == null) {
+      return false;
+    }
+    
     InetAddress inetAddress = inetSocketAddress.getAddress();
+    if (inetAddress == null) {
+      return false;
+    }
+    
     Long forbiddenTime = channelManager.getBannedNodes().getIfPresent(inetAddress);
     return (forbiddenTime == null || now > forbiddenTime)
         && (channelManager.getConnectionNum(inetAddress) < p2pConfig.getMaxConnectionsWithSameIp())
