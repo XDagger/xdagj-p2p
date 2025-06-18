@@ -9,6 +9,8 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    env:
+      CI: true
     
     steps:
     - name: Checkout code
@@ -34,8 +36,6 @@ jobs:
     
     - name: Run tests
       run: mvn clean test
-      env:
-        CI: true
     
     - name: Build package
       run: mvn package -DskipTests
