@@ -46,6 +46,7 @@ public class ConnPoolHandlerTest {
     p2pConfig = new P2pConfig();
     p2pConfig.setDiscoverEnable(false);
     p2pConfig.setPort(10000);
+    p2pConfig.setIp(localIp);
 
     lenient().when(channelManager.getBannedNodes()).thenReturn(CacheBuilder.newBuilder().build());
 
@@ -59,8 +60,7 @@ public class ConnPoolHandlerTest {
 
   @Test
   public void getNodes_chooseHomeNode() {
-    Node homeNode =
-        new Node(p2pConfig, new InetSocketAddress(p2pConfig.getIp(), p2pConfig.getPort()));
+    Node homeNode = new Node(p2pConfig, new InetSocketAddress(localIp, p2pConfig.getPort()));
     Set<InetSocketAddress> inetInUse = new HashSet<>();
     inetInUse.add(homeNode.getInetSocketAddressV4());
     List<Node> connectableNodes = List.of(homeNode);
