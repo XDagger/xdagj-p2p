@@ -1,6 +1,7 @@
 package io.xdag.p2p.message.node;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,7 +29,7 @@ public class PingMessageTest {
     // Verify basic properties
     assertEquals(MessageType.PING, pingMessage.getType(), "Message type should be PING");
     assertNotNull(pingMessage.getData(), "Message data should not be null");
-    assertTrue(pingMessage.getData().size() > 0, "Message data should not be empty");
+    assertFalse(pingMessage.getData().isEmpty(), "Message data should not be empty");
 
     // Verify timestamp is recent
     long now = System.currentTimeMillis();
@@ -64,10 +65,9 @@ public class PingMessageTest {
     assertTrue(validMessage.valid(), "A new PingMessage should be valid");
 
     // Test with manually created data
-    Connect.KeepAliveMessage futureMessage =
-        Connect.KeepAliveMessage.newBuilder()
-            .setTimestamp(System.currentTimeMillis() + 100000) // Future timestamp
-            .build();
+    Connect.KeepAliveMessage.newBuilder()
+        .setTimestamp(System.currentTimeMillis() + 100000) // Future timestamp
+        .build();
 
     Connect.KeepAliveMessage pastMessage =
         Connect.KeepAliveMessage.newBuilder()
@@ -87,8 +87,7 @@ public class PingMessageTest {
     // We will assume that a timestamp far in the past is invalid, and zero is invalid.
 
     try {
-      PingMessage invalidPastMsg =
-          new PingMessage(p2pConfig, Bytes.wrap(pastMessage.toByteArray()));
+      new PingMessage(p2pConfig, Bytes.wrap(pastMessage.toByteArray()));
       // Depending on NETWORK_TIME_DIFF, this might or might not be valid.
       // Let's assume it's large enough to be invalid.
       // For a more robust test, we would need to control the clock.

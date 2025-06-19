@@ -1,6 +1,7 @@
 package io.xdag.p2p.message.node;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -48,7 +49,7 @@ public class StatusMessageTest {
     // Verify basic properties
     assertEquals(MessageType.STATUS, message.getType());
     assertNotNull(message.getData());
-    assertTrue(message.getData().size() > 0);
+    assertFalse(message.getData().isEmpty());
 
     // Decode the message to verify its contents
     Connect.StatusMessage decodedProto =
@@ -126,8 +127,7 @@ public class StatusMessageTest {
             .build();
     Connect.StatusMessage invalidProto =
         Connect.StatusMessage.newBuilder().setFrom(invalidEndpoint).build();
-    StatusMessage invalidMessage =
-        new StatusMessage(p2pConfig, Bytes.wrap(invalidProto.toByteArray()));
+    new StatusMessage(p2pConfig, Bytes.wrap(invalidProto.toByteArray()));
     // This relies on NetUtils.validNode which internally calls NetUtils.validIpV4
     // assertFalse(invalidMessage.valid(), "Message with an invalid node IP should be invalid");
   }

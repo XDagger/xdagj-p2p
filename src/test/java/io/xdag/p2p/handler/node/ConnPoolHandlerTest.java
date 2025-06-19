@@ -95,7 +95,7 @@ public class ConnPoolHandlerTest {
     List<Node> nodes2 =
         connPoolHandler.getNodes(new HashSet<>(), new HashSet<>(), connectableNodes, 1);
     assertEquals(1, nodes2.size());
-    assertEquals(node2, nodes2.get(0));
+    assertEquals(node2, nodes2.getFirst());
   }
 
   @Test

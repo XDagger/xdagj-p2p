@@ -1,3 +1,26 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2022-2030 The XdagJ Developers
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 package io.xdag.p2p.channel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -62,7 +85,7 @@ class ChannelTest {
   private InetSocketAddress testAddress;
 
   @BeforeEach
-  void setUp() throws Exception {
+  void setUp() {
     channel = new Channel(p2pConfig, channelManager);
     testAddress = new InetSocketAddress("127.0.0.1", 8080);
 
@@ -338,5 +361,223 @@ class ChannelTest {
     assertEquals(nodeId, channel.getNodeId());
     assertTrue(channel.isDiscoveryMode());
     assertTrue(channel.isActive());
+  }
+
+  @Test
+  void testInitMethodWithEmptyNodeId() {
+    // Given
+    String nodeId = "";
+
+    // When
+    channel.init(pipeline, nodeId, false);
+
+    // Then
+    assertFalse(channel.isDiscoveryMode());
+    assertEquals(nodeId, channel.getNodeId());
+    assertFalse(channel.isActive());
+  }
+
+  @Test
+  void testInitMethodWithNullNodeId() {
+    // Given
+    String nodeId = null;
+
+    // When
+    channel.init(pipeline, nodeId, false);
+
+    // Then
+    assertFalse(channel.isDiscoveryMode());
+    assertEquals(nodeId, channel.getNodeId());
+    assertFalse(channel.isActive());
+  }
+
+  @Test
+  void testProcessExceptionWithReadTimeoutException() {
+    // Given
+    channel.setChannelHandlerContext(ctx);
+    when(ctx.close()).thenReturn(channelFuture);
+    io.netty.handler.timeout.ReadTimeoutException timeoutException = 
+        io.netty.handler.timeout.ReadTimeoutException.INSTANCE;
+
+    // When
+    channel.processException(timeoutException);
+
+    // Then
+    verify(ctx).close();
+    assertTrue(channel.isDisconnect());
+  }
+
+  @Test
+  void testProcessExceptionWithCorruptedFrameException() {
+    // Given
+    channel.setChannelHandlerContext(ctx);
+    when(ctx.close()).thenReturn(channelFuture);
+    io.netty.handler.codec.CorruptedFrameException frameException = 
+        new io.netty.handler.codec.CorruptedFrameException("Corrupted frame");
+
+    // When
+    channel.processException(frameException);
+
+    // Then
+    verify(ctx).close();
+    assertTrue(channel.isDisconnect());
+  }
+
+  @Test
+  void testProcessExceptionWithIllegalArgumentInCausalChain() {
+    // Given
+    channel.setChannelHandlerContext(ctx);
+    when(ctx.close()).thenReturn(channelFuture);
+    RuntimeException cause = new RuntimeException("Root cause");
+    IllegalArgumentException wrapper = new IllegalArgumentException("Loop detected", cause);
+
+    // When
+    channel.processException(wrapper);
+
+    // Then
+    verify(ctx).close();
+    assertTrue(channel.isDisconnect());
+  }
+
+  @Test
+  void testSendWithFinishedHandshakeAndVersionUpgrade() {
+    // Given
+    channel.setChannelHandlerContext(ctx);
+    channel.setFinishHandshake(true);
+    channel.setVersion(2);
+    Bytes testData = Bytes.wrap(new byte[]{1, 2, 3, 4});
+
+    // When
+    channel.send(testData);
+
+    // Then
+    verify(ctx).writeAndFlush(any());
+    assertTrue(channel.getLastSendTime() > 0);
+  }
+
+  @Test
+  void testSendMessageWithLogging() {
+    // Given
+    channel.setChannelHandlerContext(ctx);
+    when(message.needToLog()).thenReturn(true);
+
+    // When
+    channel.send(message);
+
+    // Then
+    verify(ctx).writeAndFlush(any());
+    verify(message).needToLog();
+    verify(message).getSendData();
+  }
+
+  @Test
+  void testSendWithException() {
+    // Given
+    channel.setChannelHandlerContext(ctx);
+    when(ctx.writeAndFlush(any())).thenThrow(new RuntimeException("Send failed"));
+    when(nettyChannel.close()).thenReturn(channelFuture);
+    Bytes testData = Bytes.wrap("test".getBytes());
+
+    // When
+    channel.send(testData);
+
+    // Then
+    verify(nettyChannel).close();
+  }
+
+  @Test
+  void testMultipleLatencyUpdates() {
+    // When
+    channel.updateAvgLatency(100);
+    channel.updateAvgLatency(200);
+    channel.updateAvgLatency(300);
+
+    // Then
+    assertEquals(200, channel.getAvgLatency()); // (100 + 200 + 300) / 3
+    assertEquals(3, channel.getCount());
+  }
+
+  @Test
+  void testEqualsWithDifferentClass() {
+    // Given
+    channel.setChannelHandlerContext(ctx);
+    String notAChannel = "not a channel";
+
+    // When & Then
+    assertFalse(channel.equals(notAChannel));
+  }
+
+  @Test
+  void testEqualsWithNull() {
+    // Given
+    channel.setChannelHandlerContext(ctx);
+
+    // When & Then
+    assertFalse(channel.equals(null));
+  }
+
+  @Test
+  void testEqualsSameInstance() {
+    // Given
+    channel.setChannelHandlerContext(ctx);
+
+    // When & Then
+    assertTrue(channel.equals(channel));
+  }
+
+  @Test
+  void testHashCodeConsistency() {
+    // Given
+    channel.setChannelHandlerContext(ctx);
+    int firstHash = channel.hashCode();
+
+    // When
+    int secondHash = channel.hashCode();
+
+    // Then
+    assertEquals(firstHash, secondHash);
+  }
+
+  @Test
+  void testToStringWithValidNodeId() {
+    // Given
+    channel.setChannelHandlerContext(ctx);
+    channel.setNodeId("valid-node-id");
+
+    // When
+    String result = channel.toString();
+
+    // Then
+    assertTrue(result.contains("127.0.0.1:8080"));
+    assertTrue(result.contains("valid-node-id"));
+    assertFalse(result.contains("<null>"));
+  }
+
+  @Test
+  void testGettersAndSetters() {
+    // Test basic getters and setters
+    channel.setWaitForPong(true);
+    assertTrue(channel.isWaitForPong());
+
+    long pingTime = System.currentTimeMillis();
+    channel.setPingSent(pingTime);
+    assertEquals(pingTime, channel.getPingSent());
+
+    channel.setVersion(5);
+    assertEquals(5, channel.getVersion());
+
+    long disconnectTime = System.currentTimeMillis();
+    channel.setDisconnectTime(disconnectTime);
+    assertEquals(disconnectTime, channel.getDisconnectTime());
+
+    channel.setTrustPeer(true);
+    assertTrue(channel.isTrustPeer());
+
+    long lastSendTime = System.currentTimeMillis();
+    channel.setLastSendTime(lastSendTime);
+    assertEquals(lastSendTime, channel.getLastSendTime());
+
+    // Test that startTime is set in constructor
+    assertTrue(channel.getStartTime() > 0);
   }
 }

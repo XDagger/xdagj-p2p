@@ -1,3 +1,26 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2022-2030 The XdagJ Developers
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 package io.xdag.p2p.utils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -175,48 +198,214 @@ public class NetUtilsTest {
 
   @Test
   public void testParseIpv6() {
-    InetSocketAddress address1 =
-        NetUtils.parseInetSocketAddress("[2600:1f13:908:1b00:e1fd:5a84:251c:a32a]:16783");
-    assertNotNull(address1);
-    assertEquals(16783, address1.getPort());
-    assertEquals("2600:1f13:908:1b00:e1fd:5a84:251c:a32a", address1.getAddress().getHostAddress());
+    InetSocketAddress address = NetUtils.parseInetSocketAddress("1.1.1.1:8888");
+    assertEquals("1.1.1.1", address.getAddress().getHostAddress());
+    assertEquals(8888, address.getPort());
 
+    address = NetUtils.parseInetSocketAddress("[::1]:8888");
+    assertEquals("0:0:0:0:0:0:0:1", address.getAddress().getHostAddress());
+    assertEquals(8888, address.getPort());
+
+    address = NetUtils.parseInetSocketAddress("[2001:db8::1]:8888");
+    assertEquals("2001:db8:0:0:0:0:0:1", address.getAddress().getHostAddress());
+    assertEquals(8888, address.getPort());
+  }
+
+  @Test
+  public void testValidIpV6() {
+    // Valid IPv6 addresses - Note: The validIpV6 method is quite basic and simple
+    assertTrue(NetUtils.validIpV6("2001:db8:0:1"));
+    assertTrue(NetUtils.validIpV6("fe80:0:0:0:204:61ff:fe9d:f156"));
+    assertTrue(NetUtils.validIpV6("2001:db8:85a3:0:0:8a2e:370:7334"));
+    assertTrue(NetUtils.validIpV6("2001:db8:85a3:1:2:8a2e:370:7334"));
+    
+    // Invalid IPv6 addresses
+    assertFalse(NetUtils.validIpV6(null));
+    assertFalse(NetUtils.validIpV6(""));
+    assertFalse(NetUtils.validIpV6("192.168.1.1")); // IPv4
+    assertFalse(NetUtils.validIpV6("invalid"));
+    assertFalse(NetUtils.validIpV6("2001:db8:85a3:gggg:8a2e:370:7334:extra:parts:too:many"));
+    assertFalse(NetUtils.validIpV6("2001:db8:85a3:gggg:1:2:3:4:5")); // Invalid hex
+    assertFalse(NetUtils.validIpV6("no-colons-here"));
+    assertFalse(NetUtils.validIpV6("ab")); // Too short
+  }
+
+  @Test
+  public void testGetNodeWithFallback() {
+    // Test with endpoint containing IPv4 address
+    Discover.Endpoint endpointWithIpv4 = Discover.Endpoint.newBuilder()
+        .setPort(8000)
+        .setNodeId(com.google.protobuf.ByteString.copyFrom("test-node-id".getBytes()))
+        .setAddress(com.google.protobuf.ByteString.copyFrom("192.168.1.1".getBytes()))
+        .build();
+    
+    InetSocketAddress sourceAddress = new InetSocketAddress("10.0.0.1", 9000);
+    Node node = NetUtils.getNodeWithFallback(p2pConfig, endpointWithIpv4, sourceAddress);
+    
+    assertEquals("192.168.1.1", node.getHostV4());
+    assertEquals(8000, node.getPort());
+    
+    // Test with endpoint containing IPv6 address
+    Discover.Endpoint endpointWithIpv6 = Discover.Endpoint.newBuilder()
+        .setPort(8000)
+        .setNodeId(com.google.protobuf.ByteString.copyFrom("test-node-id".getBytes()))
+        .setAddressIpv6(com.google.protobuf.ByteString.copyFrom("2001:db8::1".getBytes()))
+        .build();
+    
+    Node node2 = NetUtils.getNodeWithFallback(p2pConfig, endpointWithIpv6, sourceAddress);
+    // IPv6 address is normalized, so use the normalized form
+    assertEquals("2001:db8:0:0:0:0:0:1", node2.getHostV6());
+    
+    // Test fallback to source address when endpoint has no IP
+    Discover.Endpoint emptyEndpoint = Discover.Endpoint.newBuilder()
+        .setPort(8000)
+        .setNodeId(com.google.protobuf.ByteString.copyFrom("test-node-id".getBytes()))
+        .build();
+    
+    InetSocketAddress ipv4Source = new InetSocketAddress("172.16.0.1", 9000);
+    Node nodeWithFallback = NetUtils.getNodeWithFallback(p2pConfig, emptyEndpoint, ipv4Source);
+    assertEquals("172.16.0.1", nodeWithFallback.getHostV4());
+    
+    // Test fallback with IPv6 source
+    InetSocketAddress ipv6Source = new InetSocketAddress("::1", 9000);
+    Node nodeWithIpv6Fallback = NetUtils.getNodeWithFallback(p2pConfig, emptyEndpoint, ipv6Source);
+    assertEquals("0:0:0:0:0:0:0:1", nodeWithIpv6Fallback.getHostV6());
+  }
+
+  @Test
+  public void testGetNodeId() {
+    Bytes nodeId1 = NetUtils.getNodeId();
+    Bytes nodeId2 = NetUtils.getNodeId();
+    
+    assertNotNull(nodeId1);
+    assertNotNull(nodeId2);
+    assertEquals(P2pConstant.NODE_ID_LEN, nodeId1.size());
+    assertEquals(P2pConstant.NODE_ID_LEN, nodeId2.size());
+    
+    // Should generate different IDs each time
+    assertFalse(nodeId1.equals(nodeId2));
+  }
+
+  @Test
+  public void testGetAllLocalAddress() {
+    // This method returns all local IP addresses
+    var localAddresses = NetUtils.getAllLocalAddress();
+    assertNotNull(localAddresses);
+    
+    // Should contain at least loopback address
+    assertTrue(localAddresses.size() > 0);
+    
+    // Check that all returned addresses are valid
+    for (String address : localAddresses) {
+      assertTrue(NetUtils.validIpV4(address) || NetUtils.validIpV6(address), 
+          "Address should be valid IPv4 or IPv6: " + address);
+    }
+  }
+
+  @Test
+  public void testParseInetSocketAddressEdgeCases() {
+    // Test that invalid formats throw RuntimeException
     try {
-      NetUtils.parseInetSocketAddress("[2600:1f13:908:1b00:e1fd:5a84:251c:a32a]:abcd");
-      fail();
+      NetUtils.parseInetSocketAddress("invalid");
+      fail("Should throw RuntimeException for invalid format");
     } catch (RuntimeException e) {
-      assertTrue(true);
+      assertTrue(e.getMessage().contains("use ipv4:port or [ipv6]:port"));
     }
 
     try {
-      NetUtils.parseInetSocketAddress("2600:1f13:908:1b00:e1fd:5a84:251c:a32a:16783");
-      fail();
+      NetUtils.parseInetSocketAddress("192.168.1.1"); // No port
+      fail("Should throw RuntimeException for missing port");
     } catch (RuntimeException e) {
-      assertTrue(true);
+      assertTrue(e.getMessage().contains("use ipv4:port or [ipv6]:port"));
     }
 
     try {
-      NetUtils.parseInetSocketAddress("[2600:1f13:908:1b00:e1fd:5a84:251c:a32a:16783");
-      fail();
-    } catch (RuntimeException e) {
-      assertTrue(true);
+      NetUtils.parseInetSocketAddress("192.168.1.1:"); // Empty port
+      fail("Should throw RuntimeException for empty port");
+    } catch (NumberFormatException e) {
+      assertTrue(e.getMessage().contains("For input string"));
     }
 
     try {
-      NetUtils.parseInetSocketAddress("2600:1f13:908:1b00:e1fd:5a84:251c:a32a]:16783");
-      fail();
+      NetUtils.parseInetSocketAddress(":8888"); // No host
+      fail("Should throw RuntimeException for missing host");
     } catch (RuntimeException e) {
-      assertTrue(true);
+      assertTrue(e.getMessage().contains("use ipv4:port or [ipv6]:port"));
     }
 
-    try {
-      NetUtils.parseInetSocketAddress("2600:1f13:908:1b00:e1fd:5a84:251c:a32a");
-      fail();
-    } catch (RuntimeException e) {
-      assertTrue(true);
-    }
+    // Test valid formats
+    InetSocketAddress result = NetUtils.parseInetSocketAddress("example.com:8080");
+    assertNotNull(result);
+    assertEquals(8080, result.getPort());
+    
+    result = NetUtils.parseInetSocketAddress("127.0.0.1:80");
+    assertEquals("127.0.0.1", result.getAddress().getHostAddress());
+    assertEquals(80, result.getPort());
+  }
 
-    InetSocketAddress address5 = NetUtils.parseInetSocketAddress("192.168.0.1:16783");
-    assertNotNull(address5);
+  @Test
+  public void testValidNodeEdgeCases() {
+    // Test node with null ID
+    Node nodeWithNullId = new Node(p2pConfig, null, "127.0.0.1", null, 8000);
+    assertFalse(NetUtils.validNode(nodeWithNullId));
+    
+    // Test node with wrong ID length
+    Bytes shortId = Bytes.wrap(new byte[10]); // Wrong length
+    Node nodeWithShortId = new Node(p2pConfig, shortId, "127.0.0.1", null, 8000);
+    assertFalse(NetUtils.validNode(nodeWithShortId));
+    
+    // Test node with no IP addresses
+    Bytes validId = NetUtils.getNodeId();
+    Node nodeWithNoIp = new Node(p2pConfig, validId, null, null, 8000);
+    assertFalse(NetUtils.validNode(nodeWithNoIp));
+    
+    // Test node with both valid IPv4 and IPv6
+    Node nodeWithBothIps = new Node(p2pConfig, validId, "192.168.1.1", "2001:db8::1", 8000);
+    assertTrue(NetUtils.validNode(nodeWithBothIps));
+    
+    // Test node with valid IPv6 only
+    Node nodeWithIpv6Only = new Node(p2pConfig, validId, null, "2001:db8::1", 8000);
+    assertTrue(NetUtils.validNode(nodeWithIpv6Only));
+    
+    // Test node with invalid IPv6
+    Node nodeWithInvalidIpv6 = new Node(p2pConfig, validId, null, "invalid-ipv6", 8000);
+    assertFalse(NetUtils.validNode(nodeWithInvalidIpv6));
+  }
+
+  @Test
+  public void testValidIpV4EdgeCases() {
+    // Test broadcast and ANY addresses
+    assertFalse(NetUtils.validIpV4("0.0.0.0"));
+    assertFalse(NetUtils.validIpV4("255.255.255.255"));
+    
+    // Test out of range values
+    assertFalse(NetUtils.validIpV4("256.1.2.3"));
+    assertFalse(NetUtils.validIpV4("1.256.2.3"));
+    assertFalse(NetUtils.validIpV4("1.2.256.3"));
+    assertFalse(NetUtils.validIpV4("1.2.3.256"));
+    
+    // Test negative values
+    assertFalse(NetUtils.validIpV4("-1.2.3.4"));
+    
+    // Test non-numeric
+    assertFalse(NetUtils.validIpV4("a.b.c.d"));
+    assertFalse(NetUtils.validIpV4("1.2.3.d"));
+    
+    // Test incomplete addresses
+    assertFalse(NetUtils.validIpV4("1.2.3"));
+    assertFalse(NetUtils.validIpV4("1.2"));
+    assertFalse(NetUtils.validIpV4("1"));
+    
+    // Test empty and whitespace
+    assertFalse(NetUtils.validIpV4(""));
+    assertFalse(NetUtils.validIpV4("   "));
+    assertFalse(NetUtils.validIpV4("\t"));
+    
+    // Test valid edge cases
+    assertTrue(NetUtils.validIpV4("0.0.0.1"));
+    assertTrue(NetUtils.validIpV4("255.255.255.254"));
+    assertTrue(NetUtils.validIpV4("127.0.0.1"));
+    assertTrue(NetUtils.validIpV4("10.0.0.1"));
+    assertTrue(NetUtils.validIpV4("192.168.1.1"));
   }
 }

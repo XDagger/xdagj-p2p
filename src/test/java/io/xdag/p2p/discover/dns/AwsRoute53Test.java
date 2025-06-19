@@ -1,3 +1,26 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2022-2030 The XdagJ Developers
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 package io.xdag.p2p.discover.dns;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -156,40 +179,5 @@ public class AwsRoute53Test {
       fail();
     }
 
-    //    //warning: replace your key in the following section, or this test will fail
-    //    AwsClient awsClient;
-    //    try {
-    //      awsClient = new AwsClient("replace your access key",
-    //          "replace your access key secret",
-    //          "replace your host zone id",
-    //          Region.US_EAST_1);
-    //    } catch (DnsException e) {
-    //      fail();
-    //      return;
-    //    }
-    //    String domain = "replace with your domain";
-    //    try {
-    //      awsClient.deploy(domain, tree);
-    //    } catch (Exception e) {
-    //      fail();
-    //      return;
-    //    }
-    //
-    //    BigInteger publicKeyInt =
-    // Algorithm.generateKeyPair(AlgorithmTest.privateKey).getPublicKey();
-    //    String puKeyCompress = Algorithm.compressPubKey(publicKeyInt);
-    //    String base32Pubkey = Algorithm.encode32(ByteArray.fromHexString(puKeyCompress));
-    //    Client client = new Client();
-    //
-    //    Tree route53Tree = new Tree();
-    //    try {
-    //      client.syncTree(Entry.linkPrefix + base32Pubkey + "@" + domain, null,
-    //          route53Tree);
-    //    } catch (Exception e) {
-    //      fail();
-    //      return;
-    //    }
-    //    assertEquals(links.length, route53Tree.getLinksEntry().size());
-    //    assertEquals(nodes.length, route53Tree.getDnsNodes().size());
   }
 }

@@ -3,7 +3,8 @@
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://openjdk.java.net/)
 [![Maven](https://img.shields.io/badge/Maven-3.6+-blue.svg)](https://maven.apache.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-417%20Total-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/Tests-518%20Total-brightgreen.svg)](#testing)
+[![Coverage](https://img.shields.io/badge/Coverage-71%25-green.svg)](#testing)
 
 > **🚀 Powering the Future of XDAG Network**  
 > *Next-generation P2P networking library designed to make XDAG blockchain faster, stronger, and more decentralized*
@@ -32,7 +33,7 @@ Core:        Java 21 + Netty 4.2.1
 Protocol:    Kademlia DHT + EIP-1459 DNS
 Serialization: Protocol Buffers 4.31.1
 Crypto:      Hyperledger Besu + BouncyCastle 1.80
-Testing:     JUnit 5.12.2 + Mockito 5.12.0 + 417 tests
+Testing:     JUnit 5.12.2 + Mockito 5.12.0 + 518 tests
 Build:       Maven + JaCoCo + Protobuf Plugin
 ```
 
@@ -43,7 +44,7 @@ Build:       Maven + JaCoCo + Protobuf Plugin
 Kademlia DHT:       Distributed hash table
 Netty Powered:      Async I/O + Zero-copy
 EIP-1459 DNS:       Reliable fallback protocol
-Quality Focus:      417 comprehensive tests
+Quality Focus:      518 comprehensive tests
 ```
 
 ### 💎 **XDAG Network Impact**
@@ -71,7 +72,7 @@ Packet Processing:  ConsenSys Tuweni 2.7.0
 Cryptography:       Hyperledger Besu 25.5.0
 Crypto Provider:    BouncyCastle 1.80
 Cloud DNS:          AWS Route53 2.31.52
-Testing Framework:  JUnit 5.12.2 + 417 tests
+Testing Framework:  JUnit 5.12.2 + 518 tests
 ```
 
 ## ⚡ Performance Features
@@ -315,11 +316,34 @@ XDAGJ-P2P delivers **production-ready performance** with comprehensive benchmark
 
 ### 🧪 **Test Suite Overview**
 
-- **417 Unit Tests**: Complete coverage of all components
+- **518 Unit Tests**: Comprehensive coverage with 71% code coverage
 - **Integration Tests**: End-to-end network scenarios  
 - **Performance Tests**: Real-world benchmarks with million+ ops/sec
 - **Stress Tests**: High-load and failure scenarios
 - **🎯 Professional P2P Testing Suite**: Enterprise-level network testing tools
+
+### 📊 **Test Coverage Statistics**
+
+```
+📈 Coverage Metrics (Latest Report):
+  Code Lines:      71% (9,508 / 13,368 lines)
+  Branches:        58% (721 / 1,227 branches)
+  Methods:         85.7% (568 / 663 methods)
+  Classes:         98.7% (77 / 78 classes)
+  
+🚀 Test Execution:
+  Total Tests:     518 test cases
+  Success Rate:    100% pass rate
+  Execution Time:  ~40.7 seconds
+  Stability:       Zero flaky tests
+
+🎯 Module Coverage Highlights:
+  Core Messaging:  96% (message.discover.kad)
+  Configuration:   94% (config)
+  Utilities:       91% (utils)
+  Node Discovery:  89% (discover)
+  Channel Mgmt:    78% (channel)
+```
 
 ### 🎯 **Professional Network Testing**
 
@@ -390,8 +414,11 @@ Latest performance test results (Apple M-series, Java 21):
 ### 🏃 **Running Tests**
 
 ```bash
-# Unit and integration tests
+# Unit and integration tests (518 test cases)
 mvn test
+
+# Generate coverage report
+mvn clean test jacoco:report
 
 # Performance benchmarks
 mvn test -Dtest=P2pPerformanceTest
@@ -445,9 +472,17 @@ After running tests, you can view detailed results:
 - **📄 Test Reports**: Detailed logs in `target/surefire-reports/`
 - **🎯 Professional Reports**: Network analysis in `benchmark_results/`
 - **📊 Visualizations**: Network topology and performance charts
+- **🔍 Coverage Reports**: JaCoCo HTML reports in `target/site/jacoco/`
 
 ```bash
-# View unit test output
+# View unit test output (518 tests)
+mvn test
+
+# Generate and view coverage report  
+mvn clean test jacoco:report
+open target/site/jacoco/index.html
+
+# Run specific optimized tests
 cat target/surefire-reports/io.xdag.p2p.performance.P2pPerformanceTest-output.txt
 
 # View network benchmark results

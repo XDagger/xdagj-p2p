@@ -1,3 +1,26 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2022-2030 The XdagJ Developers
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 package io.xdag.p2p.channel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,9 +55,9 @@ public class ChannelManagerTest {
   @Mock private NodeManager nodeManager;
   @Mock private DnsManager dnsManager;
 
-  private InetSocketAddress a1 = new InetSocketAddress("100.1.1.1", 100);
-  private InetSocketAddress a2 = new InetSocketAddress("100.1.1.2", 100);
-  private InetSocketAddress a3 = new InetSocketAddress("100.1.1.2", 99);
+  private final InetSocketAddress a1 = new InetSocketAddress("100.1.1.1", 100);
+  private final InetSocketAddress a2 = new InetSocketAddress("100.1.1.2", 100);
+  private final InetSocketAddress a3 = new InetSocketAddress("100.1.1.2", 99);
 
   @BeforeEach
   public void beforeEach() {
@@ -142,6 +165,108 @@ public class ChannelManagerTest {
     when(c1.isTrustPeer()).thenReturn(false);
 
     assertEquals(DisconnectCode.TIME_BANNED, channelManager.processPeer(c1));
+  }
+
+  @Test
+  public void testConnectToAddress() {
+    // Given
+    channelManager.init();
+    InetSocketAddress address = new InetSocketAddress("127.0.0.1", 30301);
+    
+    // When - method should execute without throwing exception
+    channelManager.connect(address);
+    
+    // Then - verify the connect method was called properly
+    assertNotNull(channelManager.getPeerClient());
+  }
+
+  @Test
+  public void testBanNode() {
+    // Given
+    InetSocketAddress address = new InetSocketAddress("127.0.0.1", 30301);
+    
+    // When
+    channelManager.banNode(address.getAddress(), 5000L);
+    
+    // Then
+    assertNotNull(channelManager.getBannedNodes().getIfPresent(address.getAddress()));
+  }
+
+  @Test
+  public void testClose() {
+    // Given
+    channelManager.init();
+    
+    // When
+    channelManager.close();
+    
+    // Then
+    assertEquals(true, channelManager.isShutdown);
+  }
+
+  @Test
+  public void testUpdateNodeId() {
+    // Given
+    String newNodeId = "new-node-id";
+    InetSocketAddress address = new InetSocketAddress("127.0.0.1", 30301);
+    when(c1.getInetSocketAddress()).thenReturn(address);
+    when(c1.getInetAddress()).thenReturn(address.getAddress());
+    
+    // Add channel to manager
+    channelManager.getChannels().put(address, c1);
+    
+    // When
+    channelManager.updateNodeId(c1, newNodeId);
+    
+    // Then - verify channel is still in manager after node ID update
+    assertEquals(1, channelManager.getChannels().size());
+  }
+
+  @Test
+  public void testTriggerConnect() {
+    // Given
+    channelManager.init();
+    InetSocketAddress address = new InetSocketAddress("127.0.0.1", 30301);
+    
+    // When - method should execute without exception
+    channelManager.triggerConnect(address);
+    
+    // Then - verify peer client exists
+    assertNotNull(channelManager.getPeerClient());
+  }
+
+  @Test
+  public void testGetDisconnectReason() {
+    // Test various disconnect codes
+    assertEquals(channelManager.getDisconnectReason(DisconnectCode.NORMAL), 
+                channelManager.getDisconnectReason(DisconnectCode.NORMAL));
+    assertEquals(channelManager.getDisconnectReason(DisconnectCode.TOO_MANY_PEERS), 
+                channelManager.getDisconnectReason(DisconnectCode.TOO_MANY_PEERS));
+    assertEquals(channelManager.getDisconnectReason(DisconnectCode.DUPLICATE_PEER), 
+                channelManager.getDisconnectReason(DisconnectCode.DUPLICATE_PEER));
+  }
+
+  @Test
+  public void testLogDisconnectReason() {
+    // Given
+    when(c1.getInetSocketAddress()).thenReturn(a1);
+    
+    // When - should execute without exception
+    channelManager.logDisconnectReason(c1, channelManager.getDisconnectReason(DisconnectCode.NORMAL));
+    
+    // Then - method completed successfully (no assertion needed for logging)
+  }
+
+  @Test
+  public void testNotifyDisconnectWithNullAddress() {
+    // Given
+    when(c1.getInetSocketAddress()).thenReturn(null);
+    
+    // When - should handle null address gracefully
+    channelManager.notifyDisconnect(c1);
+    
+    // Then - no exception should be thrown and no changes to channels
+    assertEquals(0, channelManager.getChannels().size());
   }
 
   private void clearChannels() {

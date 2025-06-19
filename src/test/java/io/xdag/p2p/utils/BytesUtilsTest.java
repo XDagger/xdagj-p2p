@@ -1,3 +1,26 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2022-2030 The XdagJ Developers
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 package io.xdag.p2p.utils;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -7,6 +30,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import java.math.BigInteger;
 import org.apache.tuweni.bytes.Bytes;
 import org.junit.jupiter.api.Test;
@@ -24,7 +49,7 @@ public class BytesUtilsTest {
     assertArrayEquals(testArray, result.toArray());
 
     // Test null input
-    assertEquals(Bytes.EMPTY, BytesUtils.wrap((byte[]) null));
+    assertEquals(Bytes.EMPTY, BytesUtils.wrap(null));
   }
 
   @Test
@@ -253,7 +278,7 @@ public class BytesUtilsTest {
   }
 
   @Test
-  public void testFromObject() throws Exception {
+  public void testFromObject() {
     String testObject = "Test String";
     byte[] result = BytesUtils.fromObject(testObject);
 
@@ -264,5 +289,51 @@ public class BytesUtilsTest {
     byte[] nullResult = BytesUtils.fromObject(null);
     assertNotNull(nullResult);
     assertTrue(nullResult.length > 0); // Serialized null is not empty
+  }
+
+  @Test
+  public void testExtractBytesFromByteBuf() {
+    // Test with empty buffer
+    ByteBuf emptyBuffer = Unpooled.buffer(0);
+    Bytes emptyResult = BytesUtils.extractBytesFromByteBuf(emptyBuffer);
+    assertEquals(Bytes.EMPTY, emptyResult);
+    emptyBuffer.release();
+
+    // Test with backed array buffer
+    byte[] testData = {1, 2, 3, 4, 5};
+    ByteBuf arrayBuffer = Unpooled.wrappedBuffer(testData);
+    Bytes arrayResult = BytesUtils.extractBytesFromByteBuf(arrayBuffer);
+    assertEquals(5, arrayResult.size());
+    assertArrayEquals(testData, arrayResult.toArray());
+    arrayBuffer.release();
+
+    // Test with direct buffer (no backing array)
+    ByteBuf directBuffer = Unpooled.directBuffer();
+    directBuffer.writeBytes(testData);
+    Bytes directResult = BytesUtils.extractBytesFromByteBuf(directBuffer);
+    assertEquals(5, directResult.size());
+    assertArrayEquals(testData, directResult.toArray());
+    directBuffer.release();
+
+    // Test partial buffer extraction
+    ByteBuf partialBuffer = Unpooled.wrappedBuffer(new byte[]{1, 2, 3, 4, 5, 6, 7, 8});
+    partialBuffer.readerIndex(2); // Skip first 2 bytes
+    partialBuffer.writerIndex(6); // Only read 4 bytes (indices 2-5)
+    Bytes partialResult = BytesUtils.extractBytesFromByteBuf(partialBuffer);
+    assertEquals(4, partialResult.size());
+    assertArrayEquals(new byte[]{3, 4, 5, 6}, partialResult.toArray());
+    partialBuffer.release();
+  }
+
+  @Test
+  public void testFromHexStringWithUpperCasePrefix() {
+    // Test with 0X prefix (uppercase) - Tuweni doesn't support 0X, only 0x
+    // So we test the current behavior where it adds 0x prefix to non-prefixed strings
+    Bytes result = BytesUtils.fromHexString("1234");
+    assertEquals(Bytes.fromHexString("0x1234"), result);
+    
+    // Test that existing 0x prefix is preserved
+    Bytes result2 = BytesUtils.fromHexString("0x1234");
+    assertEquals(Bytes.fromHexString("0x1234"), result2);
   }
 }

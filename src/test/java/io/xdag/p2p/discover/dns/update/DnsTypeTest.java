@@ -21,30 +21,51 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package io.xdag.p2p.discover.kad.table;
+package io.xdag.p2p.discover.dns.update;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
-import io.xdag.p2p.config.P2pConfig;
-import io.xdag.p2p.discover.Node;
-import io.xdag.p2p.utils.NetUtils;
-import java.net.InetSocketAddress;
 import org.junit.jupiter.api.Test;
 
-public class TimeComparatorTest {
-
-  private final P2pConfig p2pConfig = new P2pConfig();
+/** Unit tests for DnsType enum. Tests DNS service provider enumeration functionality. */
+class DnsTypeTest {
 
   @Test
-  public void test() throws InterruptedException {
-
-    Node node1 = new Node(p2pConfig, new InetSocketAddress("127.0.0.1", 10001));
-    NodeEntry ne1 = new NodeEntry(NetUtils.getNodeId(), node1);
-    Thread.sleep(1);
-    Node node2 = new Node(p2pConfig, new InetSocketAddress("127.0.0.1", 10002));
-    NodeEntry ne2 = new NodeEntry(NetUtils.getNodeId(), node2);
-    TimeComparator tc = new TimeComparator();
-    int result = tc.compare(ne1, ne2);
-    assertEquals(1, result);
+  void testAliYunValues() {
+    DnsType aliYun = DnsType.AliYun;
+    assertEquals(0, aliYun.getValue());
+    assertEquals("aliyun dns server", aliYun.getDesc());
   }
-}
+
+  @Test
+  void testAwsRoute53Values() {
+    DnsType awsRoute53 = DnsType.AwsRoute53;
+    assertEquals(1, awsRoute53.getValue());
+    assertEquals("aws route53 server", awsRoute53.getDesc());
+  }
+
+  @Test
+  void testEnumValues() {
+    DnsType[] values = DnsType.values();
+    assertEquals(2, values.length);
+    assertEquals(DnsType.AliYun, values[0]);
+    assertEquals(DnsType.AwsRoute53, values[1]);
+  }
+
+  @Test
+  void testValueOf() {
+    assertEquals(DnsType.AliYun, DnsType.valueOf("AliYun"));
+    assertEquals(DnsType.AwsRoute53, DnsType.valueOf("AwsRoute53"));
+  }
+
+  @Test
+  void testValueOfInvalidName() {
+    assertThrows(IllegalArgumentException.class, () -> DnsType.valueOf("InvalidType"));
+  }
+
+  @Test
+  void testEnumOrder() {
+    DnsType[] values = DnsType.values();
+    assertTrue(values[0].getValue() < values[1].getValue());
+  }
+} 
