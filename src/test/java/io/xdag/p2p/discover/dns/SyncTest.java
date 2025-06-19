@@ -110,7 +110,7 @@ public class SyncTest {
   @Test
   void testClientClose() {
     assertDoesNotThrow(() -> {
-      Client syncClient = new Client(p2pConfig);
+    Client syncClient = new Client(p2pConfig);
       syncClient.close();
     });
   }
@@ -120,14 +120,14 @@ public class SyncTest {
     // Test that syncTree method can be called without network operations
     assertDoesNotThrow(() -> {
       Client syncClient = new Client(p2pConfig);
-      ClientTree clientTree = new ClientTree(syncClient);
-      Tree tree = new Tree(p2pConfig);
+    ClientTree clientTree = new ClientTree(syncClient);
+    Tree tree = new Tree(p2pConfig);
       
       // This will fail due to DNS resolution, but we test that the method exists
       // and handles exceptions gracefully
-      try {
+    try {
         syncClient.syncTree("tree://invalid@test.example.com", clientTree, tree);
-      } catch (Exception e) {
+    } catch (Exception e) {
         // Expected behavior - DNS resolution will fail for invalid URL
         // The important thing is that the method exists and accepts the parameters
         assertTrue(e instanceof Exception);

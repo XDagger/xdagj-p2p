@@ -45,7 +45,7 @@ import org.junit.jupiter.api.Test;
 public class RandomTest {
 
   private P2pConfig p2pConfig;
-  
+
   @BeforeEach
   void setUp() {
     p2pConfig = new P2pConfig();
@@ -116,7 +116,7 @@ public class RandomTest {
   @Test
   void testNewIterator() {
     Client syncClient = new Client(p2pConfig);
-    
+
     assertDoesNotThrow(() -> {
       RandomIterator randomIterator = syncClient.newIterator();
       
@@ -125,7 +125,7 @@ public class RandomTest {
       
       randomIterator.close();
     });
-  }
+        }
 
   @Test
   void testClose() {
