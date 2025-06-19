@@ -41,9 +41,10 @@ public class P2pChannelInitializer extends ChannelInitializer<NioSocketChannel> 
       final Channel channel = new Channel(p2pConfig, channelManager);
       channel.init(ch.pipeline(), remoteId, peerDiscoveryMode);
 
-      // limit the size of receiving buffer to 1024
-      ch.config().setRecvByteBufAllocator(new FixedRecvByteBufAllocator(256 * 1024));
-      ch.config().setOption(ChannelOption.SO_RCVBUF, 256 * 1024);
+      // Optimize network buffer sizes for better performance
+      ch.config().setRecvByteBufAllocator(new FixedRecvByteBufAllocator(4 * 1024 * 1024)); // 4MB receive buffer
+      ch.config().setOption(ChannelOption.SO_RCVBUF, 4 * 1024 * 1024); // 4MB socket receive buffer
+      ch.config().setOption(ChannelOption.SO_SNDBUF, 4 * 1024 * 1024); // 4MB socket send buffer
       ch.config().setOption(ChannelOption.SO_BACKLOG, 1024);
 
       // be aware of channel closing
