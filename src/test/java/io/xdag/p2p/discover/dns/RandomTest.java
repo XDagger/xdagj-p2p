@@ -23,65 +23,116 @@
  */
 package io.xdag.p2p.discover.dns;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.dns.sync.Client;
 import io.xdag.p2p.discover.dns.sync.RandomIterator;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.tuweni.bytes.Bytes;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Unit tests for RandomIterator functionality.
+ * 
+ * <p>These tests are optimized to avoid network dependencies and ensure fast, 
+ * reliable execution in any environment including CI/CD pipelines.
+ */
 public class RandomTest {
 
-  private final P2pConfig p2pConfig = new P2pConfig();
-
-  @Test
-  public void testRandomIterator() {
+  private P2pConfig p2pConfig;
+  
+  @BeforeEach
+  void setUp() {
+    p2pConfig = new P2pConfig();
     List<String> treeUrls = new ArrayList<>();
     treeUrls.add("tree://AKMQMNAJJBL73LXWPXDI4I5ZWWIZ4AWO34DWQ636QOBBXNFXH3LQS@nodes.example.org");
     p2pConfig.setTreeUrls(treeUrls);
+  }
 
+  @Test
+  void testRandomIteratorConstruction() {
     Client syncClient = new Client(p2pConfig);
+    
+    assertDoesNotThrow(() -> {
+      RandomIterator randomIterator = new RandomIterator(syncClient);
+      
+      // Verify all properties are properly initialized
+      assertNotNull(randomIterator.getClient());
+      assertNotNull(randomIterator.getClientTrees());
+      assertNotNull(randomIterator.getLinkCache());
+      assertNotNull(randomIterator.getRandom());
+      
+      randomIterator.close();
+    });
+  }
 
-    try {
+  @Test
+  void testAddTree() {
+    Client syncClient = new Client(p2pConfig);
+    RandomIterator randomIterator = new RandomIterator(syncClient);
+    
+    assertDoesNotThrow(() -> {
+      randomIterator.addTree("tree://AKMQMNAJJBL73LXWPXDI4I5ZWWIZ4AWO34DWQ636QOBBXNFXH3LQS@nodes.example.org");
+      
+      // Verify that the link cache is marked as changed
+      assertTrue(randomIterator.getLinkCache().isChanged());
+      
+      randomIterator.close();
+    });
+  }
+
+  @Test
+  void testDnsNodeCreation() {
+    assertDoesNotThrow(() -> {
+      // Test creating a DnsNode with IPv4
+      DnsNode dnsNodeV4 = new DnsNode(
+          p2pConfig,
+          Bytes.fromHexString("0x1234567890abcdef"),
+          "192.168.1.100",
+          null,
+          8080
+      );
+      assertNotNull(dnsNodeV4);
+      assertNotNull(dnsNodeV4.format());
+      
+      // Test creating a DnsNode with IPv6
+      DnsNode dnsNodeV6 = new DnsNode(
+          p2pConfig,
+          Bytes.fromHexString("0xabcdef1234567890"),
+          null,
+          "2001:db8::1",
+          9090
+      );
+      assertNotNull(dnsNodeV6);
+      assertNotNull(dnsNodeV6.format());
+    });
+  }
+
+  @Test
+  void testNewIterator() {
+    Client syncClient = new Client(p2pConfig);
+    
+    assertDoesNotThrow(() -> {
       RandomIterator randomIterator = syncClient.newIterator();
-      int count = 0;
-      int maxAttempts = 5; // Reduced from 20 to 5 for faster testing
-      long startTime = System.currentTimeMillis();
-      long timeout = 10000; // 10 second timeout
+      
+      assertNotNull(randomIterator);
+      assertNotNull(randomIterator.getClient());
+      
+      randomIterator.close();
+    });
+  }
 
-      while (count < maxAttempts && (System.currentTimeMillis() - startTime) < timeout) {
-        DnsNode dnsNode = randomIterator.next();
-        if (dnsNode == null) {
-          // Network issue or no nodes available - this is acceptable in test environments
-          System.out.println("No more DNS nodes available (count: " + count + ")");
-          break;
-        }
-        assertNotNull(dnsNode);
-        assertNull(dnsNode.getId());
-        count += 1;
-        System.out.println("get Node success:" + dnsNode.format());
-
-        // Add small delay to prevent overwhelming the DNS service
-        try {
-          Thread.sleep(100);
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-          break;
-        }
-      }
-
-      // Test passes if we managed to iterate without exceptions
-      // The number of nodes retrieved depends on network availability
-      System.out.println("Successfully tested RandomIterator with " + count + " nodes");
-
-    } catch (Exception e) {
-      // Network-dependent test - allow failure in CI/test environments
-      System.out.println(
-          "RandomIterator test failed (expected in offline/CI environments): " + e.getMessage());
-      // Don't fail the test for network issues
-    }
+  @Test
+  void testClose() {
+    Client syncClient = new Client(p2pConfig);
+    RandomIterator randomIterator = new RandomIterator(syncClient);
+    
+    // Close should not throw any exceptions
+    assertDoesNotThrow(randomIterator::close);
   }
 }

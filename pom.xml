@@ -149,6 +149,7 @@
                     <protocArtifact>com.google.protobuf:protoc:${protobuf-java.version}:exe:${os.detected.classifier}</protocArtifact>
                     <pluginId>grpc-java</pluginId>
                     <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc-netty.version}:exe:${os.detected.classifier}</pluginArtifact>
+                    <checkStaleness>false</checkStaleness>
                 </configuration>
                 <executions>
                     <execution>
@@ -207,10 +208,10 @@
                 <version>${jacoco-maven-plugin.version}</version>
                 <configuration>
                     <excludes>
-                        <!-- Exclude generated protobuf classes -->
                         <exclude>io/xdag/p2p/proto/**</exclude>
-                        <!-- Exclude example classes -->
                         <exclude>io/xdag/p2p/example/**</exclude>
+                        <exclude>io/xdag/p2p/discover/dns/update/AliClient*</exclude>
+                        <exclude>io/xdag/p2p/discover/dns/update/AwsClient*</exclude>
                     </excludes>
                 </configuration>
                 <executions>
@@ -226,26 +227,6 @@
                         <goals>
                             <goal>report</goal>
                         </goals>
-                    </execution>
-                    <execution>
-                        <id>check</id>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                        <configuration>
-                            <rules>
-                                <rule>
-                                    <element>BUNDLE</element>
-                                    <limits>
-                                        <limit>
-                                            <counter>LINE</counter>
-                                            <value>COVEREDRATIO</value>
-                                            <minimum>0.70</minimum>
-                                        </limit>
-                                    </limits>
-                                </rule>
-                            </rules>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>

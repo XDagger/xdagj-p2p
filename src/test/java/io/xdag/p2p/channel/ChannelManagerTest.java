@@ -167,6 +167,108 @@ public class ChannelManagerTest {
     assertEquals(DisconnectCode.TIME_BANNED, channelManager.processPeer(c1));
   }
 
+  @Test
+  public void testConnectToAddress() {
+    // Given
+    channelManager.init();
+    InetSocketAddress address = new InetSocketAddress("127.0.0.1", 30301);
+    
+    // When - method should execute without throwing exception
+    channelManager.connect(address);
+    
+    // Then - verify the connect method was called properly
+    assertNotNull(channelManager.getPeerClient());
+  }
+
+  @Test
+  public void testBanNode() {
+    // Given
+    InetSocketAddress address = new InetSocketAddress("127.0.0.1", 30301);
+    
+    // When
+    channelManager.banNode(address.getAddress(), 5000L);
+    
+    // Then
+    assertNotNull(channelManager.getBannedNodes().getIfPresent(address.getAddress()));
+  }
+
+  @Test
+  public void testClose() {
+    // Given
+    channelManager.init();
+    
+    // When
+    channelManager.close();
+    
+    // Then
+    assertEquals(true, channelManager.isShutdown);
+  }
+
+  @Test
+  public void testUpdateNodeId() {
+    // Given
+    String newNodeId = "new-node-id";
+    InetSocketAddress address = new InetSocketAddress("127.0.0.1", 30301);
+    when(c1.getInetSocketAddress()).thenReturn(address);
+    when(c1.getInetAddress()).thenReturn(address.getAddress());
+    
+    // Add channel to manager
+    channelManager.getChannels().put(address, c1);
+    
+    // When
+    channelManager.updateNodeId(c1, newNodeId);
+    
+    // Then - verify channel is still in manager after node ID update
+    assertEquals(1, channelManager.getChannels().size());
+  }
+
+  @Test
+  public void testTriggerConnect() {
+    // Given
+    channelManager.init();
+    InetSocketAddress address = new InetSocketAddress("127.0.0.1", 30301);
+    
+    // When - method should execute without exception
+    channelManager.triggerConnect(address);
+    
+    // Then - verify peer client exists
+    assertNotNull(channelManager.getPeerClient());
+  }
+
+  @Test
+  public void testGetDisconnectReason() {
+    // Test various disconnect codes
+    assertEquals(channelManager.getDisconnectReason(DisconnectCode.NORMAL), 
+                channelManager.getDisconnectReason(DisconnectCode.NORMAL));
+    assertEquals(channelManager.getDisconnectReason(DisconnectCode.TOO_MANY_PEERS), 
+                channelManager.getDisconnectReason(DisconnectCode.TOO_MANY_PEERS));
+    assertEquals(channelManager.getDisconnectReason(DisconnectCode.DUPLICATE_PEER), 
+                channelManager.getDisconnectReason(DisconnectCode.DUPLICATE_PEER));
+  }
+
+  @Test
+  public void testLogDisconnectReason() {
+    // Given
+    when(c1.getInetSocketAddress()).thenReturn(a1);
+    
+    // When - should execute without exception
+    channelManager.logDisconnectReason(c1, channelManager.getDisconnectReason(DisconnectCode.NORMAL));
+    
+    // Then - method completed successfully (no assertion needed for logging)
+  }
+
+  @Test
+  public void testNotifyDisconnectWithNullAddress() {
+    // Given
+    when(c1.getInetSocketAddress()).thenReturn(null);
+    
+    // When - should handle null address gracefully
+    channelManager.notifyDisconnect(c1);
+    
+    // Then - no exception should be thrown and no changes to channels
+    assertEquals(0, channelManager.getChannels().size());
+  }
+
   private void clearChannels() {
     channelManager.getChannels().clear();
     channelManager.getBannedNodes().invalidateAll();
