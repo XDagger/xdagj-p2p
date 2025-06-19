@@ -106,9 +106,7 @@ public class UpgradeControllerTest {
     // Should throw P2pException when trying to parse invalid compressed data
     assertThrows(
         P2pException.class,
-        () -> {
-          UpgradeController.decodeReceiveData(1, invalidData);
-        });
+        () -> UpgradeController.decodeReceiveData(1, invalidData));
   }
 
   @Test
@@ -141,7 +139,7 @@ public class UpgradeControllerTest {
   }
 
   @Test
-  public void testVersionCompatibility() throws P2pException, IOException {
+  public void testVersionCompatibility() throws IOException {
     // Test different version combinations
     Bytes testData = Bytes.fromHexString("0x123456789abcdef0");
 

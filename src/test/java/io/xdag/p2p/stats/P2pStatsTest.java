@@ -124,14 +124,6 @@ public class P2pStatsTest {
     assertNotNull(stats, "P2pStatsManager should return non-null stats");
 
     // Verify all fields are accessible
-    assertNotNull(stats.getTcpOutSize(), "TCP out size should not be null");
-    assertNotNull(stats.getTcpInSize(), "TCP in size should not be null");
-    assertNotNull(stats.getTcpOutPackets(), "TCP out packets should not be null");
-    assertNotNull(stats.getTcpInPackets(), "TCP in packets should not be null");
-    assertNotNull(stats.getUdpOutSize(), "UDP out size should not be null");
-    assertNotNull(stats.getUdpInSize(), "UDP in size should not be null");
-    assertNotNull(stats.getUdpOutPackets(), "UDP out packets should not be null");
-    assertNotNull(stats.getUdpInPackets(), "UDP in packets should not be null");
 
     // All values should be non-negative (statistics should not be negative)
     assertTrue(stats.getTcpOutSize() >= 0, "TCP out size should be non-negative");

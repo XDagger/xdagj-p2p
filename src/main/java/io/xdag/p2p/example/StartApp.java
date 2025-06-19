@@ -151,7 +151,7 @@ public class StartApp {
    * @return true if eventHandler exists and has active connections
    */
   private boolean canPerformNetworkTest() {
-    return eventHandler != null && eventHandler.getChannels().size() > 0;
+    return eventHandler != null && !eventHandler.getChannels().isEmpty();
   }
 
   /**

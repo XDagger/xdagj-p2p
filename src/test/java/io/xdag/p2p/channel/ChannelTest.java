@@ -85,7 +85,7 @@ class ChannelTest {
   private InetSocketAddress testAddress;
 
   @BeforeEach
-  void setUp() throws Exception {
+  void setUp() {
     channel = new Channel(p2pConfig, channelManager);
     testAddress = new InetSocketAddress("127.0.0.1", 8080);
 

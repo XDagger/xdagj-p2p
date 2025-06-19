@@ -262,8 +262,8 @@ public class DnsExceptionTest {
   void testExceptionInheritance() {
     DnsException exception = new DnsException(DnsException.TypeEnum.INVALID_NODES, "test");
 
-    assertTrue(exception instanceof Exception, "DnsException should be instance of Exception");
-    assertTrue(exception instanceof Throwable, "DnsException should be instance of Throwable");
+    assertInstanceOf(Exception.class, exception, "DnsException should be instance of Exception");
+    assertInstanceOf(Throwable.class, exception, "DnsException should be instance of Throwable");
   }
 
   /** Test DNS exception with null message. */

@@ -104,14 +104,11 @@ public class DnsExample {
 
   /** Create configuration based on mode */
   private ExampleConfig createConfigForMode() {
-    switch (mode) {
-      case PUBLISH:
-        return createPublishConfig();
-      case SYNC:
-        return createSyncConfig();
-      default:
-        throw new IllegalArgumentException("Unknown DNS mode: " + mode);
-    }
+    return switch (mode) {
+      case PUBLISH -> createPublishConfig();
+      case SYNC -> createSyncConfig();
+      default -> throw new IllegalArgumentException("Unknown DNS mode: " + mode);
+    };
   }
 
   /** Create configuration for DNS publishing */

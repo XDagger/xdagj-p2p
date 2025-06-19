@@ -98,7 +98,7 @@ class P2pChannelInitializerTest {
   }
 
   @Test
-  void testInitChannel() throws Exception {
+  void testInitChannel() {
     // When
     channelInitializer.initChannel(nioSocketChannel);
 
@@ -112,7 +112,7 @@ class P2pChannelInitializerTest {
   }
 
   @Test
-  void testInitChannelWithDiscoveryMode() throws Exception {
+  void testInitChannelWithDiscoveryMode() {
     // Given
     P2pChannelInitializer discoveryInitializer =
         new P2pChannelInitializer(p2pConfig, channelManager, "remote-id", true, false);
@@ -130,7 +130,7 @@ class P2pChannelInitializerTest {
   }
 
   @Test
-  void testInitChannelWithEmptyRemoteId() throws Exception {
+  void testInitChannelWithEmptyRemoteId() {
     // Given
     P2pChannelInitializer emptyIdInitializer =
         new P2pChannelInitializer(p2pConfig, channelManager, "", false, true);
@@ -148,7 +148,7 @@ class P2pChannelInitializerTest {
   }
 
   @Test
-  void testInitChannelWithNullRemoteId() throws Exception {
+  void testInitChannelWithNullRemoteId() {
     // Given
     P2pChannelInitializer nullIdInitializer =
         new P2pChannelInitializer(p2pConfig, channelManager, null, false, true);
@@ -166,7 +166,7 @@ class P2pChannelInitializerTest {
   }
 
   @Test
-  void testInitChannelWithTriggerDisabled() throws Exception {
+  void testInitChannelWithTriggerDisabled() {
     // Given
     P2pChannelInitializer noTriggerInitializer =
         new P2pChannelInitializer(p2pConfig, channelManager, "remote-id", false, false);
@@ -184,7 +184,7 @@ class P2pChannelInitializerTest {
   }
 
   @Test
-  void testInitChannelWithAllParametersCombinations() throws Exception {
+  void testInitChannelWithAllParametersCombinations() {
     // Test all combinations of boolean parameters
     boolean[] discoveryModes = {true, false};
     boolean[] triggers = {true, false};
@@ -209,7 +209,7 @@ class P2pChannelInitializerTest {
   }
 
   @Test
-  void testInitChannelHandlesExceptions() throws Exception {
+  void testInitChannelHandlesExceptions() {
     // Given
     when(nioSocketChannel.pipeline()).thenThrow(new RuntimeException("Test exception"));
 

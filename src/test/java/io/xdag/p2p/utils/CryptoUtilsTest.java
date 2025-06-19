@@ -138,7 +138,7 @@ public class CryptoUtilsTest {
   }
 
   @Test
-  public void testRecoverPublicKey() throws SignatureException {
+  public void testRecoverPublicKey() {
     String msg = "test message for public key recovery";
     String privateKey = "b392604efc2fad9c0b3da43b5f698a2e3f270f170d859912be0d54742275c5f7";
 

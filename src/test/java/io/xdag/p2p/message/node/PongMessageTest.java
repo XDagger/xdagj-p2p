@@ -1,6 +1,7 @@
 package io.xdag.p2p.message.node;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,7 +29,7 @@ public class PongMessageTest {
     // Verify basic properties
     assertEquals(MessageType.PONG, pongMessage.getType(), "Message type should be PONG");
     assertNotNull(pongMessage.getData(), "Message data should not be null");
-    assertTrue(pongMessage.getData().size() > 0, "Message data should not be empty");
+    assertFalse(pongMessage.getData().isEmpty(), "Message data should not be empty");
 
     // Verify timestamp is recent
     long now = System.currentTimeMillis();

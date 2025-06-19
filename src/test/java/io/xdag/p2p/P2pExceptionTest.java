@@ -191,8 +191,8 @@ public class P2pExceptionTest {
   void testExceptionInheritance() {
     P2pException exception = new P2pException(P2pException.TypeEnum.BAD_MESSAGE, "test");
 
-    assertTrue(exception instanceof Exception, "P2pException should be instance of Exception");
-    assertTrue(exception instanceof Throwable, "P2pException should be instance of Throwable");
+    assertInstanceOf(Exception.class, exception, "P2pException should be instance of Exception");
+    assertInstanceOf(Throwable.class, exception, "P2pException should be instance of Throwable");
   }
 
   /** Test exception with null message. */

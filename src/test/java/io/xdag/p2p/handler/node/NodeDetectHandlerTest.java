@@ -50,8 +50,6 @@ class NodeDetectHandlerTest {
   @Mock private StatusMessage statusMessage;
 
   private NodeDetectHandler nodeDetectHandler;
-  private final String testIp = "192.168.1.100";
-  private final int testPort = 8080;
 
   @BeforeEach
   void setUp() {
@@ -129,6 +127,8 @@ class NodeDetectHandlerTest {
   void testOnMessageWithActiveChannelButNoNodeStats() {
     // Given
     when(channel.isActive()).thenReturn(true);
+    String testIp = "192.168.1.100";
+    int testPort = 8080;
     when(channel.getInetSocketAddress()).thenReturn(new InetSocketAddress(testIp, testPort));
 
     // When
@@ -227,15 +227,5 @@ class NodeDetectHandlerTest {
     // Then
     assertNotNull(badNodesCache);
     // Should be able to access the static bad nodes cache
-  }
-
-  /** Helper method to create test nodes */
-  private List<Node> createTestNodes(int count) {
-    List<Node> nodes = new ArrayList<>();
-    for (int i = 0; i < count; i++) {
-      Node node = new Node(p2pConfig, new InetSocketAddress(testIp, testPort + i));
-      nodes.add(node);
-    }
-    return nodes;
   }
 }

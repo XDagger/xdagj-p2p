@@ -60,11 +60,11 @@ class P2pProtobufVarint32FrameDecoderTest {
   @Mock private Channel channel;
 
   private EmbeddedChannel embeddedChannel;
-  private P2pProtobufVarint32FrameDecoder decoder;
 
   @BeforeEach
   void setUp() {
-    decoder = new P2pProtobufVarint32FrameDecoder(p2pConfig, channel);
+    P2pProtobufVarint32FrameDecoder decoder = new P2pProtobufVarint32FrameDecoder(p2pConfig,
+        channel);
     embeddedChannel = new EmbeddedChannel(decoder);
   }
 
@@ -173,9 +173,7 @@ class P2pProtobufVarint32FrameDecoderTest {
     // When & Then
     assertThrows(
         CorruptedFrameException.class,
-        () -> {
-          embeddedChannel.writeInbound(input);
-        });
+        () -> embeddedChannel.writeInbound(input));
 
     embeddedChannel.finish();
   }
@@ -241,9 +239,7 @@ class P2pProtobufVarint32FrameDecoderTest {
     // When & Then
     assertThrows(
         CorruptedFrameException.class,
-        () -> {
-          embeddedChannel.writeInbound(input);
-        });
+        () -> embeddedChannel.writeInbound(input));
 
     embeddedChannel.finish();
   }

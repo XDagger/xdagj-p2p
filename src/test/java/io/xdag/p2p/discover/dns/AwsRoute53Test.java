@@ -179,40 +179,5 @@ public class AwsRoute53Test {
       fail();
     }
 
-    //    //warning: replace your key in the following section, or this test will fail
-    //    AwsClient awsClient;
-    //    try {
-    //      awsClient = new AwsClient("replace your access key",
-    //          "replace your access key secret",
-    //          "replace your host zone id",
-    //          Region.US_EAST_1);
-    //    } catch (DnsException e) {
-    //      fail();
-    //      return;
-    //    }
-    //    String domain = "replace with your domain";
-    //    try {
-    //      awsClient.deploy(domain, tree);
-    //    } catch (Exception e) {
-    //      fail();
-    //      return;
-    //    }
-    //
-    //    BigInteger publicKeyInt =
-    // Algorithm.generateKeyPair(AlgorithmTest.privateKey).getPublicKey();
-    //    String puKeyCompress = Algorithm.compressPubKey(publicKeyInt);
-    //    String base32Pubkey = Algorithm.encode32(ByteArray.fromHexString(puKeyCompress));
-    //    Client client = new Client();
-    //
-    //    Tree route53Tree = new Tree();
-    //    try {
-    //      client.syncTree(Entry.linkPrefix + base32Pubkey + "@" + domain, null,
-    //          route53Tree);
-    //    } catch (Exception e) {
-    //      fail();
-    //      return;
-    //    }
-    //    assertEquals(links.length, route53Tree.getLinksEntry().size());
-    //    assertEquals(nodes.length, route53Tree.getDnsNodes().size());
   }
 }

@@ -1,6 +1,7 @@
 package io.xdag.p2p.message.node;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -41,8 +42,8 @@ public class P2pDisconnectMessageTest {
     assertNotNull(message.getData(), "Message data should not be null");
 
     if (reason != DisconnectReason.PEER_QUITING) {
-      assertTrue(
-          message.getData().size() > 0, "Message data should not be empty for non-NORMAL reasons");
+      assertFalse(message.getData().isEmpty(),
+          "Message data should not be empty for non-NORMAL reasons");
     }
 
     // Test that valid() always returns true

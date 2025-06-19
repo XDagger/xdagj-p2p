@@ -66,7 +66,7 @@ public class NodeBucketTest {
     NodeEntry entry1 = createUniqueNodeEntry();
     assertNull(bucket.addNode(entry1));
     assertEquals(1, bucket.getNodesCount());
-    assertEquals(entry1, bucket.getNodes().get(0));
+    assertEquals(entry1, bucket.getNodes().getFirst());
   }
 
   @Test
@@ -109,7 +109,7 @@ public class NodeBucketTest {
 
     bucket.dropNode(entry1);
     assertEquals(1, bucket.getNodesCount());
-    assertEquals(entry2, bucket.getNodes().get(0));
+    assertEquals(entry2, bucket.getNodes().getFirst());
 
     // Dropping non-existent node should not affect bucket
     bucket.dropNode(entry1);

@@ -47,7 +47,7 @@ public class BytesUtilsTest {
     assertArrayEquals(testArray, result.toArray());
 
     // Test null input
-    assertEquals(Bytes.EMPTY, BytesUtils.wrap((byte[]) null));
+    assertEquals(Bytes.EMPTY, BytesUtils.wrap(null));
   }
 
   @Test
@@ -276,7 +276,7 @@ public class BytesUtilsTest {
   }
 
   @Test
-  public void testFromObject() throws Exception {
+  public void testFromObject() {
     String testObject = "Test String";
     byte[] result = BytesUtils.fromObject(testObject);
 

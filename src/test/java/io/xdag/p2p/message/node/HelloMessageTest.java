@@ -10,7 +10,6 @@ public class HelloMessageTest {
   @Test
   public void testHelloMessage() throws Exception {
     P2pConfig p2pConfig = new P2pConfig();
-    p2pConfig = new P2pConfig();
     HelloMessage m1 = new HelloMessage(p2pConfig, DisconnectCode.NORMAL, 0);
     assertEquals(0, m1.getCode());
 

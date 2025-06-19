@@ -29,6 +29,7 @@ import io.xdag.p2p.discover.dns.update.PublishConfig;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import lombok.Builder;
 import lombok.Data;
@@ -151,11 +152,11 @@ public class ExampleConfig {
   }
 
   private static List<InetAddress> getDefaultTrustNodes() {
-    return Arrays.asList(new InetSocketAddress("127.0.0.2", DEFAULT_PORT).getAddress());
+    return Collections.singletonList(new InetSocketAddress("127.0.0.2", DEFAULT_PORT).getAddress());
   }
 
   private static List<String> getDefaultTreeUrls() {
-    return Arrays.asList(
+    return List.of(
         "tree://APFGGTFOBVE2ZNAB3CSMNNX6RRK3ODIRLP2AA5U4YFAA6MSYZUYTQ@nodes.example.org");
   }
 }

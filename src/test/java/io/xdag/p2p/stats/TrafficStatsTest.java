@@ -24,10 +24,12 @@
 package io.xdag.p2p.stats;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.netty.channel.ChannelDuplexHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -189,8 +191,7 @@ public class TrafficStatsTest {
   @Test
   public void testHandlerClassStructure() {
     // Test that the handler class has the expected structure
-    assertTrue(
-        tcpHandler instanceof io.netty.channel.ChannelDuplexHandler,
+    assertInstanceOf(ChannelDuplexHandler.class, tcpHandler,
         "TrafficStatHandler should extend ChannelDuplexHandler");
 
     // Test that it's the same class for both TCP and UDP

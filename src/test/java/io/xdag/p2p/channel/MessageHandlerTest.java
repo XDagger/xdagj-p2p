@@ -30,7 +30,6 @@ import static org.mockito.Mockito.when;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.xdag.p2p.config.P2pConfig;
-import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.handler.node.HandshakeHandler;
 import io.xdag.p2p.message.node.Message;
 import io.xdag.p2p.message.node.StatusMessage;
@@ -62,8 +61,6 @@ class MessageHandlerTest {
   @Mock private io.netty.channel.Channel nettyChannel;
 
   @Mock private HandshakeHandler handshakeHandler;
-
-  @Mock private Node node;
 
   private MessageHandler messageHandler;
 

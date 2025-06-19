@@ -252,8 +252,8 @@ public class P2pIntegrationTest {
 
     // Check if connection was established
     boolean connectionEstablished =
-        node1.getChannelManager().getChannels().size() > 0
-            || node2.getChannelManager().getChannels().size() > 0;
+        !node1.getChannelManager().getChannels().isEmpty()
+            || !node2.getChannelManager().getChannels().isEmpty();
 
     assertTrue(connectionEstablished, "Connection should be established through discovery");
 
@@ -278,8 +278,8 @@ public class P2pIntegrationTest {
 
     // Verify connection
     assertTrue(
-        node1.getChannelManager().getChannels().size() > 0
-            || node2.getChannelManager().getChannels().size() > 0,
+        !node1.getChannelManager().getChannels().isEmpty()
+            || !node2.getChannelManager().getChannels().isEmpty(),
         "Connection should be established");
 
     // Test graceful shutdown
@@ -356,8 +356,8 @@ public class P2pIntegrationTest {
 
     // Verify connection was established
     assertTrue(
-        node1.getChannelManager().getChannels().size() > 0
-            || node2.getChannelManager().getChannels().size() > 0,
+        !node1.getChannelManager().getChannels().isEmpty()
+            || !node2.getChannelManager().getChannels().isEmpty(),
         "Connection should be established");
 
     log.info("Concurrent operations test completed successfully");

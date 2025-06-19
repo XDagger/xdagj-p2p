@@ -58,17 +58,14 @@ class PeerClientTest {
 
   @Mock private Node node;
 
-  @Mock private ChannelFuture channelFuture;
-
   @Mock private ChannelFutureListener futureListener;
 
   private PeerClient peerClient;
-  private InetSocketAddress testAddress;
 
   @BeforeEach
-  void setUp() throws Exception {
+  void setUp() {
     peerClient = new PeerClient(p2pConfig, channelManager);
-    testAddress = new InetSocketAddress("127.0.0.1", 8080);
+    InetSocketAddress testAddress = new InetSocketAddress("127.0.0.1", 8080);
 
     // Mock Node behavior
     when(node.getPreferInetSocketAddress()).thenReturn(testAddress);

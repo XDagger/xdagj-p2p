@@ -159,7 +159,7 @@ public class P2pConfigTest {
 
   /** Test seed nodes management. */
   @Test
-  void testSeedNodesManagement() throws UnknownHostException {
+  void testSeedNodesManagement() {
     List<InetSocketAddress> seedNodes = new ArrayList<>();
     seedNodes.add(new InetSocketAddress("127.0.0.1", 16783));
     seedNodes.add(new InetSocketAddress("192.168.1.100", 16784));
@@ -309,7 +309,7 @@ public class P2pConfigTest {
 
   /** Test event handler registration with null message types. */
   @Test
-  void testEventHandlerRegistrationNullTypes() throws P2pException {
+  void testEventHandlerRegistrationNullTypes() {
     TestEventHandler handlerWithNullTypes = new TestEventHandler("nullHandler", null);
 
     // Should not throw exception

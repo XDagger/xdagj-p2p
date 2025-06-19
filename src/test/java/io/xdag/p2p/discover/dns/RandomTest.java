@@ -41,8 +41,6 @@ public class RandomTest {
   public void testRandomIterator() {
     List<String> treeUrls = new ArrayList<>();
     treeUrls.add("tree://AKMQMNAJJBL73LXWPXDI4I5ZWWIZ4AWO34DWQ636QOBBXNFXH3LQS@nodes.example.org");
-    // treeUrls.add(
-    //    "tree://APFGGTFOBVE2ZNAB3CSMNNX6RRK3ODIRLP2AA5U4YFAA6MSYZUYTQ@testnet.example.org");
     p2pConfig.setTreeUrls(treeUrls);
 
     Client syncClient = new Client(p2pConfig);

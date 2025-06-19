@@ -55,9 +55,9 @@ public class ChannelManagerTest {
   @Mock private NodeManager nodeManager;
   @Mock private DnsManager dnsManager;
 
-  private InetSocketAddress a1 = new InetSocketAddress("100.1.1.1", 100);
-  private InetSocketAddress a2 = new InetSocketAddress("100.1.1.2", 100);
-  private InetSocketAddress a3 = new InetSocketAddress("100.1.1.2", 99);
+  private final InetSocketAddress a1 = new InetSocketAddress("100.1.1.1", 100);
+  private final InetSocketAddress a2 = new InetSocketAddress("100.1.1.2", 100);
+  private final InetSocketAddress a3 = new InetSocketAddress("100.1.1.2", 99);
 
   @BeforeEach
   public void beforeEach() {
