@@ -57,7 +57,7 @@ public class NodeDetectHandler implements MessageHandler {
 
   private final ScheduledExecutorService executor =
       Executors.newSingleThreadScheduledExecutor(
-          new BasicThreadFactory.Builder().namingPattern("node-detect-handler").build());
+          BasicThreadFactory.builder().namingPattern("node-detect-handler").build());
 
   public void init(PeerClient peerClient) {
     if (!p2pConfig.isNodeDetectEnable()) {

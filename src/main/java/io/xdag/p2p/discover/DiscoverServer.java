@@ -88,7 +88,7 @@ public class DiscoverServer {
     MultiThreadIoEventLoopGroup group =
         new MultiThreadIoEventLoopGroup(
             P2pConstant.UDP_NETTY_WORK_THREAD_NUM,
-            new BasicThreadFactory.Builder().namingPattern("discoverServer").build(),
+            BasicThreadFactory.builder().namingPattern("discoverServer").build(),
             NioIoHandler.newFactory());
     try {
       while (!shutdown) {

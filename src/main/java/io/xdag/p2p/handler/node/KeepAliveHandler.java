@@ -25,7 +25,7 @@ public class KeepAliveHandler implements MessageHandler {
 
   private final ScheduledExecutorService executor =
       Executors.newSingleThreadScheduledExecutor(
-          new BasicThreadFactory.Builder().namingPattern("keepAlive").build());
+          BasicThreadFactory.builder().namingPattern("keepAlive").build());
 
   public KeepAliveHandler(P2pConfig p2pConfig, ChannelManager channelManager) {
     this.p2pConfig = p2pConfig;

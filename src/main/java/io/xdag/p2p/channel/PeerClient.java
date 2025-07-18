@@ -55,7 +55,7 @@ public class PeerClient {
     workerGroup =
         new MultiThreadIoEventLoopGroup(
             0,
-            new BasicThreadFactory.Builder().namingPattern("peerClient-%d").build(),
+            BasicThreadFactory.builder().namingPattern("peerClient-%d").build(),
             NioIoHandler.newFactory());
   }
 

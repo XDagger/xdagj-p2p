@@ -78,7 +78,7 @@ public class KadService implements DiscoverService {
     }
     this.pongTimer =
         Executors.newSingleThreadScheduledExecutor(
-            new BasicThreadFactory.Builder().namingPattern("pongTimer").build());
+            BasicThreadFactory.builder().namingPattern("pongTimer").build());
     this.homeNode =
         new Node(
             p2pConfig,

@@ -72,13 +72,13 @@ public class PeerServer {
     EventLoopGroup bossGroup =
         new MultiThreadIoEventLoopGroup(
             1,
-            new BasicThreadFactory.Builder().namingPattern("peerBoss").build(),
+            BasicThreadFactory.builder().namingPattern("peerBoss").build(),
             NioIoHandler.newFactory());
     // if threads = 0, it is number of core * 2
     EventLoopGroup workerGroup =
         new MultiThreadIoEventLoopGroup(
             P2pConstant.TCP_NETTY_WORK_THREAD_NUM,
-            new BasicThreadFactory.Builder().namingPattern("peerWorker-%d").build(),
+            BasicThreadFactory.builder().namingPattern("peerWorker-%d").build(),
             NioIoHandler.newFactory());
     P2pChannelInitializer p2pChannelInitializer =
         new P2pChannelInitializer(p2pConfig, channelManager, "", false, true);

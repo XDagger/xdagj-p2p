@@ -40,7 +40,7 @@ public class DiscoverTask {
 
   private final ScheduledExecutorService discoverer =
       Executors.newSingleThreadScheduledExecutor(
-          new BasicThreadFactory.Builder().namingPattern("discover-task").build());
+          BasicThreadFactory.builder().namingPattern("discover-task").build());
 
   private final KadService kadService;
 
