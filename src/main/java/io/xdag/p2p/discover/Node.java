@@ -34,6 +34,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.tuweni.bytes.Bytes;
 
 @Getter
@@ -217,7 +218,7 @@ public class Node implements Serializable, Cloneable {
     }
 
     if (o.getClass() == getClass()) {
-      return StringUtils.equals(getIdString(), ((Node) o).getIdString());
+      return Strings.CS.equals(getIdString(), ((Node) o).getIdString());
     }
 
     return false;
