@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -271,10 +272,10 @@ public class BytesUtilsTest {
     assertEquals("Hello", result);
 
     // Test null - returns null according to implementation
-    assertEquals(null, BytesUtils.toStr(null));
+    assertNull(BytesUtils.toStr(null));
 
     // Test empty array - returns null according to implementation
-    assertEquals(null, BytesUtils.toStr(new byte[0]));
+    assertNull(BytesUtils.toStr(new byte[0]));
   }
 
   @Test

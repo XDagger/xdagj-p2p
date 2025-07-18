@@ -26,6 +26,7 @@ package io.xdag.p2p.channel;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
@@ -201,7 +202,7 @@ public class ChannelManagerTest {
     channelManager.close();
     
     // Then
-    assertEquals(true, channelManager.isShutdown);
+    assertTrue(channelManager.isShutdown);
   }
 
   @Test

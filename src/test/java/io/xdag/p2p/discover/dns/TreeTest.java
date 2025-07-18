@@ -76,10 +76,10 @@ public class TreeTest {
     int maxMergeSize = new PublishConfig().getMaxMergeSize();
     List<String> enrs = Tree.merge(nodeList, maxMergeSize);
     int total = 0;
-    for (int i = 0; i < enrs.size(); i++) {
+    for (String enr : enrs) {
       List<DnsNode> subList = null;
       try {
-        subList = DnsNode.decompress(p2pConfig, enrs.get(i).substring(Entry.nodesPrefix.length()));
+        subList = DnsNode.decompress(p2pConfig, enr.substring(Entry.nodesPrefix.length()));
       } catch (InvalidProtocolBufferException e) {
         fail();
       }

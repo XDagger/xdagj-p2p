@@ -27,15 +27,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
-import io.xdag.p2p.discover.kad.table.NodeTable;
 import io.xdag.p2p.message.discover.kad.FindNodeMessage;
 import io.xdag.p2p.message.discover.kad.NeighborsMessage;
 import io.xdag.p2p.message.discover.kad.PingMessage;
@@ -48,7 +44,6 @@ import java.util.List;
 import org.apache.tuweni.bytes.Bytes;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**

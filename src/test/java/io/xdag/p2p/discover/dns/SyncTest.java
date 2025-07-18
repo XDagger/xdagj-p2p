@@ -24,6 +24,7 @@
 package io.xdag.p2p.discover.dns;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -130,7 +131,7 @@ public class SyncTest {
     } catch (Exception e) {
         // Expected behavior - DNS resolution will fail for invalid URL
         // The important thing is that the method exists and accepts the parameters
-        assertTrue(e instanceof Exception);
+        assertInstanceOf(Exception.class, e);
       }
     });
   }

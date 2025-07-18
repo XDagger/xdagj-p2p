@@ -25,6 +25,7 @@ package io.xdag.p2p.channel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -504,7 +505,7 @@ class ChannelTest {
     String notAChannel = "not a channel";
 
     // When & Then
-    assertFalse(channel.equals(notAChannel));
+    assertNotEquals(notAChannel, channel);
   }
 
   @Test
@@ -513,7 +514,7 @@ class ChannelTest {
     channel.setChannelHandlerContext(ctx);
 
     // When & Then
-    assertFalse(channel.equals(null));
+    assertNotEquals(null, channel);
   }
 
   @Test
@@ -522,7 +523,7 @@ class ChannelTest {
     channel.setChannelHandlerContext(ctx);
 
     // When & Then
-    assertTrue(channel.equals(channel));
+    assertEquals(channel, channel);
   }
 
   @Test
