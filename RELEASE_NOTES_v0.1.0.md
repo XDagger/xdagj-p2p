@@ -14,7 +14,7 @@ First stable release of XDAGJ-P2P, a high-performance Java P2P networking librar
 
 ### Network Protocols
 - **Kademlia DHT**: Distributed hash table for peer discovery
-- **EIP-1459 DNS**: DNS-based node discovery with AWS Route53/Aliyun support
+- **EIP-1459 DNS**: DNS-based node discovery with AWS Route53 support
 - **TCP/UDP Transport**: Dual protocol support for different message types
 - **Protocol Buffers**: Efficient binary serialization format
 

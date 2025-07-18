@@ -59,12 +59,10 @@ usage: P2P Discovery Options:
  -v,--version <arg>                  p2p version, int, default 1
 
 usage: DNS Options:
-    --access-key-id <arg>         access key id of aws or aliyun api,
+    --access-key-id <arg>         access key id of aws api,
                                   required, string
-    --access-key-secret <arg>     access key secret of aws or aliyun api,
+    --access-key-secret <arg>     access key secret of aws api,
                                   required, string
-    --aliyun-dns-endpoint <arg>   if server-type is aliyun, it's endpoint
-                                  of aws dns server, required, string
     --aws-region <arg>            if server-type is aws, it's region of
                                   aws api, such as "eu-south-1", required,
                                   string
@@ -85,7 +83,7 @@ usage: DNS Options:
                                   [1~5], default 5
     --publish                     enable dns publish
     --server-type <arg>           dns server to publish, required, only
-                                  aws or aliyun is support
+                                  aws is support
     --static-nodes <arg>          static nodes to publish, if exist then
                                   nodes from kad will be ignored,
                                   optional, ip:port[,ip:port[...]]
@@ -151,16 +149,14 @@ testnet-bootstrap.xdag.io # Bootstrap/seed nodes for testnet
 ### DNS Provider Support
 
 Node lists can be deployed to any DNS provider such as CloudFlare DNS, dnsimple, Amazon
-Route 53, Aliyun Cloud using their respective client libraries. Currently we support:
+Route 53 Cloud using their respective client libraries. Currently we support:
 - **Amazon Route 53** (recommended for global deployment)
-- **Aliyun Cloud DNS** (recommended for China region)
 
 For more details about the EIP-1459 protocol, see: https://eips.ethereum.org/EIPS/eip-1459
 
-### 1.2.1 Acquire your apikey from Amazon Route 53 or Aliyun Cloud
+### 1.2.1 Acquire your apikey from Amazon Route 53 Cloud
 
 * Amazon Route 53 include: AWS Access Key ID、AWS Access Key Secret、Route53 Zone ID、AWS Region, get more info <https://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html>
-* Aliyun Cloud include: accessKeyId、accessKeySecret、endpoint, get more info <https://help.aliyun.com/document_detail/116401.html>
 
 ### 1.2.2 Publish nodes to XDAG networks
 

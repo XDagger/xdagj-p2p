@@ -67,9 +67,6 @@ public class PublishConfig {
   /** Access key secret for DNS service authentication */
   private String accessKeySecret = null;
 
-  /** Alibaba Cloud DNS endpoint (for AliYun) */
-  private String aliDnsEndpoint = null;
-
   /** AWS Route53 hosted zone ID (for AWS) */
   private String awsHostZoneId = null;
 

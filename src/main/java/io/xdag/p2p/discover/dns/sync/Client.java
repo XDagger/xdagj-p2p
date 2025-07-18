@@ -80,8 +80,7 @@ public class Client {
 
   /** Scheduled executor for DNS synchronization tasks */
   private final ScheduledExecutorService syncer =
-      Executors.newSingleThreadScheduledExecutor(
-          new BasicThreadFactory.Builder().namingPattern("dnsSyncer").build());
+      Executors.newSingleThreadScheduledExecutor(BasicThreadFactory.builder().namingPattern("workerthread-%d").build());
 
   /** Constructor for DNS synchronization client. Initializes the cache with specified limits. */
   public Client(P2pConfig p2pConfig) {

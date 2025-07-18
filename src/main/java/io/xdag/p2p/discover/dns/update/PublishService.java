@@ -57,8 +57,7 @@ public class PublishService {
 
   /** Scheduled executor for DNS publishing tasks */
   private final ScheduledExecutorService publisher =
-      Executors.newSingleThreadScheduledExecutor(
-          new BasicThreadFactory.Builder().namingPattern("publishService").build());
+      Executors.newSingleThreadScheduledExecutor(BasicThreadFactory.builder().namingPattern("publishService").build());
 
   /** DNS publishing client instance */
   private Publish<?> publish;
@@ -100,16 +99,8 @@ public class PublishService {
    * @throws Exception if client creation fails
    */
   private Publish<?> getPublish(PublishConfig config) throws Exception {
-    Publish<?> publish;
-    if (config.getDnsType() == DnsType.AliYun) {
-      publish =
-          new AliClient(
-              p2pConfig,
-              config.getAliDnsEndpoint(),
-              config.getAccessKeyId(),
-              config.getAccessKeySecret(),
-              config.getChangeThreshold());
-    } else {
+    Publish<?> publish = null;
+    if (config.getDnsType() == DnsType.AwsRoute53) {
       publish =
           new AwsClient(
               p2pConfig,
@@ -200,13 +191,6 @@ public class PublishService {
     }
     if (StringUtils.isEmpty(config.getDnsDomain())) {
       log.error("The dns domain must be specified when enabling the dns publishing service");
-      return false;
-    }
-    if (config.getDnsType() == DnsType.AliYun
-        && (StringUtils.isEmpty(config.getAccessKeyId())
-            || StringUtils.isEmpty(config.getAccessKeySecret())
-            || StringUtils.isEmpty(config.getAliDnsEndpoint()))) {
-      log.error("The configuration items related to the Aliyun dns server cannot be empty");
       return false;
     }
     if (config.getDnsType() == DnsType.AwsRoute53

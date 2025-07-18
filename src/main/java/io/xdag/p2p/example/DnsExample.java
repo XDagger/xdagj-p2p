@@ -122,7 +122,7 @@ public class DnsExample {
     return ExampleConfig.dnsPublish(
         dnsPrivate,
         domain,
-        DnsType.AwsRoute53, // or DnsType.AliYun
+        DnsType.AwsRoute53,
         accessKeyId,
         accessKeySecret);
   }

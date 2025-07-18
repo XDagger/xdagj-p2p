@@ -35,7 +35,6 @@
         <!-- dns -->
         <dnsjava.version>3.6.3</dnsjava.version>
         <aws-dns.version>2.31.52</aws-dns.version>
-        <aliyun-dns.version>3.4.7</aliyun-dns.version>
 
         <!-- crypto -->
         <tuweni.version>2.7.0</tuweni.version>
@@ -472,13 +471,6 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>${guava.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.aliyun</groupId>
-            <artifactId>alidns20150109</artifactId>
-            <version>${aliyun-dns.version}</version>
-            <optional>true</optional>
         </dependency>
 
         <dependency>

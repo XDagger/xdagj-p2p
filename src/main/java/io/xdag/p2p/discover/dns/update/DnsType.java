@@ -31,9 +31,6 @@ import lombok.Getter;
  */
 @Getter
 public enum DnsType {
-  /** Alibaba Cloud DNS service */
-  AliYun(0, "aliyun dns server"),
-
   /** Amazon Web Services Route53 DNS service */
   AwsRoute53(1, "aws route53 server");
 

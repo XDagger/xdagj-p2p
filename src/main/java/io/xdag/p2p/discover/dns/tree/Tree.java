@@ -28,7 +28,6 @@ import io.xdag.p2p.DnsException;
 import io.xdag.p2p.DnsException.TypeEnum;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.dns.DnsNode;
-import io.xdag.p2p.discover.dns.update.AliClient;
 import io.xdag.p2p.utils.BytesUtils;
 import io.xdag.p2p.utils.CryptoUtils;
 import java.math.BigInteger;
@@ -181,8 +180,6 @@ public class Tree {
     Map<String, String> dnsRecords = new HashMap<>();
     if (StringUtils.isNoneEmpty(rootDomain)) {
       dnsRecords.put(rootDomain, rootEntry.toFormat());
-    } else {
-      dnsRecords.put(AliClient.aliyunRoot, rootEntry.toFormat());
     }
     for (Map.Entry<String, Entry> item : entries.entrySet()) {
       String hash = item.getKey();
