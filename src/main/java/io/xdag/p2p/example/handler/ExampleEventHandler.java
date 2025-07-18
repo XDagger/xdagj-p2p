@@ -35,6 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.tuweni.bytes.Bytes;
 
@@ -45,6 +46,7 @@ import org.apache.tuweni.bytes.Bytes;
 @Slf4j(topic = "example")
 public class ExampleEventHandler extends P2pEventHandler {
 
+  @Getter
   protected final ConcurrentMap<InetSocketAddress, Channel> channels = new ConcurrentHashMap<>();
   
   // Network test statistics
@@ -53,6 +55,8 @@ public class ExampleEventHandler extends P2pEventHandler {
   protected final AtomicInteger totalForwarded = new AtomicInteger(0);
   protected final AtomicInteger duplicatesReceived = new AtomicInteger(0);
   protected final AtomicLong totalLatency = new AtomicLong(0);
+
+  @Getter
   protected final String nodeId;
 
   public ExampleEventHandler() {
@@ -123,15 +127,6 @@ public class ExampleEventHandler extends P2pEventHandler {
           e.getMessage(),
           e);
     }
-  }
-
-  /**
-   * Get all connected channels
-   *
-   * @return map of connected channels
-   */
-  public ConcurrentMap<InetSocketAddress, Channel> getChannels() {
-    return channels;
   }
 
   /**
@@ -339,15 +334,6 @@ public class ExampleEventHandler extends P2pEventHandler {
         avgLatency,
         messageFirstReceived.size()
     );
-  }
-
-  /**
-   * Get node identifier
-   *
-   * @return Node identifier
-   */
-  public String getNodeId() {
-    return nodeId;
   }
 
   /**

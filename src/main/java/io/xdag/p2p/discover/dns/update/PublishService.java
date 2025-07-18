@@ -73,7 +73,7 @@ public class PublishService {
    * schedule.
    */
   public void init() {
-    boolean supportV4 = p2pConfig.getIp() != null;
+    boolean supportV4 = p2pConfig.getIpV4() != null;
     PublishConfig publishConfig = p2pConfig.getPublishConfig();
     if (checkConfig(supportV4, publishConfig)) {
       try {

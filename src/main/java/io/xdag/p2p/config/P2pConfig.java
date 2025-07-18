@@ -53,9 +53,9 @@ public class P2pConfig {
   private List<InetSocketAddress> activeNodes = new CopyOnWriteArrayList<>();
   private List<InetAddress> trustNodes = new CopyOnWriteArrayList<>();
   private Bytes nodeID = Bytes.wrap(NetUtils.getNodeId());
-  private String ip = getDefaultIp();
-  private String lanIp = NetUtils.getLanIP();
-  private String ipv6 = NetUtils.getExternalIpV6();
+  private String ipV4 = getDefaultIpv4();
+  private String lanIpV4 = NetUtils.getLanIpV4();
+  private String ipV6 = NetUtils.getExternalIpV6();
   private int port = 16783;
   private int networkId = 1;
   private int minConnections = 8;
@@ -77,14 +77,14 @@ public class P2pConfig {
    *
    * @return IP address string
    */
-  private String getDefaultIp() {
-    String externalIp = NetUtils.getExternalIpV4();
-    if (externalIp != null && !externalIp.trim().isEmpty()) {
-      return externalIp;
+  private String getDefaultIpv4() {
+    String externalIpv4 = NetUtils.getExternalIpV4();
+    if (externalIpv4 != null && !externalIpv4.trim().isEmpty()) {
+      return externalIpv4;
     }
     // Fallback to LAN IP if external IP is not available
-    String lanIp = NetUtils.getLanIP();
-    return lanIp != null ? lanIp : "127.0.0.1";
+    String lanIpv4 = NetUtils.getLanIpV4();
+    return lanIpv4 != null ? lanIpv4 : "127.0.0.1";
   }
 
   public void addP2pEventHandle(P2pEventHandler p2PEventHandler) throws P2pException {
@@ -106,13 +106,13 @@ public class P2pConfig {
         Discover.Endpoint.newBuilder()
             .setNodeId(ByteString.copyFrom(getNodeID().toArray()))
             .setPort(getPort());
-    if (StringUtils.isNotEmpty(getIp())) {
+    if (StringUtils.isNotEmpty(getIpV4())) {
       builder.setAddress(
-          ByteString.copyFrom(Objects.requireNonNull(Bytes.wrap(getIp().getBytes()).toArray())));
+          ByteString.copyFrom(Objects.requireNonNull(Bytes.wrap(getIpV4().getBytes()).toArray())));
     }
-    if (StringUtils.isNotEmpty(getIpv6())) {
+    if (StringUtils.isNotEmpty(getIpV6())) {
       builder.setAddressIpv6(
-          ByteString.copyFrom(Objects.requireNonNull(Bytes.wrap(getIpv6().getBytes()).toArray())));
+          ByteString.copyFrom(Objects.requireNonNull(Bytes.wrap(getIpV6().getBytes()).toArray())));
     }
     return builder.build();
   }

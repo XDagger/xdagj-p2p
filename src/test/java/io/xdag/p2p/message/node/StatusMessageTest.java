@@ -32,7 +32,7 @@ public class StatusMessageTest {
     p2pConfig = new P2pConfig();
     // Customize config for predictability
     p2pConfig.setPort(12345);
-    p2pConfig.setIp("127.0.0.1");
+    p2pConfig.setIpV4("127.0.0.1");
     p2pConfig.setNodeID(NetUtils.getNodeId());
 
     channelManagerMock = mock(ChannelManager.class);
@@ -71,7 +71,7 @@ public class StatusMessageTest {
         Endpoint.newBuilder()
             .setNodeId(com.google.protobuf.ByteString.copyFrom(p2pConfig.getNodeID().toArray()))
             .setPort(p2pConfig.getPort())
-            .setAddress(com.google.protobuf.ByteString.copyFromUtf8(p2pConfig.getIp()))
+            .setAddress(com.google.protobuf.ByteString.copyFromUtf8(p2pConfig.getIpV4()))
             .build();
 
     Connect.StatusMessage protoMessage =

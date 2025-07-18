@@ -358,7 +358,7 @@ public class NetUtils {
     return result;
   }
 
-  public static String getLanIP() {
+  public static String getLanIpV4() {
     try {
       // Try to get the first non-loopback address
       Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();

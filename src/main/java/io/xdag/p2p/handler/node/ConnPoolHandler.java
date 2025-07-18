@@ -149,8 +149,8 @@ public class ConnPoolHandler extends P2pEventHandler {
         new Node(
             p2pConfig,
             p2pConfig.getNodeID(),
-            p2pConfig.getIp(),
-            p2pConfig.getIpv6(),
+            p2pConfig.getIpV4(),
+            p2pConfig.getIpV6(),
             p2pConfig.getPort()));
 
     p2pConfig

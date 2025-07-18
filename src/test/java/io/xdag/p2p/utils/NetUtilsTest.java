@@ -25,6 +25,7 @@ package io.xdag.p2p.utils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -147,7 +148,7 @@ public class NetUtilsTest {
 
   @Test
   public void testGetLanIP() {
-    String lanIpv4 = NetUtils.getLanIP();
+    String lanIpv4 = NetUtils.getLanIpV4();
     assertNotNull(lanIpv4);
   }
 
@@ -283,7 +284,7 @@ public class NetUtilsTest {
     assertEquals(P2pConstant.NODE_ID_LEN, nodeId2.size());
     
     // Should generate different IDs each time
-    assertFalse(nodeId1.equals(nodeId2));
+    assertNotEquals(nodeId1, nodeId2);
   }
 
   @Test
@@ -293,7 +294,7 @@ public class NetUtilsTest {
     assertNotNull(localAddresses);
     
     // Should contain at least loopback address
-    assertTrue(localAddresses.size() > 0);
+    assertFalse(localAddresses.isEmpty());
     
     // Check that all returned addresses are valid
     for (String address : localAddresses) {

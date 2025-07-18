@@ -46,7 +46,7 @@ public class ConnPoolHandlerTest {
     p2pConfig = new P2pConfig();
     p2pConfig.setDiscoverEnable(false);
     p2pConfig.setPort(10000);
-    p2pConfig.setIp(localIp);
+    p2pConfig.setIpV4(localIp);
 
     lenient().when(channelManager.getBannedNodes()).thenReturn(CacheBuilder.newBuilder().build());
 

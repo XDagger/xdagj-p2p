@@ -128,13 +128,13 @@ public class Node implements Serializable, Cloneable {
     // First try IPv4 if both node and local config have IPv4
     if (StringUtils.isNotEmpty(hostV4)
         && p2pConfig != null
-        && StringUtils.isNotEmpty(p2pConfig.getIp())) {
+        && StringUtils.isNotEmpty(p2pConfig.getIpV4())) {
       return getInetSocketAddressV4();
     }
     // Then try IPv6 if both node and local config have IPv6
     else if (StringUtils.isNotEmpty(hostV6)
         && p2pConfig != null
-        && StringUtils.isNotEmpty(p2pConfig.getIpv6())) {
+        && StringUtils.isNotEmpty(p2pConfig.getIpV6())) {
       return getInetSocketAddressV6();
     }
     // Fallback: if local config doesn't have external IP, but node has valid address, use it anyway

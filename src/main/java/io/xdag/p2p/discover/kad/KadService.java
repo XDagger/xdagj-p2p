@@ -83,8 +83,8 @@ public class KadService implements DiscoverService {
         new Node(
             p2pConfig,
             p2pConfig.getNodeID(),
-            p2pConfig.getIp(),
-            p2pConfig.getIpv6(),
+            p2pConfig.getIpV4(),
+            p2pConfig.getIpV6(),
             p2pConfig.getPort());
     this.table = new NodeTable(homeNode);
 

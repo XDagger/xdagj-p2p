@@ -71,8 +71,8 @@ public class NodeTest {
 
   @Test
   public void ipV4CompatibleTest() {
-    p2pConfig.setIp("127.0.0.1");
-    p2pConfig.setIpv6(null);
+    p2pConfig.setIpV4("127.0.0.1");
+    p2pConfig.setIpV6(null);
 
     Node node1 = new Node(p2pConfig, NetUtils.getNodeId(), "127.0.0.1", null, 10002);
     assertNotNull(node1.getPreferInetSocketAddress());
@@ -90,8 +90,8 @@ public class NodeTest {
 
   @Test
   public void ipV6CompatibleTest() {
-    p2pConfig.setIp(null);
-    p2pConfig.setIpv6("fe80:0:0:0:204:61ff:fe9d:f157");
+    p2pConfig.setIpV4(null);
+    p2pConfig.setIpV6("fe80:0:0:0:204:61ff:fe9d:f157");
 
     // Fallback机制：即使本地配置只有IPv6，但节点有IPv4地址时仍然可以连接
     Node node1 = new Node(p2pConfig, NetUtils.getNodeId(), "127.0.0.1", null, 10002);
@@ -109,8 +109,8 @@ public class NodeTest {
 
   @Test
   public void ipCompatibleTest() {
-    p2pConfig.setIp("127.0.0.1");
-    p2pConfig.setIpv6("fe80:0:0:0:204:61ff:fe9d:f157");
+    p2pConfig.setIpV4("127.0.0.1");
+    p2pConfig.setIpV6("fe80:0:0:0:204:61ff:fe9d:f157");
 
     Node node1 = new Node(p2pConfig, NetUtils.getNodeId(), "127.0.0.1", null, 10002);
     assertNotNull(node1.getPreferInetSocketAddress());
@@ -233,7 +233,7 @@ public class NodeTest {
   }
 
   @Test
-  public void testClone() throws CloneNotSupportedException {
+  public void testClone() {
     Bytes nodeId = NetUtils.getNodeId();
     Node original = new Node(p2pConfig, nodeId, "127.0.0.1", "::1", 10001, 10002);
     original.setP2pVersion(12345);
@@ -269,12 +269,12 @@ public class NodeTest {
     Node node4 = new Node(p2pConfig, nodeId1, "192.168.1.1", null, 10002);
     
     // Test equals - Node.equals() compares based on getIdString() which is UTF-8 string representation
-    assertTrue(node1.equals(node1)); // Same reference
-    assertTrue(node1.equals(node2)); // Same ID string
-    assertFalse(node1.equals(node3)); // Different ID string
-    assertTrue(node1.equals(node4)); // Same ID string, equals ignores host/port differences
-    assertFalse(node1.equals(null)); // Null comparison
-    assertFalse(node1.equals("not a node")); // Different type
+    assertEquals(node1, node1); // Same reference
+    assertEquals(node1, node2); // Same ID string
+    assertNotEquals(node1, node3); // Different ID string
+    assertEquals(node1, node4); // Same ID string, equals ignores host/port differences
+    assertNotEquals(null, node1); // Null comparison
+    assertNotEquals("not a node", node1); // Different type
     
     // Test hashCode consistency - hashCode is based on format() which includes host/port
     assertEquals(node1.hashCode(), node1.hashCode()); // Same object

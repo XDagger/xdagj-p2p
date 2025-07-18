@@ -102,9 +102,9 @@ public class P2pConfigTest {
 
     // Test IP addresses (may be null depending on network environment)
     // These are environment-dependent, so we just check they don't throw exceptions
-    assertDoesNotThrow(() -> p2pConfig.getIp(), "Getting IP should not throw exception");
-    assertDoesNotThrow(() -> p2pConfig.getLanIp(), "Getting LAN IP should not throw exception");
-    assertDoesNotThrow(() -> p2pConfig.getIpv6(), "Getting IPv6 should not throw exception");
+    assertDoesNotThrow(() -> p2pConfig.getIpV4(), "Getting IP should not throw exception");
+    assertDoesNotThrow(() -> p2pConfig.getLanIpV4(), "Getting LAN IP should not throw exception");
+    assertDoesNotThrow(() -> p2pConfig.getIpV6(), "Getting IPv6 should not throw exception");
   }
 
   /** Test basic parameter setting and getting. */
@@ -143,13 +143,13 @@ public class P2pConfigTest {
     assertTrue(p2pConfig.isNodeDetectEnable(), "Node detection should be enabled");
 
     // Test IP settings
-    p2pConfig.setIp("192.168.1.100");
-    p2pConfig.setLanIp("192.168.1.101");
-    p2pConfig.setIpv6("2001:db8::1");
+    p2pConfig.setIpV4("192.168.1.100");
+    p2pConfig.setLanIpV4("192.168.1.101");
+    p2pConfig.setIpV6("2001:db8::1");
 
-    assertEquals("192.168.1.100", p2pConfig.getIp(), "IP should be updated");
-    assertEquals("192.168.1.101", p2pConfig.getLanIp(), "LAN IP should be updated");
-    assertEquals("2001:db8::1", p2pConfig.getIpv6(), "IPv6 should be updated");
+    assertEquals("192.168.1.100", p2pConfig.getIpV4(), "IP should be updated");
+    assertEquals("192.168.1.101", p2pConfig.getLanIpV4(), "LAN IP should be updated");
+    assertEquals("2001:db8::1", p2pConfig.getIpV6(), "IPv6 should be updated");
 
     // Test node ID setting
     Bytes newNodeId = Bytes.fromHexString("0x1234567890abcdef");
@@ -326,8 +326,8 @@ public class P2pConfigTest {
   void testHomeNodeGeneration() {
     // Set specific values for testing
     p2pConfig.setPort(17000);
-    p2pConfig.setIp("192.168.1.100");
-    p2pConfig.setIpv6("2001:db8::1");
+    p2pConfig.setIpV4("192.168.1.100");
+    p2pConfig.setIpV6("2001:db8::1");
     Bytes nodeId = Bytes.fromHexString("0x1234567890abcdef1234567890abcdef12345678");
     p2pConfig.setNodeID(nodeId);
 
@@ -339,10 +339,10 @@ public class P2pConfigTest {
         nodeId.toArray(), homeNode.getNodeId().toByteArray(), "Home node ID should match config");
 
     // Verify IP addresses are set (if not empty)
-    if (!p2pConfig.getIp().isEmpty()) {
+    if (!p2pConfig.getIpV4().isEmpty()) {
       assertFalse(homeNode.getAddress().isEmpty(), "Home node address should not be empty");
     }
-    if (p2pConfig.getIpv6() != null && !p2pConfig.getIpv6().isEmpty()) {
+    if (p2pConfig.getIpV6() != null && !p2pConfig.getIpV6().isEmpty()) {
       assertFalse(
           homeNode.getAddressIpv6().isEmpty(), "Home node IPv6 address should not be empty");
     }
@@ -351,8 +351,8 @@ public class P2pConfigTest {
   /** Test home node generation with empty IP addresses. */
   @Test
   void testHomeNodeGenerationEmptyIps() {
-    p2pConfig.setIp("");
-    p2pConfig.setIpv6("");
+    p2pConfig.setIpV4("");
+    p2pConfig.setIpV6("");
 
     Discover.Endpoint homeNode = p2pConfig.getHomeNode();
 
