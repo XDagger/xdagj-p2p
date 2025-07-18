@@ -27,7 +27,7 @@ import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.message.discover.MessageType;
 import io.xdag.p2p.proto.Discover;
-import io.xdag.p2p.proto.Discover.Endpoint;
+import io.xdag.p2p.proto.Discover.Peer;
 import io.xdag.p2p.utils.NetUtils;
 import org.apache.tuweni.bytes.Bytes;
 
@@ -42,10 +42,10 @@ public class PongMessage extends KadMessage {
 
   public PongMessage(P2pConfig p2pConfig, Node from) {
     super(p2pConfig, MessageType.KAD_PONG, null);
-    Endpoint toEndpoint = getEndpointFromNode(from);
+    Peer toPeer = getPeerFromNode(from);
     this.pongMessage =
         Discover.PongMessage.newBuilder()
-            .setFrom(toEndpoint)
+            .setFrom(toPeer)
             .setEcho(p2pConfig.getNetworkId())
             .setTimestamp(System.currentTimeMillis())
             .build();

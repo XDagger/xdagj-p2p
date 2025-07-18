@@ -151,34 +151,34 @@ public class NetUtils {
     return true;
   }
 
-  public static Node getNode(P2pConfig p2pConfig, Discover.Endpoint endpoint) {
-    String hostV4 = BytesUtils.toStr(endpoint.getAddress().toByteArray());
-    String hostV6 = BytesUtils.toStr(endpoint.getAddressIpv6().toByteArray());
+  public static Node getNode(P2pConfig p2pConfig, Discover.Peer peer) {
+    String hostV4 = BytesUtils.toStr(peer.getAddress().toByteArray());
+    String hostV6 = BytesUtils.toStr(peer.getAddressIpv6().toByteArray());
 
-    // If both hostV4 and hostV6 are null/empty, the node data in endpoint is incomplete
+    // If both hostV4 and hostV6 are null/empty, the node data in peer is incomplete
     // This will be handled by the caller using UDP source address if needed
     return new Node(
         p2pConfig,
-        Bytes.wrap(endpoint.getNodeId().toByteArray()),
+        Bytes.wrap(peer.getNodeId().toByteArray()),
         hostV4,
         hostV6,
-        endpoint.getPort());
+        peer.getPort());
   }
 
   /**
-   * Create node from endpoint with fallback to UDP source address. If the endpoint doesn't contain
+   * Create node from peer with fallback to UDP source address. If the peer doesn't contain
    * valid IP addresses, use the UDP source address.
    *
-   * @param endpoint the protobuf endpoint
+   * @param peer the protobuf peer
    * @param sourceAddress the UDP source address as fallback
    * @return Node with valid IP address
    */
   public static Node getNodeWithFallback(
-      P2pConfig p2pConfig, Discover.Endpoint endpoint, InetSocketAddress sourceAddress) {
-    String hostV4 = BytesUtils.toStr(endpoint.getAddress().toByteArray());
-    String hostV6 = BytesUtils.toStr(endpoint.getAddressIpv6().toByteArray());
+      P2pConfig p2pConfig, Discover.Peer peer, InetSocketAddress sourceAddress) {
+    String hostV4 = BytesUtils.toStr(peer.getAddress().toByteArray());
+    String hostV6 = BytesUtils.toStr(peer.getAddressIpv6().toByteArray());
 
-    // If no IP addresses in endpoint, use source address
+    // If no IP addresses in peer, use source address
     if (StringUtils.isEmpty(hostV4) && StringUtils.isEmpty(hostV6)) {
       if (sourceAddress.getAddress() instanceof java.net.Inet4Address) {
         hostV4 = sourceAddress.getAddress().getHostAddress();
@@ -189,10 +189,10 @@ public class NetUtils {
 
     return new Node(
         p2pConfig,
-        Bytes.wrap(endpoint.getNodeId().toByteArray()),
+        Bytes.wrap(peer.getNodeId().toByteArray()),
         hostV4,
         hostV6,
-        endpoint.getPort());
+        peer.getPort());
   }
 
   public static Bytes getNodeId() {

@@ -20,10 +20,10 @@ public class HelloMessage extends Message {
 
   public HelloMessage(P2pConfig p2pConfig, DisconnectCode code, long time) {
     super(p2pConfig, MessageType.HANDSHAKE_HELLO, null);
-    Discover.Endpoint endpoint = p2pConfig.getHomeNode();
+    Discover.Peer peer = p2pConfig.getHomePeer();
     this.helloMessage =
         Connect.HelloMessage.newBuilder()
-            .setFrom(endpoint)
+            .setFrom(peer)
             .setNetworkId(p2pConfig.getNetworkId())
             .setCode(code.getValue())
             .setVersion(P2pConstant.version)

@@ -19,10 +19,10 @@ public class StatusMessage extends Message {
 
   public StatusMessage(P2pConfig p2pConfig, ChannelManager channelManager) {
     super(p2pConfig, MessageType.STATUS, null);
-    Discover.Endpoint endpoint = p2pConfig.getHomeNode();
+    Discover.Peer peer = p2pConfig.getHomePeer();
     this.statusMessage =
         Connect.StatusMessage.newBuilder()
-            .setFrom(endpoint)
+            .setFrom(peer)
             .setMaxConnections(p2pConfig.getMaxConnections())
             .setCurrentConnections(channelManager.getChannels().size())
             .setNetworkId(p2pConfig.getNetworkId())

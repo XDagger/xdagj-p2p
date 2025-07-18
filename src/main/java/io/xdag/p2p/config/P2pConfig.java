@@ -101,9 +101,9 @@ public class P2pConfig {
     handlerList.add(p2PEventHandler);
   }
 
-  public Discover.Endpoint getHomeNode() {
-    Discover.Endpoint.Builder builder =
-        Discover.Endpoint.newBuilder()
+  public Discover.Peer getHomePeer() {
+    Discover.Peer.Builder builder =
+        Discover.Peer.newBuilder()
             .setNodeId(ByteString.copyFrom(getNodeID().toArray()))
             .setPort(getPort());
     if (StringUtils.isNotEmpty(getIpV4())) {

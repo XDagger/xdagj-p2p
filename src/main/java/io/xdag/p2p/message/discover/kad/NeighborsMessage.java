@@ -28,7 +28,7 @@ import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.discover.kad.table.KademliaOptions;
 import io.xdag.p2p.message.discover.MessageType;
 import io.xdag.p2p.proto.Discover;
-import io.xdag.p2p.proto.Discover.Endpoint;
+import io.xdag.p2p.proto.Discover.Peer;
 import io.xdag.p2p.proto.Discover.Neighbours;
 import io.xdag.p2p.proto.Discover.Neighbours.Builder;
 import io.xdag.p2p.utils.NetUtils;
@@ -51,13 +51,13 @@ public class NeighborsMessage extends KadMessage {
 
     neighbours.forEach(
         neighbour -> {
-          Endpoint endpoint = getEndpointFromNode(neighbour);
-          builder.addNeighbours(endpoint);
+          Peer peer = getPeerFromNode(neighbour);
+          builder.addNeighbours(peer);
         });
 
-    Endpoint fromEndpoint = getEndpointFromNode(from);
+    Peer fromPeer= getPeerFromNode(from);
 
-    builder.setFrom(fromEndpoint);
+    builder.setFrom(fromPeer);
 
     this.neighbours = builder.build();
 

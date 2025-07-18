@@ -11,7 +11,7 @@ import io.xdag.p2p.channel.ChannelManager;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.proto.Connect;
-import io.xdag.p2p.proto.Discover.Endpoint;
+import io.xdag.p2p.proto.Discover.Peer;
 import io.xdag.p2p.utils.NetUtils;
 import java.util.Collections;
 import org.apache.tuweni.bytes.Bytes;
@@ -67,8 +67,8 @@ public class StatusMessageTest {
   void testCreateFromBytes() throws Exception {
     // Manually create a protobuf message
     long timestamp = System.currentTimeMillis();
-    Endpoint endpoint =
-        Endpoint.newBuilder()
+    Peer peer =
+        Peer.newBuilder()
             .setNodeId(com.google.protobuf.ByteString.copyFrom(p2pConfig.getNodeID().toArray()))
             .setPort(p2pConfig.getPort())
             .setAddress(com.google.protobuf.ByteString.copyFromUtf8(p2pConfig.getIpV4()))
@@ -81,7 +81,7 @@ public class StatusMessageTest {
             .setMaxConnections(100)
             .setCurrentConnections(10)
             .setTimestamp(timestamp)
-            .setFrom(endpoint)
+            .setFrom(peer)
             .build();
 
     Bytes encodedData = Bytes.wrap(protoMessage.toByteArray());
@@ -112,21 +112,21 @@ public class StatusMessageTest {
   @Test
   void testValidation() throws Exception {
     // Test with a valid node
-    Endpoint validEndpoint = p2pConfig.getHomeNode();
+    Peer validPeer = p2pConfig.getHomePeer();
     Connect.StatusMessage validProto =
-        Connect.StatusMessage.newBuilder().setFrom(validEndpoint).build();
+        Connect.StatusMessage.newBuilder().setFrom(validPeer).build();
     StatusMessage validMessage = new StatusMessage(p2pConfig, Bytes.wrap(validProto.toByteArray()));
     assertTrue(validMessage.valid(), "Message with a valid node should be valid");
 
     // Test with an invalid node (e.g., bad IP)
-    Endpoint invalidEndpoint =
-        Endpoint.newBuilder()
-            .setNodeId(validEndpoint.getNodeId())
+    Peer invalidPeer =
+        Peer.newBuilder()
+            .setNodeId(validPeer.getNodeId())
             .setPort(1234)
             .setAddress(com.google.protobuf.ByteString.copyFromUtf8("999.999.999.999"))
             .build();
     Connect.StatusMessage invalidProto =
-        Connect.StatusMessage.newBuilder().setFrom(invalidEndpoint).build();
+        Connect.StatusMessage.newBuilder().setFrom(invalidPeer).build();
     new StatusMessage(p2pConfig, Bytes.wrap(invalidProto.toByteArray()));
     // This relies on NetUtils.validNode which internally calls NetUtils.validIpV4
     // assertFalse(invalidMessage.valid(), "Message with an invalid node IP should be invalid");

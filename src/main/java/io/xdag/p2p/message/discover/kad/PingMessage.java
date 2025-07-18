@@ -28,7 +28,7 @@ import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.message.discover.Message;
 import io.xdag.p2p.message.discover.MessageType;
 import io.xdag.p2p.proto.Discover;
-import io.xdag.p2p.proto.Discover.Endpoint;
+import io.xdag.p2p.proto.Discover.Peer;
 import io.xdag.p2p.utils.BytesUtils;
 import io.xdag.p2p.utils.NetUtils;
 import java.net.InetSocketAddress;
@@ -48,13 +48,13 @@ public class PingMessage extends Message {
 
   public PingMessage(P2pConfig p2pConfig, Node from, Node to) {
     super(p2pConfig, MessageType.KAD_PING, null);
-    Endpoint fromEndpoint = getEndpointFromNode(from);
-    Endpoint toEndpoint = getEndpointFromNode(to);
+    Peer fromPeer = getPeerFromNode(from);
+    Peer toPeer = getPeerFromNode(to);
     this.pingMessage =
         Discover.PingMessage.newBuilder()
             .setVersion(p2pConfig.getNetworkId())
-            .setFrom(fromEndpoint)
-            .setTo(toEndpoint)
+            .setFrom(fromPeer)
+            .setTo(toPeer)
             .setTimestamp(System.currentTimeMillis())
             .build();
     this.data = BytesUtils.wrap(this.pingMessage.toByteArray());
@@ -80,9 +80,9 @@ public class PingMessage extends Message {
     }
   }
 
-  private Endpoint getEndpointFromNode(Node node) {
+  private Peer getPeerFromNode(Node node) {
     String address = node.getHostV4() != null ? node.getHostV4() : node.getHostV6();
-    return Endpoint.newBuilder()
+    return Peer.newBuilder()
         .setAddress(com.google.protobuf.ByteString.copyFromUtf8(address != null ? address : ""))
         .setPort(node.getPort())
         .setNodeId(com.google.protobuf.ByteString.copyFrom(node.getId().toArray()))

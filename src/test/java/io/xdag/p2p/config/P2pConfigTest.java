@@ -321,7 +321,7 @@ public class P2pConfigTest {
     assertEquals(0, p2pConfig.getHandlerMap().size(), "Should have 0 handlers in map (no types)");
   }
 
-  /** Test home node endpoint generation. */
+  /** Test home node peer generation. */
   @Test
   void testHomeNodeGeneration() {
     // Set specific values for testing
@@ -331,7 +331,7 @@ public class P2pConfigTest {
     Bytes nodeId = Bytes.fromHexString("0x1234567890abcdef1234567890abcdef12345678");
     p2pConfig.setNodeID(nodeId);
 
-    Discover.Endpoint homeNode = p2pConfig.getHomeNode();
+    Discover.Peer homeNode = p2pConfig.getHomePeer();
 
     assertNotNull(homeNode, "Home node should not be null");
     assertEquals(17000, homeNode.getPort(), "Home node port should match config");
@@ -354,7 +354,7 @@ public class P2pConfigTest {
     p2pConfig.setIpV4("");
     p2pConfig.setIpV6("");
 
-    Discover.Endpoint homeNode = p2pConfig.getHomeNode();
+    Discover.Peer homeNode = p2pConfig.getHomePeer();
 
     assertNotNull(homeNode, "Home node should not be null even with empty IPs");
     assertTrue(homeNode.getAddress().isEmpty(), "Address should be empty");

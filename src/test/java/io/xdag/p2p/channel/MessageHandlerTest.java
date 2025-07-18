@@ -72,9 +72,9 @@ class MessageHandlerTest {
 
     // Mock for StatusMessage creation
     when(channelManager.getChannels()).thenReturn(new java.util.concurrent.ConcurrentHashMap<>());
-    when(p2pConfig.getHomeNode())
+    when(p2pConfig.getHomePeer())
         .thenReturn(
-            io.xdag.p2p.proto.Discover.Endpoint.newBuilder()
+            io.xdag.p2p.proto.Discover.Peer.newBuilder()
                 .setAddress(com.google.protobuf.ByteString.copyFromUtf8("127.0.0.1"))
                 .setPort(8080)
                 .setNodeId(com.google.protobuf.ByteString.copyFromUtf8("test-node-id"))

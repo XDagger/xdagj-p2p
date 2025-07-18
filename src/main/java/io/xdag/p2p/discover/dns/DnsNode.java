@@ -23,15 +23,15 @@
  */
 package io.xdag.p2p.discover.dns;
 
-import static io.xdag.p2p.message.discover.kad.KadMessage.getEndpointFromNode;
+import static io.xdag.p2p.message.discover.kad.KadMessage.getPeerFromNode;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.config.P2pConstant;
 import io.xdag.p2p.discover.Node;
-import io.xdag.p2p.proto.Discover.EndPoints;
-import io.xdag.p2p.proto.Discover.EndPoints.Builder;
-import io.xdag.p2p.proto.Discover.Endpoint;
+import io.xdag.p2p.proto.Discover.Peers;
+import io.xdag.p2p.proto.Discover.Peers.Builder;
+import io.xdag.p2p.proto.Discover.Peer;
 import io.xdag.p2p.utils.BytesUtils;
 import io.xdag.p2p.utils.CryptoUtils;
 import java.io.Serial;
@@ -91,11 +91,11 @@ public class DnsNode extends Node implements Comparable<DnsNode> {
    * @return base64-encoded compressed representation
    */
   public static String compress(List<DnsNode> nodes) {
-    Builder builder = EndPoints.newBuilder();
+    Builder builder = Peers.newBuilder();
     nodes.forEach(
         node -> {
-          Endpoint endpoint = getEndpointFromNode(node);
-          builder.addNodes(endpoint);
+          Peer Peer = getPeerFromNode(node);
+          builder.addPeer(Peer);
         });
     return CryptoUtils.encode64(Bytes.wrap(builder.build().toByteArray()));
   }
@@ -111,17 +111,17 @@ public class DnsNode extends Node implements Comparable<DnsNode> {
   public static List<DnsNode> decompress(P2pConfig p2pConfig, String base64Content)
       throws InvalidProtocolBufferException, UnknownHostException {
     Bytes data = CryptoUtils.decode64(base64Content);
-    EndPoints endPoints = EndPoints.parseFrom(data.toArray());
+    Peers peers = Peers.parseFrom(data.toArray());
 
     List<DnsNode> dnsNodes = new ArrayList<>();
-    for (Endpoint endpoint : endPoints.getNodesList()) {
+    for (Peer peer : peers.getPeerList()) {
       DnsNode dnsNode =
           new DnsNode(
               p2pConfig,
-              Bytes.wrap(endpoint.getNodeId().toByteArray()),
-              new String(endpoint.getAddress().toByteArray()),
-              new String(endpoint.getAddressIpv6().toByteArray()),
-              endpoint.getPort());
+              Bytes.wrap(peer.getNodeId().toByteArray()),
+              new String(peer.getAddress().toByteArray()),
+              new String(peer.getAddressIpv6().toByteArray()),
+              peer.getPort());
       dnsNodes.add(dnsNode);
     }
     return dnsNodes;

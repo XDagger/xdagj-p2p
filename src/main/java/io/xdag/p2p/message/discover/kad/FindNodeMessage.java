@@ -29,7 +29,7 @@ import io.xdag.p2p.config.P2pConstant;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.message.discover.MessageType;
 import io.xdag.p2p.proto.Discover;
-import io.xdag.p2p.proto.Discover.Endpoint;
+import io.xdag.p2p.proto.Discover.Peer;
 import io.xdag.p2p.utils.BytesUtils;
 import io.xdag.p2p.utils.NetUtils;
 import org.apache.tuweni.bytes.Bytes;
@@ -45,10 +45,10 @@ public class FindNodeMessage extends KadMessage {
 
   public FindNodeMessage(P2pConfig p2pConfig, Node from, Bytes targetId) {
     super(p2pConfig, MessageType.KAD_FIND_NODE, null);
-    Endpoint fromEndpoint = getEndpointFromNode(from);
+    Peer fromPeer = getPeerFromNode(from);
     this.findNeighbours =
         Discover.FindNeighbours.newBuilder()
-            .setFrom(fromEndpoint)
+            .setFrom(fromPeer)
             .setTargetId(ByteString.copyFrom(targetId.toArray()))
             .setTimestamp(System.currentTimeMillis())
             .build();

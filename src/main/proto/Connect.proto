@@ -10,7 +10,7 @@ message KeepAliveMessage {
 }
 
 message HelloMessage {
-  Endpoint from = 1;
+  Peer from = 1;
   int32 network_id = 2;
   int32 code = 3;
   int64 timestamp = 4;
@@ -18,7 +18,7 @@ message HelloMessage {
 }
 
 message StatusMessage {
-  Endpoint from = 1;
+  Peer from = 1;
   int32 version = 2;
   int32 network_id = 3;
   int32 maxConnections = 4;

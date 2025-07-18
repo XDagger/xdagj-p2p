@@ -3,7 +3,7 @@ syntax = "proto3";
 option java_package = "io.xdag.p2p.proto";
 option java_outer_classname = "Discover";
 
-message Endpoint {
+message Peer {
   bytes address = 1;
   int32 port = 2;
   bytes nodeId = 3;
@@ -11,32 +11,32 @@ message Endpoint {
 }
 
 message PingMessage {
-  Endpoint from = 1;
-  Endpoint to = 2;
+  Peer from = 1;
+  Peer to = 2;
   int32 version = 3;
   int64 timestamp = 4;
 }
 
 message PongMessage {
-  Endpoint from = 1;
+  Peer from = 1;
   int32 echo = 2;
   int64 timestamp = 3;
 }
 
 message FindNeighbours {
-  Endpoint from = 1;
+  Peer from = 1;
   bytes targetId = 2;
   int64 timestamp = 3;
 }
 
 message Neighbours {
-  Endpoint from = 1;
-  repeated Endpoint neighbours = 2;
+  Peer from = 1;
+  repeated Peer neighbours = 2;
   int64 timestamp = 3;
 }
 
-message EndPoints {
-  repeated Endpoint nodes = 1;
+message Peers {
+  repeated Peer peer = 1;
 }
 
 message DnsRoot {

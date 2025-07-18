@@ -82,8 +82,8 @@ public class NetUtilsTest {
 
   @Test
   public void testGetNode() {
-    Discover.Endpoint endpoint = Discover.Endpoint.newBuilder().setPort(100).build();
-    Node node = NetUtils.getNode(p2pConfig, endpoint);
+    Discover.Peer peer = Discover.Peer.newBuilder().setPort(100).build();
+    Node node = NetUtils.getNode(p2pConfig, peer);
     assertEquals(100, node.getPort());
   }
 
@@ -233,43 +233,43 @@ public class NetUtilsTest {
 
   @Test
   public void testGetNodeWithFallback() {
-    // Test with endpoint containing IPv4 address
-    Discover.Endpoint endpointWithIpv4 = Discover.Endpoint.newBuilder()
+    // Test with peer containing IPv4 address
+    Discover.Peer peerWithIpv4 = Discover.Peer.newBuilder()
         .setPort(8000)
         .setNodeId(com.google.protobuf.ByteString.copyFrom("test-node-id".getBytes()))
         .setAddress(com.google.protobuf.ByteString.copyFrom("192.168.1.1".getBytes()))
         .build();
     
     InetSocketAddress sourceAddress = new InetSocketAddress("10.0.0.1", 9000);
-    Node node = NetUtils.getNodeWithFallback(p2pConfig, endpointWithIpv4, sourceAddress);
+    Node node = NetUtils.getNodeWithFallback(p2pConfig, peerWithIpv4, sourceAddress);
     
     assertEquals("192.168.1.1", node.getHostV4());
     assertEquals(8000, node.getPort());
     
-    // Test with endpoint containing IPv6 address
-    Discover.Endpoint endpointWithIpv6 = Discover.Endpoint.newBuilder()
+    // Test with peer containing IPv6 address
+    Discover.Peer peerWithIpV6 = Discover.Peer.newBuilder()
         .setPort(8000)
         .setNodeId(com.google.protobuf.ByteString.copyFrom("test-node-id".getBytes()))
         .setAddressIpv6(com.google.protobuf.ByteString.copyFrom("2001:db8::1".getBytes()))
         .build();
     
-    Node node2 = NetUtils.getNodeWithFallback(p2pConfig, endpointWithIpv6, sourceAddress);
+    Node node2 = NetUtils.getNodeWithFallback(p2pConfig, peerWithIpV6, sourceAddress);
     // IPv6 address is normalized, so use the normalized form
     assertEquals("2001:db8:0:0:0:0:0:1", node2.getHostV6());
     
-    // Test fallback to source address when endpoint has no IP
-    Discover.Endpoint emptyEndpoint = Discover.Endpoint.newBuilder()
+    // Test fallback to source address when peer has no IP
+    Discover.Peer emptyPeer = Discover.Peer.newBuilder()
         .setPort(8000)
         .setNodeId(com.google.protobuf.ByteString.copyFrom("test-node-id".getBytes()))
         .build();
     
     InetSocketAddress ipv4Source = new InetSocketAddress("172.16.0.1", 9000);
-    Node nodeWithFallback = NetUtils.getNodeWithFallback(p2pConfig, emptyEndpoint, ipv4Source);
+    Node nodeWithFallback = NetUtils.getNodeWithFallback(p2pConfig, emptyPeer, ipv4Source);
     assertEquals("172.16.0.1", nodeWithFallback.getHostV4());
     
     // Test fallback with IPv6 source
     InetSocketAddress ipv6Source = new InetSocketAddress("::1", 9000);
-    Node nodeWithIpv6Fallback = NetUtils.getNodeWithFallback(p2pConfig, emptyEndpoint, ipv6Source);
+    Node nodeWithIpv6Fallback = NetUtils.getNodeWithFallback(p2pConfig, emptyPeer, ipv6Source);
     assertEquals("0:0:0:0:0:0:0:1", nodeWithIpv6Fallback.getHostV6());
   }
 

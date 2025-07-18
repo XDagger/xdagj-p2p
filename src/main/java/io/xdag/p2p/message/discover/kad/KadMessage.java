@@ -28,7 +28,7 @@ import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.message.discover.Message;
 import io.xdag.p2p.message.discover.MessageType;
-import io.xdag.p2p.proto.Discover.Endpoint;
+import io.xdag.p2p.proto.Discover.Peer;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import org.apache.commons.lang3.StringUtils;
@@ -44,8 +44,8 @@ public abstract class KadMessage extends Message {
 
   public abstract long getTimestamp();
 
-  public static Endpoint getEndpointFromNode(Node node) {
-    Endpoint.Builder builder = Endpoint.newBuilder().setPort(node.getPort());
+  public static Peer getPeerFromNode(Node node) {
+    Peer.Builder builder = Peer.newBuilder().setPort(node.getPort());
     if (node.getId() != null) {
       builder.setNodeId(ByteString.copyFrom(node.getId().toArray()));
     }
