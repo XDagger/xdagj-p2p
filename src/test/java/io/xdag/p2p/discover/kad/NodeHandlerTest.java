@@ -66,7 +66,7 @@ public class NodeHandlerTest {
     p2pConfig.setDiscoverEnable(false);
     kadService = new KadService(p2pConfig);
     kadService.init();
-    // Set very short timeout for unit tests
+    // Set a very short timeout for unit tests
     KadService.setPingTimeout(1);
     currNode = new Node(p2pConfig, new InetSocketAddress("127.0.0.1", 22222));
     oldNode = new Node(p2pConfig, new InetSocketAddress("127.0.0.2", 22222));
@@ -364,7 +364,7 @@ public class NodeHandlerTest {
     NodeHandler handler = new NodeHandler(p2pConfig, nodeWithoutAddress, kadService);
     
     // Then
-    // Should not call changeState to DISCOVERED since address is null
+    // Should not call changeState to DISCOVERED since the address is null
     assertNotNull(handler);
   }
 

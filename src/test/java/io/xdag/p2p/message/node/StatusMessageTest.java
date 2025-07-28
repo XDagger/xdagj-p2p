@@ -57,7 +57,7 @@ public class StatusMessageTest {
 
     assertEquals(p2pConfig.getNetworkId(), decodedProto.getNetworkId());
     assertEquals(p2pConfig.getMaxConnections(), decodedProto.getMaxConnections());
-    assertEquals(0, decodedProto.getCurrentConnections()); // Mocked to return empty list
+    assertEquals(0, decodedProto.getCurrentConnections()); // Mocked to return an empty list
     assertNotNull(decodedProto.getFrom());
     assertEquals(
         p2pConfig.getNodeID(), Bytes.wrap(decodedProto.getFrom().getNodeId().toByteArray()));

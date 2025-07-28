@@ -188,8 +188,8 @@ class P2pProtobufVarint32FrameDecoderTest {
     assertFalse(embeddedChannel.writeInbound(input));
 
     // Then
-    verify(channel).send(any(Message.class)); // Should send disconnect message
-    verify(channel).close(); // Should close channel
+    verify(channel).send(any(Message.class)); // Should send the disconnect message
+    verify(channel).close(); // Should close the channel
 
     ByteBuf output = embeddedChannel.readInbound();
     assertNull(output); // No output due to max length exceeded
@@ -233,7 +233,7 @@ class P2pProtobufVarint32FrameDecoderTest {
     // Given - Write malformed varint (too many continuation bytes)
     ByteBuf input = Unpooled.buffer();
     for (int i = 0; i < 5; i++) {
-      input.writeByte(0x80); // 5 bytes with continuation bit set
+      input.writeByte(0x80); // 5 bytes with the continuation bit set
     }
 
     // When & Then
@@ -261,7 +261,7 @@ class P2pProtobufVarint32FrameDecoderTest {
     assertTrue(embeddedChannel.writeInbound(input));
 
     // Then
-    // First message
+    // the First message
     ByteBuf output1 = embeddedChannel.readInbound();
     assertNotNull(output1);
     assertEquals(3, output1.readableBytes());

@@ -33,7 +33,7 @@ import io.xdag.p2p.discover.dns.tree.Tree;
 import io.xdag.p2p.discover.dns.update.AwsClient;
 import io.xdag.p2p.discover.dns.update.AwsClient.RecordSet;
 import io.xdag.p2p.discover.dns.update.PublishConfig;
-import io.xdag.p2p.utils.CryptoUtilsTest;
+import io.xdag.p2p.utils.EncodeUtilsTest;
 import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -174,7 +174,7 @@ public class AwsRoute53Test {
 
     Tree tree = new Tree(p2pConfig);
     try {
-      tree.makeTree(1, enrList, linkList, CryptoUtilsTest.privateKey);
+      tree.makeTree(1, enrList, linkList, EncodeUtilsTest.privateKey);
     } catch (DnsException e) {
       fail();
     }

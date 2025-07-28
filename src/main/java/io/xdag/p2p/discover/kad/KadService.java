@@ -163,7 +163,7 @@ public class KadService implements DiscoverService {
         Node fromNode = pingMessage.getFrom();
         if (fromNode != null && fromNode.getId() != null) {
           n.setId(fromNode.getId());
-          // Update address information from message if available
+          // Update address information from the message if available
           n.updateHostV4(fromNode.getHostV4());
           n.updateHostV6(fromNode.getHostV6());
         }

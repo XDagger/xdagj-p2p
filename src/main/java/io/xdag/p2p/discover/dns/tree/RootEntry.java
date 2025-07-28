@@ -25,15 +25,19 @@ package io.xdag.p2p.discover.dns.tree;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import io.xdag.crypto.hash.HashUtils;
+import io.xdag.crypto.keys.PublicKey;
+import io.xdag.crypto.keys.Signature;
+import io.xdag.crypto.keys.Signer;
 import io.xdag.p2p.DnsException;
 import io.xdag.p2p.DnsException.TypeEnum;
 import io.xdag.p2p.proto.Discover.DnsRoot;
 import io.xdag.p2p.utils.BytesUtils;
-import io.xdag.p2p.utils.CryptoUtils;
-import java.security.SignatureException;
+import io.xdag.p2p.utils.EncodeUtils;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.tuweni.bytes.Bytes;
+import org.apache.tuweni.bytes.Bytes32;
 
 /**
  * Represents a root entry in a DNS tree. Contains the tree root information including sequence
@@ -56,7 +60,7 @@ public class RootEntry implements Entry {
   }
 
   /**
-   * Get the E-root hash (entries root).
+   * Get the E-root hash (entries' root).
    *
    * @return the E-root hash as string
    */
@@ -83,12 +87,12 @@ public class RootEntry implements Entry {
   }
 
   public Bytes getSignature() {
-    return CryptoUtils.decode64(new String(dnsRoot.getSignature().toByteArray()));
+    return EncodeUtils.decode64(new String(dnsRoot.getSignature().toByteArray()));
   }
 
   public void setSignature(Bytes signature) {
     DnsRoot.Builder dnsRootBuilder = dnsRoot.toBuilder();
-    dnsRootBuilder.setSignature(ByteString.copyFrom(CryptoUtils.encode64(signature).getBytes()));
+    dnsRootBuilder.setSignature(ByteString.copyFrom(EncodeUtils.encode64(signature).getBytes()));
     this.dnsRoot = dnsRootBuilder.build();
   }
 
@@ -107,12 +111,12 @@ public class RootEntry implements Entry {
     String value = e.substring(rootPrefix.length());
     DnsRoot dnsRoot1;
     try {
-      dnsRoot1 = DnsRoot.parseFrom(CryptoUtils.decode64(value).toArray());
+      dnsRoot1 = DnsRoot.parseFrom(EncodeUtils.decode64(value).toArray());
     } catch (InvalidProtocolBufferException ex) {
       throw new DnsException(TypeEnum.INVALID_ROOT, String.format("proto=[%s]", e), ex);
     }
 
-    Bytes signature = CryptoUtils.decode64(new String(dnsRoot1.getSignature().toByteArray()));
+    Bytes signature = EncodeUtils.decode64(new String(dnsRoot1.getSignature().toByteArray()));
     if (signature.size() != 65) {
       throw new DnsException(
           TypeEnum.INVALID_SIGNATURE,
@@ -125,19 +129,23 @@ public class RootEntry implements Entry {
   }
 
   public static RootEntry parseEntry(String e, String publicKey, String domain)
-      throws SignatureException, DnsException {
+      throws DnsException {
     log.info("Domain:{}, public key:{}", domain, publicKey);
     RootEntry rootEntry = parseEntry(e);
-    boolean verify =
-        CryptoUtils.verifySignature(publicKey, rootEntry.toString(), rootEntry.getSignature());
+
+    Bytes32 hash = HashUtils.sha256(BytesUtils.fromString(rootEntry.toString()));
+    Signature sig = Signature.decode(rootEntry.getSignature());
+    PublicKey pubkey = PublicKey.fromHex(publicKey);
+
+    boolean verify = Signer.verify(hash, sig, pubkey);
     if (!verify) {
       throw new DnsException(
           TypeEnum.INVALID_SIGNATURE,
           String.format(
               "verify signature failed! data:[%s], publicKey:%s, domain:%s", e, publicKey, domain));
     }
-    if (!CryptoUtils.isValidHash(rootEntry.getERoot())
-        || !CryptoUtils.isValidHash(rootEntry.getLRoot())) {
+    if (!EncodeUtils.isValidHash(rootEntry.getERoot())
+        || !EncodeUtils.isValidHash(rootEntry.getLRoot())) {
       throw new DnsException(
           TypeEnum.INVALID_CHILD,
           "eroot:" + rootEntry.getERoot() + " lroot:" + rootEntry.getLRoot());
@@ -152,6 +160,6 @@ public class RootEntry implements Entry {
   }
 
   public String toFormat() {
-    return rootPrefix + CryptoUtils.encode64(Bytes.wrap(dnsRoot.toByteArray()));
+    return rootPrefix + EncodeUtils.encode64(Bytes.wrap(dnsRoot.toByteArray()));
   }
 }

@@ -44,7 +44,7 @@ public class NodeManagerTest {
   public void setUp() {
     config = new P2pConfig();
     nodeManager = new NodeManager(config);
-    nodeManager.init(); // Initialize the discover service
+    nodeManager.init(); // Initialize the discovery service
   }
 
   @Test
@@ -131,7 +131,7 @@ public class NodeManagerTest {
     assertNotNull(allNodes);
     assertNotNull(connectableNodes);
 
-    // Table nodes should be subset of all nodes
+    // Table nodes should be a subset of all nodes
     assertTrue(allNodes.size() >= tableNodes.size());
   }
 }

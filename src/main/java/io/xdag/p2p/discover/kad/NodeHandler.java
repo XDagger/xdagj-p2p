@@ -104,7 +104,7 @@ public class NodeHandler {
         // Congratulate the winner
         replaceCandidate.changeState(State.ACTIVE);
       } else if (oldState == State.ALIVE) {
-        // ok the old node was better, nothing to do here
+        // ok, the old node was better, nothing to do here
       } else {
         // wrong state transition
       }
@@ -233,7 +233,7 @@ public class NodeHandler {
 
   public enum State {
     /**
-     * The new node was just discovered either by receiving it with Neighbours message or by
+     * The new node was just discovered either by receiving it with the Neighbours message or by
      * receiving Ping from a new node In either case we are sending Ping and waiting for Pong If the
      * Pong is received the node becomes {@link #ALIVE} If the Pong was timed out the node becomes
      * {@link #DEAD}

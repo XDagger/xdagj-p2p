@@ -32,8 +32,8 @@ import lombok.Setter;
 @Setter
 public class UdpEvent {
   private Message message;
-  // when receive UdpEvent, this is sender address
-  // when send UdpEvent, this is target address
+  // when receive UdpEvent, this is a sender address
+  // when send UdpEvent, this is a target address
   private InetSocketAddress address;
 
   public UdpEvent() {}

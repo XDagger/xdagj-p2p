@@ -60,7 +60,7 @@ import org.apache.tuweni.bytes.Bytes;
 public class NetUtils {
 
   /**
-   * Validate IPv4 address using regex pattern to avoid DNS resolver dependency. More reliable for
+   * Validate IPv4 address using the regex pattern to avoid DNS resolver dependency. More reliable for
    * local testing with "127.0.0.1" type addresses.
    *
    * @param ip the IP address string to validate

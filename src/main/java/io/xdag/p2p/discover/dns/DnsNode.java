@@ -33,7 +33,7 @@ import io.xdag.p2p.proto.Discover.Peers;
 import io.xdag.p2p.proto.Discover.Peers.Builder;
 import io.xdag.p2p.proto.Discover.Peer;
 import io.xdag.p2p.utils.BytesUtils;
-import io.xdag.p2p.utils.CryptoUtils;
+import io.xdag.p2p.utils.EncodeUtils;
 import java.io.Serial;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -66,7 +66,7 @@ public class DnsNode extends Node implements Comparable<DnsNode> {
    * @param hostV4 the IPv4 address string
    * @param hostV6 the IPv6 address string
    * @param port the port number
-   * @throws UnknownHostException if host address is invalid
+   * @throws UnknownHostException if the host address is invalid
    */
   public DnsNode(P2pConfig p2pConfig, Bytes id, String hostV4, String hostV6, int port)
       throws UnknownHostException {
@@ -97,7 +97,7 @@ public class DnsNode extends Node implements Comparable<DnsNode> {
           Peer Peer = getPeerFromNode(node);
           builder.addPeer(Peer);
         });
-    return CryptoUtils.encode64(Bytes.wrap(builder.build().toByteArray()));
+    return EncodeUtils.encode64(Bytes.wrap(builder.build().toByteArray()));
   }
 
   /**
@@ -106,11 +106,11 @@ public class DnsNode extends Node implements Comparable<DnsNode> {
    * @param base64Content the base64-encoded content to decompress
    * @return list of DNS nodes
    * @throws InvalidProtocolBufferException if protobuf parsing fails
-   * @throws UnknownHostException if host address is invalid
+   * @throws UnknownHostException if the host address is invalid
    */
   public static List<DnsNode> decompress(P2pConfig p2pConfig, String base64Content)
       throws InvalidProtocolBufferException, UnknownHostException {
-    Bytes data = CryptoUtils.decode64(base64Content);
+    Bytes data = EncodeUtils.decode64(base64Content);
     Peers peers = Peers.parseFrom(data.toArray());
 
     List<DnsNode> dnsNodes = new ArrayList<>();

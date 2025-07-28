@@ -100,7 +100,7 @@ public class P2pConfigTest {
     assertNotNull(p2pConfig.getNodeID(), "Node ID should not be null");
     assertNotNull(p2pConfig.getPublishConfig(), "Publish config should not be null");
 
-    // Test IP addresses (may be null depending on network environment)
+    // Test IP addresses (maybe null depending on network environment)
     // These are environment-dependent, so we just check they don't throw exceptions
     assertDoesNotThrow(() -> p2pConfig.getIpV4(), "Getting IP should not throw exception");
     assertDoesNotThrow(() -> p2pConfig.getLanIpV4(), "Getting LAN IP should not throw exception");
@@ -278,7 +278,7 @@ public class P2pConfigTest {
         "Handler map should map type 0x02 to handler2");
   }
 
-  /** Test event handler registration with duplicate message type. */
+  /** Test event handler registration with the duplicate message type. */
   @Test
   void testEventHandlerRegistrationDuplicate() throws P2pException {
     TestEventHandler handler1 = new TestEventHandler("handler1", (byte) 0x01);
@@ -287,7 +287,7 @@ public class P2pConfigTest {
     // Register first handler
     p2pConfig.addP2pEventHandle(handler1);
 
-    // Register second handler with same type should fail
+    // Register second handler with the same type should fail
     P2pException exception =
         assertThrows(
             P2pException.class,

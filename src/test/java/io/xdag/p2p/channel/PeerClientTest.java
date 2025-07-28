@@ -140,7 +140,7 @@ class PeerClientTest {
     ChannelFuture result = peerClient.connect(node, futureListener);
 
     // Then
-    // Result can be null or ChannelFuture depending on connection success
+    // the Result can be null or ChannelFuture depending on connection success
     // The important thing is that it doesn't throw an exception
     // and handles the shutdown check properly
   }
@@ -183,7 +183,7 @@ class PeerClientTest {
     ChannelFuture result = peerClient.connectAsync(node, true);
 
     // Then
-    // Note: The shutdown check happens AFTER connectAsync, not before
+    // Note: The shutdown check happens AFTER connectAsync, not before,
     // So the method may still return a ChannelFuture even when shutdown
     // The actual shutdown handling happens in the returned ChannelFuture processing
   }
@@ -214,7 +214,7 @@ class PeerClientTest {
           peerClient.close();
         });
 
-    // Verify final state
+    // Verify the final state
     Field workerGroupField = PeerClient.class.getDeclaredField("workerGroup");
     workerGroupField.setAccessible(true);
     Object workerGroup = workerGroupField.get(peerClient);

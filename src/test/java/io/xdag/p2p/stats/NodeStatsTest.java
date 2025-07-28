@@ -82,7 +82,7 @@ public class NodeStatsTest {
     assertEquals(
         currentTime, nodeStats.getLastDetectTime(), "Last detect time should be set correctly");
 
-    // Test last success detect time
+    // Test last success detects time
     long successTime = currentTime - 1000;
     nodeStats.setLastSuccessDetectTime(successTime);
     assertEquals(
@@ -195,7 +195,7 @@ public class NodeStatsTest {
 
     // Note: We don't test setting a real StatusMessage here because it requires
     // complex dependencies (ChannelManager). The setter/getter functionality
-    // is tested with null values which is sufficient for unit testing.
+    // is tested with null values that are enough for unit testing.
   }
 
   @Test

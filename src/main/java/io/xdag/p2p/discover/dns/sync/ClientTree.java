@@ -30,7 +30,6 @@ import io.xdag.p2p.discover.dns.tree.LinkEntry;
 import io.xdag.p2p.discover.dns.tree.NodesEntry;
 import io.xdag.p2p.discover.dns.tree.RootEntry;
 import java.net.UnknownHostException;
-import java.security.SignatureException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -82,7 +81,7 @@ public class ClientTree {
   private final Random random;
 
   /**
-   * Constructor for client tree with only client.
+   * Constructor for the client tree with only the client.
    *
    * @param c the DNS client
    */
@@ -93,7 +92,7 @@ public class ClientTree {
   }
 
   /**
-   * Constructor for client tree with client, link cache, and link entry.
+   * Constructor for the client tree with the client, link cache, and link entry.
    *
    * @param c the DNS client
    * @param lc the link cache
@@ -114,11 +113,10 @@ public class ClientTree {
    * @return array indicating if root was updated [lroot, eroot]
    * @throws DnsException if DNS resolution fails
    * @throws UnknownHostException if host is unknown
-   * @throws SignatureException if signature verification fails
    * @throws TextParseException if DNS text parsing fails
    */
   public boolean[] syncAll(Map<String, Entry> entries)
-      throws DnsException, UnknownHostException, SignatureException, TextParseException {
+      throws DnsException, UnknownHostException, TextParseException {
     boolean[] isRootUpdate = updateRoot();
     linkSync.resolveAll(entries);
     enrSync.resolveAll(entries);
@@ -130,12 +128,11 @@ public class ClientTree {
    *
    * @return a DNS node if found, null otherwise
    * @throws DnsException if DNS resolution fails
-   * @throws SignatureException if signature verification fails
    * @throws TextParseException if DNS text parsing fails
    * @throws UnknownHostException if host is unknown
    */
   public synchronized DnsNode syncRandom()
-      throws DnsException, SignatureException, TextParseException, UnknownHostException {
+      throws DnsException, TextParseException, UnknownHostException {
     if (rootUpdateDue()) {
       updateRoot();
     }
@@ -147,7 +144,7 @@ public class ClientTree {
     }
     gcLinks();
 
-    // Sync next random entry in ENR tree. Once every node has been visited, we simply
+    // Sync the next random entry in the ENR tree. Once every node has been visited, we simply
     // start over. This is fine because entries are cached internally by the client LRU
     // also by DNS resolvers.
     if (enrSync.done()) {
@@ -169,7 +166,7 @@ public class ClientTree {
   }
 
   /**
-   * Traverse next link of missing entries.
+   * Traverse the next link of missing entries.
    *
    * @throws DnsException if DNS resolution fails
    * @throws TextParseException if DNS text parsing fails
@@ -187,7 +184,7 @@ public class ClientTree {
   }
 
   /**
-   * Get one hash from ENR missing randomly, then get random node from hash if it's a leaf node.
+   * Get one hash from ENR missing randomly, then get a random node from hash if it's a leaf node.
    *
    * @return a random DNS node if found, null otherwise
    * @throws DnsException if DNS resolution fails
@@ -210,16 +207,15 @@ public class ClientTree {
   }
 
   /**
-   * Update the root entry to ensure it's up-to-date.
+   * Update the root entry to ensure it's up to date.
    *
    * @return array indicating if root was updated [lroot, eroot]
    * @throws TextParseException if DNS text parsing fails
    * @throws DnsException if DNS resolution fails
-   * @throws SignatureException if signature verification fails
    * @throws UnknownHostException if host is unknown
    */
   private boolean[] updateRoot()
-      throws TextParseException, DnsException, SignatureException, UnknownHostException {
+      throws TextParseException, DnsException, UnknownHostException {
     log.info("UpdateRoot {}", linkEntry.domain());
     lastValidateTime = System.currentTimeMillis();
     RootEntry rootEntry = client.resolveRoot(linkEntry);

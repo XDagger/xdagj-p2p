@@ -213,13 +213,13 @@ public class ChannelManagerTest {
     when(c1.getInetSocketAddress()).thenReturn(address);
     when(c1.getInetAddress()).thenReturn(address.getAddress());
     
-    // Add channel to manager
+    // Add a channel to manager
     channelManager.getChannels().put(address, c1);
     
     // When
     channelManager.updateNodeId(c1, newNodeId);
     
-    // Then - verify channel is still in manager after node ID update
+    // Then a - verify channel is still in manager after node ID update
     assertEquals(1, channelManager.getChannels().size());
   }
 

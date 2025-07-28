@@ -208,7 +208,7 @@ public class NodeTableTest {
     nodeTable.addNode(nearNode);
     nodeTable.addNode(farNode);
     for (int i = 0; i < KademliaOptions.BUCKET_SIZE - 1; i++) {
-      // To control totally 17 nodes, however closest's capacity is 16
+      // To control totally 17 nodes, however, closest's capacity is 16
       nodeTable.addNode(new Node(p2pConfig, ids.get(i), ips[i], null, 16783, 16783));
       TimeUnit.MILLISECONDS.sleep(10);
     }

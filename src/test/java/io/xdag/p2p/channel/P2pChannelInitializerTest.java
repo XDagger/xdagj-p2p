@@ -216,7 +216,7 @@ class P2pChannelInitializerTest {
     // When
     channelInitializer.initChannel(nioSocketChannel);
 
-    // Then - should not throw any exception
+    // Then - should not throw any exception,
     // The method should handle exceptions gracefully and log them
   }
 }

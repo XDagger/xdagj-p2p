@@ -266,7 +266,7 @@ public class DnsExceptionTest {
     assertInstanceOf(Throwable.class, exception, "DnsException should be instance of Throwable");
   }
 
-  /** Test DNS exception with null message. */
+  /** Test DNS exception with a null message. */
   @Test
   void testExceptionWithNullMessage() {
     DnsException exception = new DnsException(DnsException.TypeEnum.OTHER_ERROR, (String) null);
@@ -278,7 +278,7 @@ public class DnsExceptionTest {
         "Exception message should contain type description even with null custom message");
   }
 
-  /** Test DNS exception with empty message. */
+  /** Test DNS exception with an empty message. */
   @Test
   void testExceptionWithEmptyMessage() {
     String emptyMessage = "";
@@ -340,7 +340,7 @@ public class DnsExceptionTest {
   @Test
   void testCreateExceptionsForAllTypes() {
     for (DnsException.TypeEnum type : DnsException.TypeEnum.values()) {
-      // Test with message only
+      // Test with a message only
       assertDoesNotThrow(
           () -> new DnsException(type, "Test message for " + type.getDesc()),
           "Should be able to create DNS exception with message for type: " + type);

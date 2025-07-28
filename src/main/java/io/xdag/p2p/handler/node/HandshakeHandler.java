@@ -58,7 +58,7 @@ public class HandshakeHandler implements MessageHandler {
       if (msg.getCode() != DisconnectCode.NORMAL.getValue()
           || (msg.getNetworkId() != networkId && msg.getVersion() != networkId)) {
         DisconnectCode disconnectCode = DisconnectCode.forNumber(msg.getCode());
-        // v0.1 have version, v0.2 both have version and networkId
+        // v0.1 have the version, v0.2 both have version and networkId
         log.info(
             "Handshake failed {}, code: {}, reason: {}, networkId: {}, version: {}",
             channel.getInetSocketAddress(),
@@ -98,7 +98,7 @@ public class HandshakeHandler implements MessageHandler {
 
   @Override
   public void onConnect(Channel channel) {
-    // No action needed for handshake handler on connect
+    // No action needed for handshake handler on connecting
   }
 
   @Override

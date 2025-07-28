@@ -29,7 +29,6 @@ import io.xdag.p2p.message.discover.kad.FindNodeMessage;
 import io.xdag.p2p.message.discover.kad.NeighborsMessage;
 import io.xdag.p2p.message.discover.kad.PingMessage;
 import io.xdag.p2p.message.discover.kad.PongMessage;
-import io.xdag.p2p.utils.BytesUtils;
 import lombok.Getter;
 import org.apache.tuweni.bytes.Bytes;
 
@@ -53,7 +52,7 @@ public abstract class Message {
   }
 
   public Bytes getSendData() {
-    return BytesUtils.concat(Bytes.of(type.getType()), this.data);
+    return Bytes.concatenate(Bytes.of(type.getType()), this.data);
   }
 
   public abstract boolean valid();

@@ -116,9 +116,9 @@ public class NetUtilsTest {
     boolean isCI = System.getenv("CI") != null;
     
     if (isCI) {
-      // In CI environment, just test the basic functionality with fallback
+      // In CI environment, test the basic functionality with fallback
       String ip4 = NetUtils.getExternalIpV4();
-      // In CI, this might return LAN IP as fallback, which is acceptable
+      // In CI, this might return LAN IP as a fallback, which is acceptable
       assertNotNull(ip4, "External IP should not be null (may be LAN IP in CI)");
       return;
     }

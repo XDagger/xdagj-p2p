@@ -2,7 +2,6 @@ package io.xdag.p2p.message.node;
 
 import io.xdag.p2p.P2pException;
 import io.xdag.p2p.config.P2pConfig;
-import io.xdag.p2p.utils.BytesUtils;
 import lombok.Getter;
 import org.apache.tuweni.bytes.Bytes;
 
@@ -37,7 +36,7 @@ public abstract class Message {
   }
 
   public Bytes getSendData() {
-    return BytesUtils.concat(Bytes.of(type.getType()), this.data);
+    return Bytes.concatenate(Bytes.of(type.getType()), this.data);
   }
 
   /**

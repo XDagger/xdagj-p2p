@@ -33,7 +33,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import java.math.BigInteger;
 import org.apache.tuweni.bytes.Bytes;
 import org.junit.jupiter.api.Test;
 
@@ -54,23 +53,6 @@ public class BytesUtilsTest {
   }
 
   @Test
-  public void testWrapByteArrayWithOffsetAndLength() {
-    byte[] testArray = {1, 2, 3, 4, 5, 6, 7, 8};
-
-    // Normal case
-    Bytes result = BytesUtils.wrap(testArray, 2, 3);
-    assertEquals(3, result.size());
-    assertArrayEquals(new byte[] {3, 4, 5}, result.toArray());
-
-    // Edge cases
-    assertEquals(Bytes.EMPTY, BytesUtils.wrap(null, 0, 5));
-    assertEquals(Bytes.EMPTY, BytesUtils.wrap(testArray, -1, 3));
-    assertEquals(Bytes.EMPTY, BytesUtils.wrap(testArray, 0, 0));
-    assertEquals(Bytes.EMPTY, BytesUtils.wrap(testArray, 0, -1));
-    assertEquals(Bytes.EMPTY, BytesUtils.wrap(testArray, 5, 10));
-  }
-
-  @Test
   public void testFromString() {
     String testString = "Hello World";
     Bytes result = BytesUtils.fromString(testString);
@@ -83,35 +65,6 @@ public class BytesUtilsTest {
 
     // Test empty string
     assertEquals(Bytes.EMPTY, BytesUtils.fromString(""));
-  }
-
-  @Test
-  public void testToString() {
-    String original = "Hello World";
-    Bytes bytes = BytesUtils.fromString(original);
-    String result = BytesUtils.toString(bytes);
-
-    assertEquals(original, result);
-
-    // Test null input
-    assertEquals("", BytesUtils.toString(null));
-  }
-
-  @Test
-  public void testConcat() {
-    Bytes bytes1 = Bytes.fromHexString("0x1234");
-    Bytes bytes2 = Bytes.fromHexString("0x5678");
-    Bytes bytes3 = Bytes.fromHexString("0x9abc");
-
-    Bytes result = BytesUtils.concat(bytes1, bytes2, bytes3);
-    assertEquals(Bytes.fromHexString("0x123456789abc"), result);
-
-    // Test empty input
-    assertEquals(Bytes.EMPTY, BytesUtils.concat());
-    assertEquals(Bytes.EMPTY, BytesUtils.concat((Bytes[]) null));
-
-    // Test single input
-    assertEquals(bytes1, BytesUtils.concat(bytes1));
   }
 
   @Test
@@ -156,7 +109,7 @@ public class BytesUtilsTest {
     Bytes bytes = Bytes.fromHexString("0x123456789abc");
 
     // Normal case
-    Bytes result = BytesUtils.skip(bytes, 2);
+    Bytes result = bytes.slice(2);
     assertEquals(Bytes.fromHexString("0x56789abc"), result);
 
     // Skip all
@@ -256,16 +209,6 @@ public class BytesUtilsTest {
   }
 
   @Test
-  public void testToHexStringBigInteger() {
-    BigInteger value = new BigInteger("255");
-    String result = BytesUtils.toHexString(value);
-    assertEquals("ff", result);
-
-    BigInteger zero = BigInteger.ZERO;
-    assertEquals("0", BytesUtils.toHexString(zero));
-  }
-
-  @Test
   public void testToStr() {
     byte[] bytes = "Hello".getBytes();
     String result = BytesUtils.toStr(bytes);
@@ -274,22 +217,8 @@ public class BytesUtilsTest {
     // Test null - returns null according to implementation
     assertNull(BytesUtils.toStr(null));
 
-    // Test empty array - returns null according to implementation
+    // Test empty array - returns null, according to implementation
     assertNull(BytesUtils.toStr(new byte[0]));
-  }
-
-  @Test
-  public void testFromObject() {
-    String testObject = "Test String";
-    byte[] result = BytesUtils.fromObject(testObject);
-
-    assertNotNull(result);
-    assertTrue(result.length > 0);
-
-    // Test null - actually serializes null object, so returns non-null byte array
-    byte[] nullResult = BytesUtils.fromObject(null);
-    assertNotNull(nullResult);
-    assertTrue(nullResult.length > 0); // Serialized null is not empty
   }
 
   @Test

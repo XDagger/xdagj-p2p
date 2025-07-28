@@ -46,7 +46,7 @@ public class P2pException extends Exception {
   }
 
   /**
-   * Constructor with error type and throwable cause.
+   * Constructor with the error type and throwable cause.
    *
    * @param type the type of P2P error
    * @param throwable the underlying cause
@@ -57,7 +57,7 @@ public class P2pException extends Exception {
   }
 
   /**
-   * Constructor with error type, message and throwable cause.
+   * Constructor with the error type, message and throwable cause.
    *
    * @param type the type of P2P error
    * @param errMsg the error message
@@ -77,13 +77,13 @@ public class P2pException extends Exception {
     /** No message handler found for the given message type */
     NO_SUCH_MESSAGE(1, "no such message"),
 
-    /** Failed to parse received message */
+    /** Failed to parse received the message */
     PARSE_MESSAGE_FAILED(2, "parse message failed"),
 
     /** Message has incorrect length */
     MESSAGE_WITH_WRONG_LENGTH(3, "message with wrong length"),
 
-    /** Message is malformed or invalid */
+    /** The Message is malformed or invalid */
     BAD_MESSAGE(4, "bad message"),
 
     /** Unsupported or invalid protocol */
@@ -92,7 +92,7 @@ public class P2pException extends Exception {
     /** Message type is already registered */
     TYPE_ALREADY_REGISTERED(6, "type already registered"),
 
-    /** Received empty message */
+    /** Received the empty message */
     EMPTY_MESSAGE(7, "empty message"),
 
     /** Message exceeds maximum allowed size */

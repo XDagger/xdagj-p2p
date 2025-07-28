@@ -6,7 +6,7 @@
 
     <groupId>io.xdag</groupId>
     <artifactId>xdagj-p2p</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
 
     <name>xdagj-p2p</name>
     <description>A Java p2p Library For XDAGJ</description>
@@ -19,6 +19,8 @@
         <maven.compiler.encoding>UTF-8</maven.compiler.encoding>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
+
+        <xdagj-crypto.version>0.1.2</xdagj-crypto.version>
 
         <!-- utils -->
         <lombok.version>1.18.38</lombok.version>
@@ -38,9 +40,6 @@
 
         <!-- crypto -->
         <tuweni.version>2.7.0</tuweni.version>
-        <algorithms.version>25.5.0</algorithms.version>
-        <bcprov-jdk18on.version>1.80</bcprov-jdk18on.version>
-        <bcpkix-jdk18on.version>1.80</bcpkix-jdk18on.version>
 
         <!-- log -->
         <slf4j.version>2.0.17</slf4j.version>
@@ -84,22 +83,6 @@
             <email>xdagj@xdag.io</email>
         </developer>
     </developers>
-
-    <repositories>
-        <repository>
-            <id>maven_central</id>
-            <name>Maven Central</name>
-            <url>https://repo.maven.apache.org/maven2/</url>
-        </repository>
-        <repository>
-            <id>hyperledger.jfrog.io</id>
-            <url>https://hyperledger.jfrog.io/artifactory/besu-maven/</url>
-        </repository>
-        <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
-        </repository>
-    </repositories>
 
     <scm>
         <tag>master</tag>
@@ -311,8 +294,6 @@
                 </executions>
             </plugin>
 
-
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
@@ -402,63 +383,9 @@
     <dependencies>
 
         <dependency>
-            <groupId>io.consensys.tuweni</groupId>
-            <artifactId>tuweni-bytes</artifactId>
-            <version>${tuweni.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.google.guava</groupId>
-                    <artifactId>guava</artifactId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>kotlin-stdlib</artifactId>
-                    <groupId>org.jetbrains.kotlin</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>vertx-core</artifactId>
-                    <groupId>io.vertx</groupId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>io.consensys.tuweni</groupId>
-            <artifactId>tuweni-units</artifactId>
-            <version>${tuweni.version}</version>
-            <exclusions>
-                <exclusion>
-                    <artifactId>guava</artifactId>
-                    <groupId>com.google.guava</groupId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.hyperledger.besu.internal</groupId>
-            <artifactId>algorithms</artifactId>
-            <version>${algorithms.version}</version>
-            <exclusions>
-                <exclusion>
-                    <artifactId>guava</artifactId>
-                    <groupId>com.google.guava</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>slf4j-api</artifactId>
-                    <groupId>org.slf4j</groupId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.bouncycastle</groupId>
-            <artifactId>bcprov-jdk18on</artifactId>
-            <version>${bcprov-jdk18on.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.bouncycastle</groupId>
-            <artifactId>bcpkix-jdk18on</artifactId>
-            <version>${bcpkix-jdk18on.version}</version>
+            <groupId>io.xdag</groupId>
+            <artifactId>xdagj-crypto</artifactId>
+            <version>${xdagj-crypto.version}</version>
         </dependency>
 
         <dependency>

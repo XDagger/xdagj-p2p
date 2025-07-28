@@ -211,7 +211,7 @@ class HandshakeHandlerTest {
     handshakeHandler.onMessage(channel, helloMessage);
 
     // Then
-    // Active channel with wrong network ID AND version should disconnect
+    // an Active channel with the wrong network ID AND version should disconnect
     verify(channelManager).logDisconnectReason(any(Channel.class), any(DisconnectReason.class));
     verify(channel).close();
     verify(channel, never()).setFinishHandshake(true);
@@ -280,7 +280,7 @@ class HandshakeHandlerTest {
     handshakeHandler.onConnect(channel);
 
     // Then
-    // Should complete without throwing exception
+    // Should complete without throwing exception,
     // This is a no-op method in the current implementation
   }
 
@@ -290,11 +290,11 @@ class HandshakeHandlerTest {
     handshakeHandler.onDisconnect(channel);
 
     // Then
-    // Should complete without throwing exception
+    // Should complete without throwing exception,
     // This is a no-op method in the current implementation
   }
 
-  /** Helper method to setup a normal handshake scenario */
+  /** Helper method to set up a normal handshake scenario */
   private void setupNormalHandshakeScenario() {
     when(channel.isFinishHandshake()).thenReturn(false);
     when(helloMessage.getTimestamp()).thenReturn(testTimestamp);

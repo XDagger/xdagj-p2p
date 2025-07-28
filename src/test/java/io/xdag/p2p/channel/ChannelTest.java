@@ -199,7 +199,7 @@ class ChannelTest {
     // When
     channel.send(testData);
 
-    // Then - should not send when disconnected
+    // Then - should not send when disconnected,
     // The method should return early and not call writeAndFlush
   }
 
@@ -333,7 +333,7 @@ class ChannelTest {
 
   @Test
   void testIsActiveWithNodeId() {
-    // Given - need to call init to set isActive properly
+    // Given - need it to call init to set isActive properly
     channel.init(pipeline, "test-node-id", false);
 
     // When & Then

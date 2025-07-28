@@ -33,7 +33,7 @@ import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.dns.tree.Entry;
 import io.xdag.p2p.discover.dns.tree.Tree;
 import io.xdag.p2p.discover.dns.update.PublishConfig;
-import io.xdag.p2p.utils.CryptoUtils;
+import io.xdag.p2p.utils.EncodeUtils;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -195,8 +195,8 @@ public class TreeTest {
       assertTrue(linkList.contains(link));
     }
 
-    assertEquals(CryptoUtils.encode32AndTruncate(enrBranch4), tree.getRootEntry().getERoot());
-    assertEquals(CryptoUtils.encode32AndTruncate(linkBranch0), tree.getRootEntry().getLRoot());
+    assertEquals(EncodeUtils.encode32AndTruncate(enrBranch4), tree.getRootEntry().getERoot());
+    assertEquals(EncodeUtils.encode32AndTruncate(linkBranch0), tree.getRootEntry().getLRoot());
     assertEquals(seq, tree.getSeq());
   }
 

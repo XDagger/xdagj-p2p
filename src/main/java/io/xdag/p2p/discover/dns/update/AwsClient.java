@@ -103,11 +103,11 @@ public class AwsClient implements Publish<RecordSet> {
   private final double changeThreshold;
 
   /**
-   * Constructor for AWS Route53 DNS client.
+   * Constructor for the AWS Route53 DNS client.
    *
    * @param accessKey the AWS access key ID
    * @param accessKeySecret the AWS access key secret
-   * @param zoneId the Route53 hosted zone ID (can be null, will be auto-detected)
+   * @param zoneId the Route53 hosted zone ID (can be null will be auto-detected)
    * @param region the AWS region
    * @param changeThreshold the threshold for triggering DNS updates
    * @throws DnsException if client initialization fails

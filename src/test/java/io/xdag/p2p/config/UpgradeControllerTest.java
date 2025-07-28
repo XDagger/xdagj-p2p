@@ -70,7 +70,7 @@ public class UpgradeControllerTest {
 
   @Test
   public void testRoundTripWithCompression() throws P2pException, IOException {
-    // Test encode then decode with compression
+    // Test encoding then decode with compression
     Bytes originalData = Bytes.fromHexString("0x1234567890abcdef1122334455667788");
 
     // Encode with compression
@@ -85,7 +85,7 @@ public class UpgradeControllerTest {
 
   @Test
   public void testRoundTripWithoutCompression() throws P2pException, IOException {
-    // Test encode then decode without compression
+    // Test encoding then decode without compression
     Bytes originalData = Bytes.fromHexString("0x1234567890abcdef1122334455667788");
 
     // Encode without compression

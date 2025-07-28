@@ -129,10 +129,11 @@ public class SyncTest {
     try {
         syncClient.syncTree("tree://invalid@test.example.com", clientTree, tree);
     } catch (Exception e) {
-        // Expected behavior - DNS resolution will fail for invalid URL
+        // Expected behavior - DNS resolution will fail for invalid URL.
         // The important thing is that the method exists and accepts the parameters
         assertInstanceOf(Exception.class, e);
       }
     });
   }
+
 }

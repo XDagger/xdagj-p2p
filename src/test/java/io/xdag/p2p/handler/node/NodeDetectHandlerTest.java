@@ -77,7 +77,7 @@ class NodeDetectHandlerTest {
     // When
     handler.init(peerClient);
 
-    // Then - Should not initialize when node detect is disabled
+    // Then - Should not initialize when node detect is disabled,
     // No exception should be thrown
   }
 
@@ -148,7 +148,7 @@ class NodeDetectHandlerTest {
     nodeDetectHandler.notifyDisconnect(channel);
 
     // Then
-    // Should return early for inactive channel
+    // Should return early for the inactive channel
     verify(channel, never()).getInetSocketAddress();
   }
 
@@ -182,7 +182,7 @@ class NodeDetectHandlerTest {
     nodeDetectHandler.onConnect(channel);
 
     // Then
-    // Should complete without throwing exception
+    // Should complete without throwing exception,
     // This is a no-op method in the current implementation
   }
 
@@ -215,7 +215,7 @@ class NodeDetectHandlerTest {
     nodeDetectHandler.trimNodeMap();
 
     // Then
-    // Should complete without throwing exception
+    // Should complete without throwing exception,
     // This method cleans up timed out nodes
   }
 

@@ -62,7 +62,7 @@ public class NodeEntryTest {
     String hexRandomIdStr = BytesUtils.toHexString(randomId);
     assertEquals(128, hexRandomIdStr.length()); // 64 bytes = 128 hex characters
 
-    // All node IDs as 64 bytes (128 hex characters)
+    // All nodes IDs as 64 bytes (128 hex characters)
     Bytes nodeId1 =
         BytesUtils.fromHexString(
             "0000000000000000000000000000000000000000000000000000000000000000"

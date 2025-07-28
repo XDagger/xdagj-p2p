@@ -115,13 +115,8 @@ public class ClientTest {
     
     // This will attempt to sync but may fail due to DNS resolution
     // The important thing is that it doesn't throw unexpected exceptions
-    try {
-      client.startSync();
-    } catch (Exception e) {
-      // Expected behavior since we're not mocking DNS resolution
-      assertTrue(e instanceof RuntimeException || e.getCause() instanceof Exception);
-    }
-    
+    client.startSync();
+
     // Trees map should be populated even if sync fails
     assertEquals(1, client.getTrees().size());
   }
@@ -180,7 +175,7 @@ public class ClientTest {
   void testSyncTreeWithNullClientTree() {
     String urlScheme = "enrtree://test@test.example.com";
     Tree tree = new Tree(p2pConfig);
-    
+
     // This will fail due to DNS resolution but should test the null clientTree handling
     try {
       client.syncTree(urlScheme, null, tree);
@@ -195,7 +190,7 @@ public class ClientTest {
     String urlScheme = "enrtree://test@test.example.com";
     ClientTree clientTree = new ClientTree(client);
     Tree tree = new Tree(p2pConfig);
-    
+
     // This will fail due to DNS resolution
     try {
       client.syncTree(urlScheme, clientTree, tree);

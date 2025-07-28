@@ -100,8 +100,8 @@ public class PingMessageTest {
       PingMessage invalidZeroMsg =
           new PingMessage(p2pConfig, Bytes.wrap(zeroTimestampMessage.toByteArray()));
       assertEquals(0L, invalidZeroMsg.getTimeStamp(), "Timestamp should be 0");
-      // Zero timestamp should be invalid
-      // assertFalse(invalidZeroMsg.valid(), "Message with zero timestamp should be invalid");
+      // Zero timestamps should be invalid
+      // assertFalse(invalidZeroMsg.valid(), "Message with zero timestamps should be invalid");
     } catch (Exception e) {
       // Should not throw exception
     }

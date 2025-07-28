@@ -61,7 +61,7 @@ public class NodeEntry {
       return KademliaOptions.BINS;
     }
 
-    // Truncate to same length for XOR
+    // Truncate to the same length for XOR
     Bytes ownerTrunc = BytesUtils.take(ownerId, minLength);
     Bytes targetTrunc = BytesUtils.take(targetId, minLength);
 

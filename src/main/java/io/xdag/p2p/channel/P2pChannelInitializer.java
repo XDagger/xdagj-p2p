@@ -40,7 +40,7 @@ public class P2pChannelInitializer extends ChannelInitializer<NioSocketChannel> 
   private final String remoteId;
 
   private final boolean
-      peerDiscoveryMode; // only be true when channel is activated by detect service
+      peerDiscoveryMode; // only be true when a channel is activated by detect service
 
   private final boolean trigger;
 

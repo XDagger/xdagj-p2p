@@ -96,7 +96,7 @@ public class P2pServiceTest {
       fail("First handler registration should succeed");
     }
 
-    // Register second handler with different message type
+    // Register the second handler with a different message type
     try {
       p2pService.register(handler2);
     } catch (P2pException e) {
@@ -110,7 +110,7 @@ public class P2pServiceTest {
     assertEquals(2, p2pConfig.getHandlerList().size(), "Should have exactly 2 handlers registered");
   }
 
-  /** Test P2P event handler registration with duplicate message type. */
+  /** Test P2P event handler registration with a duplicate message type. */
   @Test
   void testEventHandlerRegistrationDuplicate() {
     TestEventHandler handler1 = new TestEventHandler("handler1", (byte) 0x01);
@@ -123,7 +123,7 @@ public class P2pServiceTest {
       fail("First handler registration should succeed");
     }
 
-    // Register second handler with same message type should fail
+    // Register second handler with the same message type should fail
     try {
       p2pService.register(handler2);
       fail("Second handler registration with duplicate type should fail");

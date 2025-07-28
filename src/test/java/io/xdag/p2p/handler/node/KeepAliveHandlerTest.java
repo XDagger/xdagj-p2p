@@ -66,7 +66,7 @@ class KeepAliveHandlerTest {
     keepAliveHandler.init();
 
     // Then
-    // Should initialize successfully without throwing exception
+    // Should initialize successfully without throwing exception,
     // The scheduled task will run in the background
   }
 
@@ -130,7 +130,7 @@ class KeepAliveHandlerTest {
     keepAliveHandler.onConnect(channel);
 
     // Then
-    // Should complete without throwing exception
+    // Should complete without throwing exception,
     // This is a no-op method in the current implementation
   }
 
@@ -140,7 +140,7 @@ class KeepAliveHandlerTest {
     keepAliveHandler.onDisconnect(channel);
 
     // Then
-    // Should complete without throwing exception
+    // Should complete without throwing exception,
     // This is a no-op method in the current implementation
   }
 
@@ -157,7 +157,7 @@ class KeepAliveHandlerTest {
     keepAliveHandler.init();
 
     // Then
-    // Disconnected channels should be filtered out
+    // Disconnected channels should be filtered out,
     // No ping should be sent to disconnected channels
   }
 
@@ -176,7 +176,7 @@ class KeepAliveHandlerTest {
     keepAliveHandler.init();
 
     // Then
-    // Should not send disconnect message as it's not timed out yet
+    // Should not send the disconnect message as it's not timed out yet
   }
 
   @Test
@@ -196,7 +196,7 @@ class KeepAliveHandlerTest {
     keepAliveHandler.init();
 
     // Then
-    // Should send ping message when last send time exceeds ping timeout
+    // Should send the ping message when last send time exceeds ping timeout
     // Note: This test verifies the logic but the actual execution happens asynchronously
   }
 
@@ -216,7 +216,7 @@ class KeepAliveHandlerTest {
     keepAliveHandler.init();
 
     // Then
-    // Should not send ping message when handshake is not finished
+    // Should not send the ping message when handshake is not finished
   }
 
   @Test
@@ -235,6 +235,6 @@ class KeepAliveHandlerTest {
     keepAliveHandler.init();
 
     // Then
-    // Should not send ping message when there's recent activity
+    // Should not send the ping message when there's recent activity
   }
 }

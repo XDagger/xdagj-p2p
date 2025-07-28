@@ -239,7 +239,7 @@ public class NodeDetectHandler implements MessageHandler {
 
   @Override
   public void onConnect(Channel channel) {
-    // No action needed for node detect handler on connect
+    // No action needed for node detect handler on connecting
   }
 
   @Override

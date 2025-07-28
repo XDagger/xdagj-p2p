@@ -17,7 +17,7 @@ public enum MessageType {
   PING((byte) 0xFF),
   /** Pong response to ping message */
   PONG((byte) 0xFE),
-  /** Handshake message for connection establishment */
+  /** Handshake message for the connection establishment */
   HANDSHAKE_HELLO((byte) 0xFD),
   /** Status message for peer information exchange */
   STATUS((byte) 0xFC),
@@ -40,7 +40,7 @@ public enum MessageType {
   }
 
   /**
-   * Get node message type from byte value.
+   * Get the node message type from byte value.
    *
    * @param type the byte value
    * @return corresponding NodeMessageType or UNKNOWN if not found

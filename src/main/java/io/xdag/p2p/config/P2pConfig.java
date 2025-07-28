@@ -73,7 +73,7 @@ public class P2pConfig {
   private PublishConfig publishConfig = new PublishConfig();
 
   /**
-   * Get default IP address with fallback to LAN IP if external IP is not available.
+   * Get the default IP address with fallback to LAN IP if external IP is not available.
    *
    * @return IP address string
    */

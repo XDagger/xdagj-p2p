@@ -54,7 +54,7 @@ public class UpgradeController {
   }
 
   /**
-   * Decode received data based on protocol version.
+   * Decode received data based on the protocol version.
    *
    * @param version the protocol version
    * @param data the data to decode as Tuweni Bytes

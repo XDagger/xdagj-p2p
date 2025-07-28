@@ -202,7 +202,7 @@ public class SubtreeSyncTest {
     assertEquals(mockBranchEntry, dest.get(testRoot));
     assertEquals(mockNodesEntry1, dest.get("child1"));
     assertEquals(mockNodesEntry2, dest.get("child2"));
-    assertEquals(2, sync.leaves); // Only nodes entries count as leaves
+    assertEquals(2, sync.leaves); // Only node's entries count as leaves
   }
 
   @Test

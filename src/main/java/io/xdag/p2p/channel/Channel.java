@@ -67,7 +67,7 @@ public class Channel {
 
   private ChannelManager channelManager;
 
-  /** Flag indicating if channel is waiting for a pong response */
+  /** Flag indicating if a channel is waiting for a pong response */
   public volatile boolean waitForPong = false;
 
   /** Timestamp when the last ping was sent */

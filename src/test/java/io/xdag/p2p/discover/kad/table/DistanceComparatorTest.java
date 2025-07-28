@@ -51,7 +51,7 @@ public class DistanceComparatorTest {
 
     // Node 2: First bit different
     byte[] id2Bytes = new byte[64];
-    id2Bytes[0] = (byte) 0x80; // Only first bit set
+    id2Bytes[0] = (byte) 0x80; // Only the first bit set
     Node node2 = new Node(config, Bytes.wrap(id2Bytes), "127.0.0.1", null, 30302, 30302);
 
     // Node 3: Second-to-last bit different

@@ -74,7 +74,7 @@ public class PeerServer {
             1,
             BasicThreadFactory.builder().namingPattern("peerBoss").build(),
             NioIoHandler.newFactory());
-    // if threads = 0, it is number of core * 2
+    // if threads = 0, it is number of cores * 2
     EventLoopGroup workerGroup =
         new MultiThreadIoEventLoopGroup(
             P2pConstant.TCP_NETTY_WORK_THREAD_NUM,

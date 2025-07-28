@@ -23,7 +23,7 @@ public enum DisconnectCode {
   /** Duplicate peer connection detected */
   DUPLICATE_PEER(4),
 
-  /** Maximum connections from same IP reached */
+  /** Maximum connections from the same IP reached */
   MAX_CONNECTION_WITH_SAME_IP(5),
 
   /** Unknown disconnection reason */

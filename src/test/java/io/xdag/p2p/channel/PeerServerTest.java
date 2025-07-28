@@ -72,7 +72,7 @@ class PeerServerTest {
     peerServer.init();
 
     // Then - should not throw any exception
-    // The init method starts a new thread for the server
+    // The init method starts a new thread for the server,
     // We need to give it a moment to start
     try {
       Thread.sleep(100);
@@ -111,7 +111,7 @@ class PeerServerTest {
     peerServer.close();
 
     // Then - should not throw any exception
-    // Close should handle the case where server is not listening gracefully
+    // Close should handle the case where the server is not listening to gracefully
   }
 
   @Test
@@ -174,7 +174,7 @@ class PeerServerTest {
       Thread.currentThread().interrupt();
     }
 
-    // Then - should not throw any exception
+    // Then - should not throw any exception,
     // The server should handle invalid ports gracefully
   }
 

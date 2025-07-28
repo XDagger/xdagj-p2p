@@ -62,7 +62,7 @@ public class ProtoUtils {
    * @param message the compressed message
    * @return uncompressed data as Tuweni Bytes
    * @throws IOException if decompression fails
-   * @throws P2pException if message is too big
+   * @throws P2pException if the message is too big
    */
   public static Bytes uncompressMessageBytes(Connect.CompressMessage message)
       throws IOException, P2pException {

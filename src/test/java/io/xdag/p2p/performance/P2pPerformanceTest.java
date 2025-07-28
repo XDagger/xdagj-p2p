@@ -494,7 +494,7 @@ public class P2pPerformanceTest {
             assertNotNull(msg.getData());
           });
 
-      // Test network processing with pre-created channel (reduced overhead)
+      // Test network processing with a pre-created channel (reduced overhead)
       HelloMessage sharedHelloMsg =
           new HelloMessage(
               config, io.xdag.p2p.message.node.DisconnectCode.NORMAL, System.currentTimeMillis());
@@ -596,7 +596,7 @@ public class P2pPerformanceTest {
         executor.submit(
             () -> {
               try {
-                // Pre-create message to reduce allocation overhead
+                // Pre-create a message to reduce allocation overhead
                 HelloMessage msg =
                     new HelloMessage(
                         config,
