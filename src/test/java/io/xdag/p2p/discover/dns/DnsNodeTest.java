@@ -25,7 +25,7 @@ package io.xdag.p2p.discover.dns;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.google.protobuf.InvalidProtocolBufferException;
+
 import io.xdag.p2p.config.P2pConfig;
 import java.net.UnknownHostException;
 import java.util.Arrays;
@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Test;
 public class DnsNodeTest {
 
   @Test
-  public void testCompressDnsNode() throws UnknownHostException, InvalidProtocolBufferException {
+  public void testCompressDnsNode() throws UnknownHostException {
     P2pConfig p2pConfig = new P2pConfig();
     DnsNode[] nodes =
         new DnsNode[] {
@@ -45,7 +45,7 @@ public class DnsNodeTest {
     List<DnsNode> nodeList = Arrays.asList(nodes);
     String enrContent = DnsNode.compress(nodeList);
 
-    List<DnsNode> dnsNodes = DnsNode.decompress(p2pConfig, enrContent);
+    List<DnsNode> dnsNodes = DnsNode.decompress(enrContent);
     assertEquals(1, dnsNodes.size());
     assertEquals(nodes[0], dnsNodes.getFirst());
   }

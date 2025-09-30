@@ -23,17 +23,13 @@
  */
 package io.xdag.p2p.discover.dns;
 
-import static io.xdag.p2p.message.discover.kad.KadMessage.getPeerFromNode;
-
-import com.google.protobuf.InvalidProtocolBufferException;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.config.P2pConstant;
 import io.xdag.p2p.discover.Node;
-import io.xdag.p2p.proto.Discover.Peers;
-import io.xdag.p2p.proto.Discover.Peers.Builder;
-import io.xdag.p2p.proto.Discover.Peer;
 import io.xdag.p2p.utils.BytesUtils;
 import io.xdag.p2p.utils.EncodeUtils;
+import io.xdag.p2p.utils.SimpleEncoder;
+import io.xdag.p2p.utils.SimpleDecoder;
 import java.io.Serial;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -68,14 +64,14 @@ public class DnsNode extends Node implements Comparable<DnsNode> {
    * @param port the port number
    * @throws UnknownHostException if the host address is invalid
    */
-  public DnsNode(P2pConfig p2pConfig, Bytes id, String hostV4, String hostV6, int port)
+  public DnsNode(String id, String hostV4, String hostV6, int port)
       throws UnknownHostException {
     /*
      * Note: The id parameter is intentionally passed as null to the parent Node class.
      * In DNS discovery, node uniqueness and comparison rely on IP and port (v4Hex/v6Hex/port),
      * not on the id field. This avoids mixing DNS node description with DHT node identity logic.
      */
-    super(p2pConfig, null, hostV4, hostV6, port);
+    super(id, hostV4, hostV6, port);
     if (StringUtils.isNotEmpty(hostV4)) {
       this.v4Hex = ipToString(hostV4);
     }
@@ -85,43 +81,79 @@ public class DnsNode extends Node implements Comparable<DnsNode> {
   }
 
   /**
-   * Compress a list of DNS nodes into a base64-encoded string.
+   * Compress a list of DNS nodes into a base64-encoded string using SimpleEncoder.
    *
    * @param nodes the list of DNS nodes to compress
    * @return base64-encoded compressed representation
    */
   public static String compress(List<DnsNode> nodes) {
-    Builder builder = Peers.newBuilder();
-    nodes.forEach(
-        node -> {
-          Peer Peer = getPeerFromNode(node);
-          builder.addPeer(Peer);
-        });
-    return EncodeUtils.encode64(Bytes.wrap(builder.build().toByteArray()));
+    SimpleEncoder enc = new SimpleEncoder();
+    
+    // Write the number of nodes
+    enc.writeInt(nodes.size());
+    
+    // Write each node's data
+    for (DnsNode node : nodes) {
+      // Write node ID (can be null)
+      if (node.getId() != null) {
+        enc.writeBoolean(true);
+        enc.writeString(node.getId());
+      } else {
+        enc.writeBoolean(false);
+      }
+      
+      // Write IPv4 address
+      enc.writeString(node.getHostV4() != null ? node.getHostV4() : "");
+      
+      // Write IPv6 address  
+      enc.writeString(node.getHostV6() != null ? node.getHostV6() : "");
+      
+      // Write port
+      enc.writeInt(node.getPort());
+    }
+    
+    return EncodeUtils.encode64(Bytes.wrap(enc.toBytes()));
   }
 
   /**
-   * Decompress a base64-encoded string into a list of DNS nodes.
+   * Decompress a base64-encoded string into a list of DNS nodes using SimpleDecoder.
    *
    * @param base64Content the base64-encoded content to decompress
    * @return list of DNS nodes
-   * @throws InvalidProtocolBufferException if protobuf parsing fails
    * @throws UnknownHostException if the host address is invalid
    */
-  public static List<DnsNode> decompress(P2pConfig p2pConfig, String base64Content)
-      throws InvalidProtocolBufferException, UnknownHostException {
+  public static List<DnsNode> decompress(String base64Content)
+      throws UnknownHostException {
     Bytes data = EncodeUtils.decode64(base64Content);
-    Peers peers = Peers.parseFrom(data.toArray());
+    SimpleDecoder dec = new SimpleDecoder(data.toArray());
 
-    List<DnsNode> dnsNodes = new ArrayList<>();
-    for (Peer peer : peers.getPeerList()) {
-      DnsNode dnsNode =
-          new DnsNode(
-              p2pConfig,
-              Bytes.wrap(peer.getNodeId().toByteArray()),
-              new String(peer.getAddress().toByteArray()),
-              new String(peer.getAddressIpv6().toByteArray()),
-              peer.getPort());
+    // Read the number of nodes
+    int nodeCount = dec.readInt();
+    List<DnsNode> dnsNodes = new ArrayList<>(nodeCount);
+    
+    for (int i = 0; i < nodeCount; i++) {
+      // Read node ID (check if present)
+      String nodeId = null;
+      if (dec.readBoolean()) {
+        nodeId = dec.readString();
+      }
+      
+      // Read IPv4 address
+      String hostV4 = dec.readString();
+      if (hostV4.isEmpty()) {
+        hostV4 = null;
+      }
+      
+      // Read IPv6 address
+      String hostV6 = dec.readString();
+      if (hostV6.isEmpty()) {
+        hostV6 = null;
+      }
+      
+      // Read port
+      int port = dec.readInt();
+      
+      DnsNode dnsNode = new DnsNode(nodeId, hostV4, hostV6, port);
       dnsNodes.add(dnsNode);
     }
     return dnsNodes;

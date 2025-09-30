@@ -11,7 +11,7 @@ import static org.mockito.Mockito.when;
 import io.netty.channel.ChannelHandlerContext;
 import io.xdag.p2p.channel.Channel;
 import io.xdag.p2p.channel.ChannelManager;
-import io.xdag.p2p.channel.PeerClient;
+import io.xdag.p2p.PeerClient;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.discover.NodeManager;

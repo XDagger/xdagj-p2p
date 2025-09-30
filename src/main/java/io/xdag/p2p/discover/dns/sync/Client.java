@@ -232,7 +232,7 @@ public class Client {
     } else if (txt.startsWith(Entry.linkPrefix)) {
       entry = LinkEntry.parseEntry(txt);
     } else if (txt.startsWith(Entry.nodesPrefix)) {
-      entry = NodesEntry.parseEntry(p2pConfig, txt);
+      entry = NodesEntry.parseEntry(txt);
     }
 
     if (entry == null) {

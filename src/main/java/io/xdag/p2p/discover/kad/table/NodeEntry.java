@@ -38,7 +38,7 @@ public class NodeEntry {
   public NodeEntry(Bytes ownerId, Node n) {
     this.node = n;
     entryId = n.getHostKey();
-    distance = distance(ownerId, n.getId());
+    distance = distance(ownerId, n.getId() != null ? BytesUtils.fromHexString(n.getId()) : Bytes.EMPTY);
     touch();
   }
 

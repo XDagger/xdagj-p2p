@@ -23,25 +23,25 @@
  */
 package io.xdag.p2p.config;
 
-import com.google.protobuf.ByteString;
+import io.xdag.crypto.keys.ECKeyPair;
 import io.xdag.p2p.P2pEventHandler;
 import io.xdag.p2p.P2pException;
 import io.xdag.p2p.P2pException.TypeEnum;
 import io.xdag.p2p.discover.dns.update.PublishConfig;
-import io.xdag.p2p.proto.Discover;
+import io.xdag.p2p.message.MessageCode;
 import io.xdag.p2p.utils.NetUtils;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.tuweni.bytes.Bytes;
 
 @Getter
 @Setter
@@ -52,12 +52,11 @@ public class P2pConfig {
   private List<InetSocketAddress> seedNodes = new CopyOnWriteArrayList<>();
   private List<InetSocketAddress> activeNodes = new CopyOnWriteArrayList<>();
   private List<InetAddress> trustNodes = new CopyOnWriteArrayList<>();
-  private Bytes nodeID = Bytes.wrap(NetUtils.getNodeId());
   private String ipV4 = getDefaultIpv4();
   private String lanIpV4 = NetUtils.getLanIpV4();
   private String ipV6 = NetUtils.getExternalIpV6();
   private int port = 16783;
-  private int networkId = 1;
+
   private int minConnections = 8;
   private int maxConnections = 50;
   private int minActiveConnections = 2;
@@ -71,6 +70,29 @@ public class P2pConfig {
 
   // dns publish config
   private PublishConfig publishConfig = new PublishConfig();
+
+  private byte networkId = (byte)2;
+  private short networkVersion = 0;
+
+  // Prioritized network messages
+  protected Set<MessageCode> netPrioritizedMessages = new HashSet<>(Arrays.asList(
+      MessageCode.KAD_PING,
+      MessageCode.KAD_PONG));
+
+  private long netHandshakeExpiry = 5 * 60 * 1000;
+  private int netMaxFrameBodySize = 128 * 1024;
+  private int netMaxPacketSize = 4 * 1024 * 1024; // 4MB total packet limit
+  private boolean enableFrameCompression = true;
+  private String clientId = "xdagj-p2p/0.1.1";
+  private String[] capabilities = new String[]{"DISCV5"};
+  private boolean enableGenerateBlock = false;
+  private String nodeTag = "default-node";
+
+  // local node keypair (for handshake/signatures and node ID generation)
+  private ECKeyPair nodeKey;
+
+  public boolean isEnableFrameCompression() { return enableFrameCompression; }
+  public int getNetMaxPacketSize() { return netMaxPacketSize; }
 
   /**
    * Get the default IP address with fallback to LAN IP if external IP is not available.
@@ -101,19 +123,16 @@ public class P2pConfig {
     handlerList.add(p2PEventHandler);
   }
 
-  public Discover.Peer getHomePeer() {
-    Discover.Peer.Builder builder =
-        Discover.Peer.newBuilder()
-            .setNodeId(ByteString.copyFrom(getNodeID().toArray()))
-            .setPort(getPort());
-    if (StringUtils.isNotEmpty(getIpV4())) {
-      builder.setAddress(
-          ByteString.copyFrom(Objects.requireNonNull(Bytes.wrap(getIpV4().getBytes()).toArray())));
+  /**
+   * Ensures that nodeKey is initialized. If not set, generates a new random key pair.
+   * This key pair is used for:
+   * - Node ID generation (derived from public key)
+   * - Handshake message signing
+   * - Node identity verification
+   */
+  public void ensureNodeKey() {
+    if (this.nodeKey == null) {
+      this.nodeKey = ECKeyPair.generate();
     }
-    if (StringUtils.isNotEmpty(getIpV6())) {
-      builder.setAddressIpv6(
-          ByteString.copyFrom(Objects.requireNonNull(Bytes.wrap(getIpV6().getBytes()).toArray())));
-    }
-    return builder.build();
   }
 }

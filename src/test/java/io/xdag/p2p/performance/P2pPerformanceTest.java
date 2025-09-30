@@ -33,8 +33,6 @@ import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.discover.kad.table.NodeTable;
 import io.xdag.p2p.message.node.HelloMessage;
-import io.xdag.p2p.message.node.PingMessage;
-import io.xdag.p2p.message.node.PongMessage;
 import io.xdag.p2p.message.node.StatusMessage;
 import io.xdag.p2p.utils.NetUtils;
 import java.net.InetSocketAddress;

@@ -28,14 +28,21 @@ import java.util.List;
 
 public class P2pConstant {
 
-  public static final int NODE_ID_LEN =
-      64; // 64 bytes = 512 bits, keep original value for unit tests
+  public static final int NODE_ID_LEN = 20;
   public static final List<String> ipV4Urls =
       Arrays.asList("http://checkip.amazonaws.com", "https://ifconfig.me/", "https://4.ipw.cn/");
   public static final List<String> ipV6Urls =
       Arrays.asList("https://v6.ident.me", "http://6.ipw.cn/");
   public static final String ipV4Hex = "00000000"; // 32 bit
   public static final String ipV6Hex = "00000000000000000000000000000000"; // 128 bit
+
+  public static final short MAINNET_ID = 0;
+  public static final short TESTNET_ID = 1;
+  public static final short DEVNET_ID = 2;
+
+  public static final short MAINNET_VERSION = 0;
+  public static final short TESTNET_VERSION = 0;
+  public static final short DEVNET_VERSION = 0;
 
   public static int version = 1;
   public static final int TCP_NETTY_WORK_THREAD_NUM = 0;
@@ -55,4 +62,7 @@ public class P2pConstant {
   public static final int MAX_NODE_FAST_DETECT = 100;
   public static final int MAX_NODES = 300;
   public static final int MIN_NODES = 200;
+
+
+  public static final Long MESSAGE_QUEUE_SEND_PERIOD = 10L;
 }

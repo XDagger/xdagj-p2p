@@ -30,16 +30,15 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.CorruptedFrameException;
-import io.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepender;
 import io.netty.handler.timeout.ReadTimeoutException;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.xdag.p2p.P2pException;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.config.P2pConstant;
-import io.xdag.p2p.config.UpgradeController;
 import io.xdag.p2p.discover.Node;
+import io.xdag.p2p.message.Message;
 import io.xdag.p2p.message.node.HelloMessage;
-import io.xdag.p2p.message.node.Message;
+import io.xdag.p2p.handler.node.XdagBusinessHandler;
 import io.xdag.p2p.stats.TrafficStats;
 import io.xdag.p2p.utils.BytesUtils;
 import java.io.IOException;
@@ -128,8 +127,7 @@ public class Channel {
    * Default constructor for Channel. Initializes a new P2P communication channel with default
    * values.
    */
-  public Channel(P2pConfig p2pConfig, ChannelManager channelManager) {
-    this.p2pConfig = p2pConfig;
+  public Channel( ChannelManager channelManager) {
     this.channelManager = channelManager;
   }
 
@@ -144,12 +142,10 @@ public class Channel {
     this.discoveryMode = discoveryMode;
     this.nodeId = nodeId;
     this.isActive = StringUtils.isNotEmpty(nodeId);
-    MessageHandler messageHandler = new MessageHandler(p2pConfig, channelManager, this);
     pipeline.addLast("readTimeoutHandler", new ReadTimeoutHandler(60, TimeUnit.SECONDS));
     pipeline.addLast(TrafficStats.getTcp());
-    pipeline.addLast("protoPrepend", new ProtobufVarint32LengthFieldPrepender());
-    pipeline.addLast("protoDecode", new P2pProtobufVarint32FrameDecoder(p2pConfig, this));
-    pipeline.addLast("messageHandler", messageHandler);
+    // Do not add protobuf length prepender; XDAG frames are raw (header + body)
+    pipeline.addLast("frameCodec", new XdagFrameCodec(p2pConfig));
   }
 
   /**
@@ -190,7 +186,7 @@ public class Channel {
   public void setHandshakeMessage(HelloMessage handshakeMessage) {
     this.handshakeMessage = handshakeMessage;
     this.node = handshakeMessage.getFrom();
-    this.nodeId = node.getHexId(); // update node id from handshake
+    this.nodeId = node.getId();
     this.version = handshakeMessage.getVersion();
   }
 
@@ -234,7 +230,13 @@ public class Channel {
     } else {
       log.debug("Send message to channel {}, {}", inetSocketAddress, message);
     }
-    send(message.getSendData());
+    try {
+      ctx.channel().writeAndFlush(message);
+      setLastSendTime(System.currentTimeMillis());
+    } catch (Exception e) {
+      log.warn("Send message to {} failed, {}", inetSocketAddress, e.getMessage());
+      ctx.channel().close();
+    }
   }
 
   /**
@@ -253,13 +255,8 @@ public class Channel {
         return;
       }
 
-      // Apply version-specific encoding if handshake is complete
-      if (finishHandshake) {
-        data = UpgradeController.codeSendData(version, data);
-      }
-
       ByteBuf byteBuf = Unpooled.wrappedBuffer(data.toArray());
-      ctx.writeAndFlush(byteBuf)
+      ctx.channel().writeAndFlush(byteBuf)
           .addListener(
               (ChannelFutureListener)
                   future -> {
@@ -304,6 +301,15 @@ public class Channel {
   @Override
   public int hashCode() {
     return inetSocketAddress.hashCode();
+  }
+
+  /**
+   * Get the remote address of this channel.
+   *
+   * @return the remote socket address
+   */
+  public InetSocketAddress getRemoteAddress() {
+    return inetSocketAddress;
   }
 
   @Override

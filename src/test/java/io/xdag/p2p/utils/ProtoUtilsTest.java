@@ -26,7 +26,6 @@ package io.xdag.p2p.utils;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.xdag.p2p.config.P2pConfig;
-import io.xdag.p2p.message.node.PingMessage;
 import io.xdag.p2p.proto.Connect;
 import org.apache.tuweni.bytes.Bytes;
 import org.junit.jupiter.api.Test;

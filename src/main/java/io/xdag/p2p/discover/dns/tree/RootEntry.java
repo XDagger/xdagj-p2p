@@ -23,15 +23,12 @@
  */
 package io.xdag.p2p.discover.dns.tree;
 
-import com.google.protobuf.ByteString;
-import com.google.protobuf.InvalidProtocolBufferException;
 import io.xdag.crypto.hash.HashUtils;
 import io.xdag.crypto.keys.PublicKey;
 import io.xdag.crypto.keys.Signature;
 import io.xdag.crypto.keys.Signer;
 import io.xdag.p2p.DnsException;
 import io.xdag.p2p.DnsException.TypeEnum;
-import io.xdag.p2p.proto.Discover.DnsRoot;
 import io.xdag.p2p.utils.BytesUtils;
 import io.xdag.p2p.utils.EncodeUtils;
 import lombok.Getter;
@@ -47,16 +44,22 @@ import org.apache.tuweni.bytes.Bytes32;
 @Slf4j(topic = "net")
 public class RootEntry implements Entry {
 
-  /** The DNS root protobuf object */
-  private DnsRoot dnsRoot;
+  /** The DNS root entry fields (proto removed) */
+  private String eRoot;
+  private String lRoot;
+  private int seq;
+  private Bytes signature;
 
   /**
    * Constructor for RootEntry with existing DnsRoot.
    *
    * @param dnsRoot the DNS root protobuf object
    */
-  public RootEntry(DnsRoot dnsRoot) {
-    this.dnsRoot = dnsRoot;
+  public RootEntry(String eRoot, String lRoot, int seq, Bytes signature) {
+    this.eRoot = eRoot;
+    this.lRoot = lRoot;
+    this.seq = seq;
+    this.signature = signature;
   }
 
   /**
@@ -65,58 +68,46 @@ public class RootEntry implements Entry {
    * @return the E-root hash as string
    */
   public String getERoot() {
-    return new String(dnsRoot.getTreeRoot().getERoot().toByteArray());
+    return eRoot;
   }
 
   public String getLRoot() {
-    return new String(dnsRoot.getTreeRoot().getLRoot().toByteArray());
+    return lRoot;
   }
 
   public int getSeq() {
-    return dnsRoot.getTreeRoot().getSeq();
+    return seq;
   }
 
   public void setSeq(int seq) {
-    DnsRoot.TreeRoot.Builder builder = dnsRoot.getTreeRoot().toBuilder();
-    builder.setSeq(seq);
-
-    DnsRoot.Builder dnsRootBuilder = dnsRoot.toBuilder();
-    dnsRootBuilder.setTreeRoot(builder.build());
-
-    this.dnsRoot = dnsRootBuilder.build();
+    this.seq = seq;
   }
 
   public Bytes getSignature() {
-    return EncodeUtils.decode64(new String(dnsRoot.getSignature().toByteArray()));
+    return signature;
   }
 
   public void setSignature(Bytes signature) {
-    DnsRoot.Builder dnsRootBuilder = dnsRoot.toBuilder();
-    dnsRootBuilder.setSignature(ByteString.copyFrom(EncodeUtils.encode64(signature).getBytes()));
-    this.dnsRoot = dnsRootBuilder.build();
+    this.signature = signature;
   }
 
   public RootEntry(String eRoot, String lRoot, int seq) {
-    DnsRoot.TreeRoot.Builder builder = DnsRoot.TreeRoot.newBuilder();
-    builder.setERoot(ByteString.copyFrom(eRoot.getBytes()));
-    builder.setLRoot(ByteString.copyFrom(lRoot.getBytes()));
-    builder.setSeq(seq);
-
-    DnsRoot.Builder dnsRootBuilder = DnsRoot.newBuilder();
-    dnsRootBuilder.setTreeRoot(builder.build());
-    this.dnsRoot = dnsRootBuilder.build();
+    this(eRoot, lRoot, seq, Bytes.EMPTY);
   }
 
   public static RootEntry parseEntry(String e) throws DnsException {
     String value = e.substring(rootPrefix.length());
-    DnsRoot dnsRoot1;
-    try {
-      dnsRoot1 = DnsRoot.parseFrom(EncodeUtils.decode64(value).toArray());
-    } catch (InvalidProtocolBufferException ex) {
-      throw new DnsException(TypeEnum.INVALID_ROOT, String.format("proto=[%s]", e), ex);
+    Bytes raw = EncodeUtils.decode64(value);
+    // Expected custom layout now: eRoot|lRoot|seq|signature (all base64 or text, delimited)
+    String decoded = new String(raw.toArray());
+    String[] parts = decoded.split("\\|", 4);
+    if (parts.length < 4) {
+      throw new DnsException(TypeEnum.INVALID_ROOT, "malformed root entry: " + decoded);
     }
-
-    Bytes signature = EncodeUtils.decode64(new String(dnsRoot1.getSignature().toByteArray()));
+    String eRoot = parts[0];
+    String lRoot = parts[1];
+    int seq = Integer.parseInt(parts[2]);
+    Bytes signature = EncodeUtils.decode64(parts[3]);
     if (signature.size() != 65) {
       throw new DnsException(
           TypeEnum.INVALID_SIGNATURE,
@@ -125,7 +116,7 @@ public class RootEntry implements Entry {
               signature.size(), BytesUtils.toHexString(signature)));
     }
 
-    return new RootEntry(dnsRoot1);
+    return new RootEntry(eRoot, lRoot, seq, signature);
   }
 
   public static RootEntry parseEntry(String e, String publicKey, String domain)
@@ -150,16 +141,17 @@ public class RootEntry implements Entry {
           TypeEnum.INVALID_CHILD,
           "eroot:" + rootEntry.getERoot() + " lroot:" + rootEntry.getLRoot());
     }
-    log.info("Get dnsRoot:[{}]", rootEntry.dnsRoot.toString());
+    log.info("Get dnsRoot: eRoot={}, lRoot={}, seq={}", rootEntry.eRoot, rootEntry.lRoot, rootEntry.seq);
     return rootEntry;
   }
 
   @Override
   public String toString() {
-    return dnsRoot.getTreeRoot().toString();
+    return String.format("eRoot=%s,lRoot=%s,seq=%d", eRoot, lRoot, seq);
   }
 
   public String toFormat() {
-    return rootPrefix + EncodeUtils.encode64(Bytes.wrap(dnsRoot.toByteArray()));
+    String payload = String.format("%s|%s|%d|%s", eRoot, lRoot, seq, EncodeUtils.encode64(signature));
+    return rootPrefix + EncodeUtils.encode64(Bytes.wrap(payload.getBytes()));
   }
 }

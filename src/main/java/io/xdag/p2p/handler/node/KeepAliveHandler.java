@@ -1,91 +1,63 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2020-2030 The XdagJ Developers
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 package io.xdag.p2p.handler.node;
 
-import static io.xdag.p2p.config.P2pConstant.KEEP_ALIVE_TIMEOUT;
-import static io.xdag.p2p.config.P2pConstant.PING_TIMEOUT;
-
-import io.xdag.p2p.channel.Channel;
-import io.xdag.p2p.channel.ChannelManager;
-import io.xdag.p2p.config.P2pConfig;
-import io.xdag.p2p.message.node.Message;
-import io.xdag.p2p.message.node.P2pDisconnectMessage;
+import io.netty.channel.ChannelDuplexHandler;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.timeout.IdleState;
+import io.netty.handler.timeout.IdleStateEvent;
+import io.xdag.p2p.channel.XdagFrame;
+import io.xdag.p2p.message.MessageCode;
 import io.xdag.p2p.message.node.PingMessage;
 import io.xdag.p2p.message.node.PongMessage;
-import io.xdag.p2p.proto.Connect.DisconnectReason;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 
-@Slf4j(topic = "net")
-public class KeepAliveHandler implements MessageHandler {
+@Slf4j
+public class KeepAliveHandler extends ChannelDuplexHandler {
 
-  private final P2pConfig p2pConfig;
-  private final ChannelManager channelManager;
+    private long lastPingTimestamp;
 
-  private final ScheduledExecutorService executor =
-      Executors.newSingleThreadScheduledExecutor(
-          BasicThreadFactory.builder().namingPattern("keepAlive").build());
-
-  public KeepAliveHandler(P2pConfig p2pConfig, ChannelManager channelManager) {
-    this.p2pConfig = p2pConfig;
-    this.channelManager = channelManager;
-  }
-
-  public void init() {
-    executor.scheduleWithFixedDelay(
-        () -> {
-          try {
-            long now = System.currentTimeMillis();
-            channelManager.getChannels().values().stream()
-                .filter(p -> !p.isDisconnect())
-                .forEach(
-                    p -> {
-                      if (p.waitForPong) {
-                        if (now - p.pingSent > KEEP_ALIVE_TIMEOUT) {
-                          p.send(
-                              new P2pDisconnectMessage(p2pConfig, DisconnectReason.PING_TIMEOUT));
-                          p.close();
-                        }
-                      } else {
-                        if (now - p.getLastSendTime() > PING_TIMEOUT && p.isFinishHandshake()) {
-                          p.send(new PingMessage(p2pConfig));
-                          p.waitForPong = true;
-                          p.pingSent = now;
-                        }
-                      }
-                    });
-          } catch (Exception t) {
-            log.error("Exception in keep alive task", t);
-          }
-        },
-        2,
-        2,
-        TimeUnit.SECONDS);
-  }
-
-  public void close() {
-    executor.shutdown();
-  }
-
-  @Override
-  public void onMessage(Channel channel, Message message) {
-    switch (message.getType()) {
-      case PING:
-        channel.send(new PongMessage(p2pConfig));
-        break;
-      case PONG:
-        channel.updateAvgLatency(System.currentTimeMillis() - channel.pingSent);
-        channel.waitForPong = false;
-        break;
-      default:
-        break;
+    @Override
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+        if (evt instanceof IdleStateEvent) {
+            IdleStateEvent e = (IdleStateEvent) evt;
+            if (e.state() == IdleState.WRITER_IDLE) {
+                log.trace("Writer idle, sending Ping");
+                writeMessage(ctx, new PingMessage());
+                lastPingTimestamp = System.currentTimeMillis();
+            }
+        }
     }
-  }
 
-  @Override
-  public void onConnect(Channel channel) {}
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        // Let frames pass to message codec first; keepalive reacts at Message layer via BusinessHandler if needed
+        ctx.fireChannelRead(msg);
+    }
 
-  @Override
-  public void onDisconnect(Channel channel) {}
+    private void writeMessage(ChannelHandlerContext ctx, io.xdag.p2p.message.Message msg) {
+        XdagFrame frame = new XdagFrame(XdagFrame.VERSION, XdagFrame.COMPRESS_NONE, msg.getCode().toByte(), 0, msg.getBody().length, msg.getBody().length, msg.getBody());
+        ctx.writeAndFlush(frame);
+    }
 }

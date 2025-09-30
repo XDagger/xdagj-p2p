@@ -25,13 +25,13 @@ package io.xdag.p2p.discover.kad;
 
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.discover.kad.table.KademliaOptions;
-import io.xdag.p2p.utils.NetUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 import org.apache.tuweni.bytes.Bytes;
 
@@ -55,13 +55,7 @@ public class DiscoverTask {
     discoverer.scheduleWithFixedDelay(
         () -> {
           try {
-            loopNum++;
-            if (loopNum % KademliaOptions.MAX_LOOP_NUM == 0) {
-              loopNum = 0;
-              nodeId = Bytes.wrap(kadService.getPublicHomeNode().getId());
-            } else {
-              nodeId = Bytes.wrap(NetUtils.getNodeId());
-            }
+            nodeId = nextTargetId();
             discover(nodeId, 0, new ArrayList<>());
           } catch (Exception e) {
             log.error("DiscoverTask fails to be executed", e);
@@ -71,6 +65,18 @@ public class DiscoverTask {
         KademliaOptions.DISCOVER_CYCLE,
         TimeUnit.MILLISECONDS);
     log.debug("DiscoverTask started");
+  }
+
+  Bytes nextTargetId() {
+    loopNum++;
+    if (loopNum % KademliaOptions.MAX_LOOP_NUM == 0) {
+      loopNum = 0;
+      String idHex = kadService.getPublicHomeNode().getId();
+      return StringUtils.isNotEmpty(idHex)
+          ? Bytes.fromHexStringLenient(idHex)
+          : Bytes.random(64);
+    }
+    return Bytes.random(64);
   }
 
   private void discover(Bytes nodeId, int round, List<Node> prevTriedNodes) {

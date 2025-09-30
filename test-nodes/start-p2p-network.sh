@@ -29,20 +29,60 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+# Initial wait seconds for connections (override with env INITIAL_WAIT)
+INITIAL_WAIT=${INITIAL_WAIT:-30}
+
+# Preflight: gracefully stop known nodes, then free occupied TCP/UDP ports in range
+preflight_cleanup() {
+  echo -e "${YELLOW}Preflight: stopping previously started nodes (if any)...${NC}"
+  if [ -x "$SCRIPT_DIR/stop-nodes.sh" ]; then
+    "$SCRIPT_DIR/stop-nodes.sh" >/dev/null 2>&1 || true
+  fi
+
+  echo -e "${YELLOW}Preflight: checking occupied ports ${BASE_PORT}..$((BASE_PORT + NODES - 1)) (TCP/UDP)${NC}"
+  # Collect unique PIDs listening on TCP or UDP in the range
+  PIDS=$(for p in $(seq $BASE_PORT $((BASE_PORT + NODES - 1))); do \
+    (lsof -tiTCP:$p -sTCP:LISTEN 2>/dev/null; lsof -tiUDP:$p 2>/dev/null) || true; \
+  done | sort -u)
+
+  if [ -n "$PIDS" ]; then
+    echo -e "${YELLOW}Preflight: found processes on target ports ->${NC} $(echo $PIDS | tr '\n' ' ')"
+    echo -e "${YELLOW}Preflight: sending TERM...${NC}"
+    for pid in $PIDS; do kill "$pid" 2>/dev/null || true; done
+    sleep 1
+    # Recheck and KILL if still alive
+    REMAIN=$(for pid in $PIDS; do kill -0 "$pid" 2>/dev/null && echo "$pid" || true; done | sort -u)
+    if [ -n "$REMAIN" ]; then
+      echo -e "${YELLOW}Preflight: forcing KILL for ->${NC} $(echo $REMAIN | tr '\n' ' ')"
+      for pid in $REMAIN; do kill -9 "$pid" 2>/dev/null || true; done
+      sleep 1
+    fi
+  else
+    echo -e "${GREEN}Preflight: no occupied ports detected in range.${NC}"
+  fi
+}
+
 echo -e "${BLUE}=== Starting True P2P Network ($NODES nodes) ===${NC}"
 echo -e "${BLUE}Base Port: $BASE_PORT${NC}"
 echo -e "${BLUE}Network ID: $NETWORK_ID${NC}"
 
-# Create directories
+# Create directories (initial), then run preflight, then ensure directories exist again
 mkdir -p "$LOGS_DIR" "$PIDS_DIR"
 
-# Check JAR file
-JAR_FILE="$PROJECT_ROOT/target/xdagj-p2p-0.1.0-jar-with-dependencies.jar"
-if [ ! -f "$JAR_FILE" ]; then
+# Run preflight cleanup before any bind attempts
+preflight_cleanup
+
+# Ensure directories still exist after preflight (stop script may remove empty dirs)
+mkdir -p "$LOGS_DIR" "$PIDS_DIR"
+
+# Check JAR file (pick latest assembled jar automatically)
+JAR_FILE=$(ls -t "$PROJECT_ROOT/target"/xdagj-p2p-*-jar-with-dependencies.jar 2>/dev/null | head -n 1)
+if [ -z "$JAR_FILE" ] || [ ! -f "$JAR_FILE" ]; then
     echo -e "${YELLOW}Building project...${NC}"
     cd "$PROJECT_ROOT"
-    mvn clean package -DskipTests
-    if [ ! -f "$JAR_FILE" ]; then
+    mvn -q -DskipTests -Dmaven.test.skip package
+    JAR_FILE=$(ls -t "$PROJECT_ROOT/target"/xdagj-p2p-*-jar-with-dependencies.jar 2>/dev/null | head -n 1)
+    if [ -z "$JAR_FILE" ] || [ ! -f "$JAR_FILE" ]; then
         echo -e "${RED}Failed to build JAR file${NC}"
         exit 1
     fi
@@ -115,8 +155,8 @@ start_p2p_node() {
     echo -e "${GREEN}Starting Node $node_id on port $port${NC}"
     echo -e "${BLUE}  Seeds: $seed_nodes${NC}"
     
-    # Enhanced Java opts for P2P performance
-    JAVA_OPTS="-server -Xmx512m -Xms256m -XX:+UseG1GC -XX:+UseStringDeduplication"
+    # Enhanced Java opts for P2P performance and prefer IPv4 stack to match 127.0.0.1 seeds
+    JAVA_OPTS="-server -Xmx512m -Xms256m -XX:+UseG1GC -XX:+UseStringDeduplication -Djava.net.preferIPv4Stack=true -Djava.net.preferIPv6Addresses=false"
     
     # P2P-optimized parameters
     cd "$PROJECT_ROOT"
@@ -136,23 +176,39 @@ start_p2p_node() {
 }
 
 # Start nodes in phases to allow natural discovery
-echo -e "${YELLOW}Phase 1: Starting initial nodes (0-4)...${NC}"
-for i in $(seq 0 4); do
-    start_p2p_node $i
-    sleep 1  # Longer delay for initial nodes
-done
+if [ $NODES -le 5 ]; then
+    echo -e "${YELLOW}Phase 1: Starting nodes (0-$((NODES-1)))...${NC}"
+    for i in $(seq 0 $((NODES - 1))); do
+        start_p2p_node $i
+        sleep 0.8
+    done
+else
+    echo -e "${YELLOW}Phase 1: Starting initial nodes (0-4)...${NC}"
+    for i in $(seq 0 4); do
+        start_p2p_node $i
+        sleep 1
+    done
 
-echo -e "${YELLOW}Phase 2: Starting middle nodes (5-14)...${NC}"
-for i in $(seq 5 14); do
-    start_p2p_node $i
-    sleep 0.5
-done
+    if [ $NODES -gt 5 ]; then
+        mid_end=$(( NODES - 1 ))
+        if [ $mid_end -gt 14 ]; then mid_end=14; fi
+        if [ $mid_end -ge 5 ]; then
+            echo -e "${YELLOW}Phase 2: Starting middle nodes (5-$mid_end)...${NC}"
+            for i in $(seq 5 $mid_end); do
+                start_p2p_node $i
+                sleep 0.5
+            done
+        fi
+    fi
 
-echo -e "${YELLOW}Phase 3: Starting final nodes (15-19)...${NC}"
-for i in $(seq 15 $((NODES - 1))); do
-    start_p2p_node $i
-    sleep 0.3
-done
+    if [ $NODES -gt 15 ]; then
+        echo -e "${YELLOW}Phase 3: Starting final nodes (15-$((NODES-1)))...${NC}"
+        for i in $(seq 15 $((NODES - 1))); do
+            start_p2p_node $i
+            sleep 0.3
+        done
+    fi
+fi
 
 echo ""
 echo -e "${GREEN}=== True P2P Network Started Successfully! ===${NC}"
@@ -168,15 +224,17 @@ echo ""
 echo -e "${BLUE}Ports: $BASE_PORT - $((BASE_PORT + NODES - 1))${NC}"
 
 # Wait a bit and show initial connection status
-echo -e "${YELLOW}Waiting 30 seconds for initial connections...${NC}"
-sleep 30
+echo -e "${YELLOW}Waiting ${INITIAL_WAIT}s for initial connections...${NC}"
+sleep ${INITIAL_WAIT}
 
 echo -e "${GREEN}=== Initial Connection Check ===${NC}"
 total_connections=0
 for i in $(seq 0 $((NODES - 1))); do
     if [ -f "$LOGS_DIR/node-$i.log" ]; then
-        connections=$(grep -c "Add peer" "$LOGS_DIR/node-$i.log" 2>/dev/null || echo "0")
-        total_connections=$((total_connections + connections))
+        # Count either handshake success or channel activation logs as established connections
+        connections=$(grep -E -c "Handshake successful|New channel connected" "$LOGS_DIR/node-$i.log" 2>/dev/null || true)
+        connections=${connections:-0}
+        total_connections=$(( total_connections + connections ))
         if [ $connections -gt 0 ]; then
             echo -e "${GREEN}Node $i: $connections connections${NC}"
         else
@@ -185,5 +243,5 @@ for i in $(seq 0 $((NODES - 1))); do
     fi
 done
 
-echo -e "${BLUE}Total network connections: $total_connections${NC}"
+echo -e "${BLUE}Total network connections (handshake successes): $total_connections${NC}"
 echo -e "${YELLOW}Network will continue to evolve through P2P discovery...${NC}" 

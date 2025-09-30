@@ -23,10 +23,10 @@
  */
 package io.xdag.p2p.utils;
 
+import io.xdag.p2p.Peer;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.config.P2pConstant;
 import io.xdag.p2p.discover.Node;
-import io.xdag.p2p.proto.Discover;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -42,7 +42,6 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
@@ -123,11 +122,9 @@ public class NetUtils {
       log.debug("Node validation failed: node or nodeId is null");
       return false;
     }
-    if (node.getId().size() != P2pConstant.NODE_ID_LEN) {
+    if (node.getId() == null || node.getId().length() == 0) {
       log.debug(
-          "Node validation failed: nodeId length {} != expected {}",
-          node.getId().size(),
-          P2pConstant.NODE_ID_LEN);
+          "Node validation failed: nodeId is empty");
       return false;
     }
     if (StringUtils.isEmpty(node.getHostV4()) && StringUtils.isEmpty(node.getHostV6())) {
@@ -151,15 +148,12 @@ public class NetUtils {
     return true;
   }
 
-  public static Node getNode(P2pConfig p2pConfig, Discover.Peer peer) {
-    String hostV4 = BytesUtils.toStr(peer.getAddress().toByteArray());
-    String hostV6 = BytesUtils.toStr(peer.getAddressIpv6().toByteArray());
-
-    // If both hostV4 and hostV6 are null/empty, the node data in peer is incomplete
-    // This will be handled by the caller using UDP source address if needed
+  public static Node getNode(P2pConfig p2pConfig, Peer peer) {
+    // Peer now contains plain fields; adapt by using them directly
+    String hostV4 = peer.getIp();
+    String hostV6 = null;
     return new Node(
-        p2pConfig,
-        Bytes.wrap(peer.getNodeId().toByteArray()),
+        peer.getPeerId(),
         hostV4,
         hostV6,
         peer.getPort());
@@ -174,11 +168,10 @@ public class NetUtils {
    * @return Node with valid IP address
    */
   public static Node getNodeWithFallback(
-      P2pConfig p2pConfig, Discover.Peer peer, InetSocketAddress sourceAddress) {
-    String hostV4 = BytesUtils.toStr(peer.getAddress().toByteArray());
-    String hostV6 = BytesUtils.toStr(peer.getAddressIpv6().toByteArray());
+      P2pConfig p2pConfig, Peer peer, InetSocketAddress sourceAddress) {
+    String hostV4 = peer.getIp();
+    String hostV6 = null;
 
-    // If no IP addresses in peer, use source address
     if (StringUtils.isEmpty(hostV4) && StringUtils.isEmpty(hostV6)) {
       if (sourceAddress.getAddress() instanceof java.net.Inet4Address) {
         hostV4 = sourceAddress.getAddress().getHostAddress();
@@ -188,18 +181,10 @@ public class NetUtils {
     }
 
     return new Node(
-        p2pConfig,
-        Bytes.wrap(peer.getNodeId().toByteArray()),
+        peer.getPeerId(),
         hostV4,
         hostV6,
         peer.getPort());
-  }
-
-  public static Bytes getNodeId() {
-    Random gen = new Random();
-    byte[] id = new byte[P2pConstant.NODE_ID_LEN];
-    gen.nextBytes(id);
-    return Bytes.wrap(id);
   }
 
   private static String getExternalIp(String url) {

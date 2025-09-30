@@ -24,6 +24,7 @@
 package io.xdag.p2p.discover.kad.table;
 
 import io.xdag.p2p.discover.Node;
+import io.xdag.p2p.utils.BytesUtils;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -62,7 +63,7 @@ public class NodeTable {
       return null;
     }
 
-    NodeEntry e = new NodeEntry(node.getId(), n);
+    NodeEntry e = new NodeEntry(node.getId() != null ? BytesUtils.fromHexString(node.getId()) : Bytes.EMPTY, n);
     NodeEntry lastSeen = buckets[getBucketId(e)].addNode(e);
     if (lastSeen != null) {
       return lastSeen.getNode();

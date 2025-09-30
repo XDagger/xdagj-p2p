@@ -23,7 +23,6 @@
  */
 package io.xdag.p2p.discover.dns.tree;
 
-import com.google.protobuf.InvalidProtocolBufferException;
 import io.xdag.p2p.DnsException;
 import io.xdag.p2p.DnsException.TypeEnum;
 import io.xdag.p2p.config.P2pConfig;
@@ -58,12 +57,12 @@ public record NodesEntry(String represent, List<DnsNode> nodes) implements Entry
    * @return the parsed NodesEntry object
    * @throws DnsException if parsing fails due to invalid format
    */
-  public static NodesEntry parseEntry(P2pConfig p2pConfig, String e) throws DnsException {
+  public static NodesEntry parseEntry(String e) throws DnsException {
     String content = e.substring(nodesPrefix.length());
     List<DnsNode> nodeList;
     try {
-      nodeList = DnsNode.decompress(p2pConfig, content.replace("\"", ""));
-    } catch (InvalidProtocolBufferException | UnknownHostException ex) {
+      nodeList = DnsNode.decompress(content.replace("\"", ""));
+    } catch (UnknownHostException ex) {
       throw new DnsException(TypeEnum.INVALID_NODES, ex);
     }
     return new NodesEntry(e, nodeList);

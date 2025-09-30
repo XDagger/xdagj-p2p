@@ -80,8 +80,12 @@ public class StartApp {
     p2pService = new P2pService(config);
     nodeId = "node-" + config.getPort();
     eventHandler = createEventHandler();
-
-    p2pService.register(eventHandler);
+    // register example handler to receive connect/message callbacks
+    try {
+      config.addP2pEventHandle(eventHandler);
+    } catch (Exception e) {
+      log.warn("Failed to register event handler: {}", e.getMessage());
+    }
 
     // Start the service
     log.info("Starting P2P service...");
@@ -296,7 +300,7 @@ public class StartApp {
 
     if (p2pService != null) {
       try {
-        p2pService.close();
+    p2pService.stop();
         log.info("P2P service stopped");
       } catch (Exception e) {
         log.error("Error stopping P2P service: {}", e.getMessage());

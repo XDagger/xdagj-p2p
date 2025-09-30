@@ -78,11 +78,7 @@ public class TreeTest {
     int total = 0;
     for (String enr : enrs) {
       List<DnsNode> subList = null;
-      try {
-        subList = DnsNode.decompress(p2pConfig, enr.substring(Entry.nodesPrefix.length()));
-      } catch (InvalidProtocolBufferException e) {
-        fail();
-      }
+      subList = DnsNode.decompress(enr.substring(Entry.nodesPrefix.length()));
       assertTrue(subList.size() <= maxMergeSize);
       total += subList.size();
     }

@@ -103,7 +103,6 @@ public class PublishService {
     if (config.getDnsType() == DnsType.AwsRoute53) {
       publish =
           new AwsClient(
-              p2pConfig,
               config.getAccessKeyId(),
               config.getAccessKeySecret(),
               config.getAwsHostZoneId(),
@@ -141,7 +140,6 @@ public class PublishService {
         if (staticAddress.getAddress() instanceof Inet4Address) {
           nodes.add(
               new Node(
-                  p2pConfig,
                   null,
                   staticAddress.getAddress().getHostAddress(),
                   null,
@@ -149,7 +147,6 @@ public class PublishService {
         } else {
           nodes.add(
               new Node(
-                  p2pConfig,
                   null,
                   null,
                   staticAddress.getAddress().getHostAddress(),
@@ -163,7 +160,7 @@ public class PublishService {
     List<DnsNode> dnsNodes = new ArrayList<>();
     for (Node node : nodes) {
       DnsNode dnsNode =
-          new DnsNode(p2pConfig, node.getId(), node.getHostV4(), node.getHostV6(), node.getPort());
+          new DnsNode(node.getId(), node.getHostV4(), node.getHostV6(), node.getPort());
       dnsNodes.add(dnsNode);
     }
     return Tree.merge(dnsNodes, config.getMaxMergeSize());

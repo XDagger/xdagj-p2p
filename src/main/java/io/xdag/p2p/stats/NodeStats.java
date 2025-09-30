@@ -24,7 +24,6 @@
 package io.xdag.p2p.stats;
 
 import io.xdag.p2p.discover.Node;
-import io.xdag.p2p.message.node.StatusMessage;
 import java.net.InetSocketAddress;
 import lombok.Getter;
 import lombok.Setter;
@@ -35,7 +34,7 @@ public class NodeStats {
   private int totalCount;
   private long lastDetectTime;
   private long lastSuccessDetectTime;
-  private StatusMessage statusMessage;
+  // Removed legacy proto-based status; keep placeholder for future extensions
   private Node node;
   private InetSocketAddress socketAddress;
 

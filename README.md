@@ -31,10 +31,10 @@ Status:             v0.1.0 - Production Ready
 ```
 Core:        Java 21 + Netty 4.2.1
 Protocol:    Kademlia DHT + EIP-1459 DNS
-Serialization: Protocol Buffers 4.31.1
+Serialization: Custom SimpleCodec (high-performance binary encoding)
 Crypto:      Hyperledger Besu + BouncyCastle 1.80
 Testing:     JUnit 5.12.2 + Mockito 5.12.0 + 518 tests
-Build:       Maven + JaCoCo + Protobuf Plugin
+Build:       Maven + JaCoCo
 ```
 
 ## 🎯 Why XDAGJ-P2P?
@@ -63,7 +63,7 @@ Status:            v0.1.0 Production Ready - Powering Next-Gen XDAG
 ```
 Java Runtime:       Java 21 LTS
 Network Engine:     Netty 4.2.1
-Message Protocol:   Protocol Buffers 4.31.1
+Message Protocol:   Custom XDAG message encoding
 Packet Processing:  ConsenSys Tuweni 2.7.0
 ```
 
@@ -182,7 +182,7 @@ High Performance:   Sub-millisecond processing
 
 ### 📨 **Message Router**
 ```
-Protocol Buffers:   Custom extensible schemas
+Custom Encoding:     Extensible, backward-compatible
 Type Safety:        Strongly-typed definitions
 Smart Routing:      Efficient message delivery
 Backward Compatible: Schema evolution support
@@ -249,33 +249,67 @@ p2pService.start(config);
 
 ### Custom Message Example
 ```java
-// 1. Define your message in proto file
-message CustomBlockMessage {
-    bytes blockHash = 1;
-    int64 blockNumber = 2;
-    repeated bytes transactions = 3;
-    int64 timestamp = 4;
+import io.xdag.p2p.message.Message;
+import io.xdag.p2p.message.MessageCode;
+import io.xdag.p2p.utils.SimpleEncoder;
+import io.xdag.p2p.utils.SimpleDecoder;
+import org.apache.tuweni.bytes.Bytes;
+
+// 1. Define your custom message class
+public class CustomBlockMessage extends Message {
+    private byte[] blockHash;
+    private long blockNumber;
+    private List<byte[]> transactions;
+    private long timestamp;
+    
+    public CustomBlockMessage(byte[] blockHash, long blockNumber, 
+                             List<byte[]> transactions, long timestamp) {
+        super(MessageCode.APP_TEST, null);
+        this.blockHash = blockHash;
+        this.blockNumber = blockNumber;
+        this.transactions = transactions;
+        this.timestamp = timestamp;
+    }
+    
+    // 2. Implement encoding using SimpleEncoder
+    @Override
+    public void encode(SimpleEncoder enc) {
+        enc.writeBytes(blockHash);
+        enc.writeLong(blockNumber);
+        enc.writeInt(transactions.size());
+        for (byte[] tx : transactions) {
+            enc.writeBytes(tx);
+        }
+        enc.writeLong(timestamp);
+    }
+    
+    // 3. Implement decoding using SimpleDecoder
+    public static CustomBlockMessage decode(byte[] encoded) {
+        SimpleDecoder dec = new SimpleDecoder(encoded);
+        byte[] blockHash = dec.readBytes();
+        long blockNumber = dec.readLong();
+        int txCount = dec.readInt();
+        List<byte[]> transactions = new ArrayList<>();
+        for (int i = 0; i < txCount; i++) {
+            transactions.add(dec.readBytes());
+        }
+        long timestamp = dec.readLong();
+        return new CustomBlockMessage(blockHash, blockNumber, transactions, timestamp);
+    }
 }
 
-// 2. Use generated Java classes
-CustomBlockMessage blockMsg = CustomBlockMessage.newBuilder()
-    .setBlockHash(ByteString.copyFrom(hash))
-    .setBlockNumber(12345)
-    .addTransactions(ByteString.copyFrom(tx1))
-    .addTransactions(ByteString.copyFrom(tx2))
-    .setTimestamp(System.currentTimeMillis())
-    .build();
+// 4. Send message via P2P channel
+CustomBlockMessage blockMsg = new CustomBlockMessage(
+    hash, 12345L, Arrays.asList(tx1, tx2), System.currentTimeMillis());
+channel.send(blockMsg.getSendData());
 
-// 3. Send via P2P channel
-channel.send(Bytes.wrap(blockMsg.toByteArray()));
-
-// 4. Receive and parse
+// 5. Receive and parse message
 @Override
 public void onMessage(Channel channel, Bytes data) {
     try {
-        CustomBlockMessage received = CustomBlockMessage.parseFrom(data.toArray());
+        CustomBlockMessage received = CustomBlockMessage.decode(data.toArray());
         System.out.println("Received block: " + received.getBlockNumber());
-    } catch (InvalidProtocolBufferException e) {
+    } catch (Exception e) {
         log.error("Failed to parse custom message", e);
     }
 }
@@ -299,15 +333,18 @@ java -jar target/xdagj-p2p-0.1.0-jar-with-dependencies.jar \
 cd test-nodes
 chmod +x *.sh
 
-# Quick test: 10 nodes with real-time monitoring
-./start-multi-nodes.sh 10
+# Quick test: 6 nodes with real-time monitoring
+./start-p2p-network.sh 6
 ./monitor-nodes.sh
 
-# Professional benchmark: Full test suite
-./benchmark-network.sh
+# View network status
+./status.sh
 
 # Advanced analysis with Python tools
 python3 analyze-network-performance.py --logs-dir logs
+
+# Clean shutdown
+./stop-nodes.sh
 ```
 
 ## 🧪 Testing & Performance
@@ -350,19 +387,23 @@ XDAGJ-P2P delivers **production-ready performance** with comprehensive benchmark
 XDAGJ-P2P includes a comprehensive **professional testing suite** for enterprise-grade P2P network evaluation:
 
 ```bash
-# Quick functional testing (10 nodes)
+# Quick functional testing (6 nodes)
 cd test-nodes
-./start-multi-nodes.sh 10
+./start-p2p-network.sh 6
 ./monitor-nodes.sh
 
-# Professional benchmark testing (5-30 nodes)
-./benchmark-network.sh --nodes 5,10,20,30 --duration 300
+# Check network status
+./status.sh
 
-# Stress testing (30 nodes, 10 minutes)
-./benchmark-network.sh --type stress --nodes 30 --duration 600
+# Stress testing (20 nodes, 5 minutes)
+./start-p2p-network.sh 20
+sleep 300
 
 # Deep performance analysis
 python3 analyze-network-performance.py --logs-dir logs
+
+# Clean shutdown
+./stop-nodes.sh
 ```
 
 **🚀 Professional Test Capabilities:**
@@ -428,13 +469,14 @@ cd test-nodes
 chmod +x *.sh
 
 # Basic network test (recommended)
-./start-multi-nodes.sh 10       # Start 10 nodes
+./start-p2p-network.sh 6        # Start 6 nodes
 ./monitor-nodes.sh              # Monitor performance
+./status.sh                     # Check status
 ./stop-nodes.sh                 # Clean shutdown
 
-# Comprehensive benchmark suite
-./benchmark-network.sh           # Full benchmark (5-30 nodes)
-./benchmark-network.sh --help    # See all options
+# Larger network test
+./start-p2p-network.sh 20       # Start 20 nodes
+./analyze-network-performance.py # Analyze performance
 
 # Network analysis (requires Python 3.7+)
 pip3 install matplotlib pandas networkx
@@ -444,9 +486,11 @@ python3 analyze-network-performance.py --logs-dir logs
 ### 📊 **Testing Tools Overview**
 
 #### 🔧 **Core Testing Scripts**
-- `start-multi-nodes.sh`: Launch multiple P2P nodes (5-30 nodes)
+- `start-p2p-network.sh`: Launch multiple P2P nodes (configurable count)
+- `stop-nodes.sh`: Gracefully stop all running nodes
+- `status.sh`: Quick status check of all nodes
 - `monitor-nodes.sh`: Real-time network monitoring and statistics
-- `benchmark-network.sh`: Professional benchmark testing suite
+- `cleanup.sh`: Clean up logs and temporary files
 - `analyze-network-performance.py`: Advanced Python data analysis tool
 
 #### 🎯 **Test Message Types**
@@ -485,9 +529,9 @@ open target/site/jacoco/index.html
 # Run specific optimized tests
 cat target/surefire-reports/io.xdag.p2p.performance.P2pPerformanceTest-output.txt
 
-# View network benchmark results
-ls -la test-nodes/benchmark_results/
-cat test-nodes/benchmark_results/*/BENCHMARK_REPORT.md
+# View network analysis results
+ls -la test-nodes/analysis_results*/
+cat test-nodes/analysis_results*/network_analysis_report.txt
 ```
 
 ## 📄 License

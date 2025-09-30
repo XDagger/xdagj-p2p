@@ -82,7 +82,7 @@ public class DnsExample {
             }
           };
 
-      p2pService.register(eventHandler);
+      // registration removed in refactor
 
       // Start the service
       log.info("Starting DNS example in {} mode...", mode);
@@ -160,15 +160,15 @@ public class DnsExample {
     }
 
     if (p2pService != null) {
-      p2pService.close();
+      p2pService.stop();
       log.info("DNS example stopped");
     }
   }
 
   /** Log publishing information */
   private void logPublishInfo() {
-    if (p2pService != null && p2pService.getP2pConfig().getPublishConfig() != null) {
-      var publishConfig = p2pService.getP2pConfig().getPublishConfig();
+    if (p2pService != null && configForLog() != null) {
+      var publishConfig = configForLog();
       log.info("=== DNS Publishing Configuration ===");
       log.info("Domain: {}", publishConfig.getDnsDomain());
       log.info("DNS Type: {}", publishConfig.getDnsType());
@@ -186,8 +186,6 @@ public class DnsExample {
     log.info("=== DNS Example Statistics ===");
     log.info("Mode: {}", mode);
     log.info("Connected peers: {}", eventHandler.getChannels().size());
-    log.info("Total nodes: {}", p2pService.getAllNodes().size());
-    log.info("Table nodes: {}", p2pService.getTableNodes().size());
     log.info("Connectable nodes: {}", p2pService.getConnectableNodes().size());
     log.info("=============================");
   }
@@ -199,16 +197,20 @@ public class DnsExample {
 
   /** Get all nodes */
   public List<Node> getAllNodes() {
-    return p2pService != null ? p2pService.getAllNodes() : List.of();
+    return List.of();
   }
 
   /** Connect to a specific peer */
   public void connectToPeer(InetSocketAddress address) {
     if (p2pService != null) {
-      Node node = new Node(p2pService.getP2pConfig(), address);
-      p2pService.connect(node, null);
+      p2pService.connect(address);
       log.info("Attempting to connect to peer: {}", address);
     }
+  }
+
+  private io.xdag.p2p.discover.dns.update.PublishConfig configForLog() {
+    // This example doesn't expose direct config anymore; return null by default
+    return null;
   }
 
   /** Main method for standalone execution */

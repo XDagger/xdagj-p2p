@@ -136,15 +136,15 @@ public class ExampleEventHandler extends P2pEventHandler {
    */
   public void broadcastTestMessage(String message) {
     TestMessage testMessage = new TestMessage(message);
-    Bytes messageBytes =
-        Bytes.concatenate(Bytes.of(MessageTypes.TEST.getType()), Bytes.wrap(testMessage.getData()));
+    Bytes appPayload = Bytes.concatenate(Bytes.of(MessageTypes.TEST.getType()), Bytes.wrap(testMessage.getData()));
+    io.xdag.p2p.example.message.AppTestMessage networkMsg = new io.xdag.p2p.example.message.AppTestMessage(appPayload.toArray());
 
     channels
         .values()
         .forEach(
             channel -> {
               try {
-                channel.send(messageBytes);
+                channel.send(networkMsg);
                 log.info("Sent test message to {}: {}", channel.getInetSocketAddress(), message);
               } catch (Exception e) {
                 log.error(
@@ -167,8 +167,8 @@ public class ExampleEventHandler extends P2pEventHandler {
     TestMessage testMessage = new TestMessage(messageId, nodeId, System.currentTimeMillis(), 
                                             0, maxHops, testType, content);
     
-    Bytes messageBytes =
-        Bytes.concatenate(Bytes.of(MessageTypes.TEST.getType()), Bytes.wrap(testMessage.getData()));
+    Bytes appPayload = Bytes.concatenate(Bytes.of(MessageTypes.TEST.getType()), Bytes.wrap(testMessage.getData()));
+    io.xdag.p2p.example.message.AppTestMessage networkMsg = new io.xdag.p2p.example.message.AppTestMessage(appPayload.toArray());
 
     log.info("Sending network test message: {} (type: {}, maxHops: {})", 
              messageId, testType, maxHops);
@@ -178,7 +178,7 @@ public class ExampleEventHandler extends P2pEventHandler {
         .forEach(
             channel -> {
               try {
-                channel.send(messageBytes);
+                    channel.send(networkMsg);
                 log.debug("Sent network test message to {}: {}", 
                          channel.getInetSocketAddress(), messageId);
               } catch (Exception e) {
@@ -244,8 +244,8 @@ public class ExampleEventHandler extends P2pEventHandler {
       TestMessage forwardCopy = originalMessage.createForwardCopy(nodeId);
       
       if (forwardCopy != null && !forwardCopy.isExpired()) {
-        Bytes messageBytes =
-            Bytes.concatenate(Bytes.of(MessageTypes.TEST.getType()), Bytes.wrap(forwardCopy.getData()));
+        Bytes appPayload = Bytes.concatenate(Bytes.of(MessageTypes.TEST.getType()), Bytes.wrap(forwardCopy.getData()));
+        io.xdag.p2p.example.message.AppTestMessage networkMsg = new io.xdag.p2p.example.message.AppTestMessage(appPayload.toArray());
 
         totalForwarded.incrementAndGet();
         
@@ -257,7 +257,7 @@ public class ExampleEventHandler extends P2pEventHandler {
             .forEach(
                 channel -> {
                   try {
-                    channel.send(messageBytes);
+                    channel.send(networkMsg);
                   } catch (Exception e) {
                     log.error(
                         "Failed to forward network test message to {}: {}",

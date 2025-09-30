@@ -26,11 +26,11 @@ package io.xdag.p2p.discover.kad;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.handler.discover.UdpEvent;
-import io.xdag.p2p.message.discover.Message;
-import io.xdag.p2p.message.discover.kad.FindNodeMessage;
-import io.xdag.p2p.message.discover.kad.NeighborsMessage;
-import io.xdag.p2p.message.discover.kad.PingMessage;
-import io.xdag.p2p.message.discover.kad.PongMessage;
+import io.xdag.p2p.message.Message;
+import io.xdag.p2p.message.discover.KadFindNodeMessage;
+import io.xdag.p2p.message.discover.KadNeighborsMessage;
+import io.xdag.p2p.message.discover.KadPingMessage;
+import io.xdag.p2p.message.discover.KadPongMessage;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -47,12 +47,12 @@ public class NodeHandler {
   private volatile State state;
   private final KadService kadService;
   private NodeHandler replaceCandidate;
-  private final AtomicInteger pingTrials = new AtomicInteger(3);
+  private final AtomicInteger pingTrials = new AtomicInteger(2);
   private volatile boolean waitForPong = false;
   private volatile boolean waitForNeighbors = false;
 
-  public NodeHandler(P2pConfig p2pConfig, Node node, KadService kadService) {
-    this.p2pConfig = p2pConfig;
+  public NodeHandler(Node node, KadService kadService) {
+    this.p2pConfig = kadService.getP2pConfig();
     this.node = node;
     this.kadService = kadService;
     log.debug("Creating NodeHandler for node: {}", node.getPreferInetSocketAddress());
@@ -117,11 +117,14 @@ public class NodeHandler {
     state = newState;
   }
 
-  public void handlePing(PingMessage msg) {
+  public void handlePing(KadPingMessage msg) {
+    log.debug("handlePing from {}", node.getPreferInetSocketAddress());
     if (!kadService.getTable().getNode().equals(node)) {
       sendPong();
     }
-    node.setP2pVersion(msg.getNetworkId());
+    node.setNetworkId(msg.getNetworkId());
+    node.setNetworkVersion(msg.getNetworkVersion());
+
     if (!node.isConnectible(p2pConfig.getNetworkId())) {
       changeState(State.DEAD);
     } else if (state.equals(State.DEAD)) {
@@ -129,10 +132,13 @@ public class NodeHandler {
     }
   }
 
-  public void handlePong(PongMessage msg) {
+  public void handlePong(KadPongMessage msg) {
+    log.debug("handlePong from {}", node.getPreferInetSocketAddress());
     if (waitForPong) {
       waitForPong = false;
-      node.setP2pVersion(msg.getNetworkId());
+      node.setNetworkId(msg.getNetworkId());
+      node.setNetworkVersion(msg.getNetworkVersion());
+
       if (!node.isConnectible(p2pConfig.getNetworkId())) {
         changeState(State.DEAD);
       } else {
@@ -141,21 +147,22 @@ public class NodeHandler {
     }
   }
 
-  public void handleNeighbours(NeighborsMessage msg, InetSocketAddress sender) {
+  public void handleNeighbours(KadNeighborsMessage msg) {
     if (!waitForNeighbors) {
-      log.warn("Receive neighbors from {} without send find nodes", sender);
+      log.warn("Receive neighbors without send find nodes");
       return;
     }
     waitForNeighbors = false;
-    for (Node n : msg.getNodes()) {
-      if (!kadService.getPublicHomeNode().getHexId().equals(n.getHexId())) {
+    for (Node n : msg.getNeighbors()) {
+      if (kadService.getPublicHomeNode().getId() == null || n.getId() == null ||
+          !kadService.getPublicHomeNode().getId().equals(n.getId())) {
         kadService.getNodeHandler(n);
       }
     }
   }
 
-  public void handleFindNode(FindNodeMessage msg) {
-    List<Node> closest = kadService.getTable().getClosestNodes(msg.getTargetId());
+  public void handleFindNode(KadFindNodeMessage msg) {
+    List<Node> closest = kadService.getTable().getClosestNodes(msg.getTarget());
     sendNeighbours(closest, msg.getTimestamp());
   }
 
@@ -174,7 +181,7 @@ public class NodeHandler {
 
   public void sendPing() {
     log.debug("Sending PING to node: {}", node.getPreferInetSocketAddress());
-    PingMessage msg = new PingMessage(p2pConfig, kadService.getPublicHomeNode(), getNode());
+    KadPingMessage msg = new KadPingMessage(kadService.getPublicHomeNode(), getNode());
     waitForPong = true;
     sendMessage(msg);
 
@@ -199,20 +206,20 @@ public class NodeHandler {
   }
 
   public void sendPong() {
-    Message pong = new PongMessage(p2pConfig, kadService.getPublicHomeNode());
+    Message pong = new KadPongMessage();
     sendMessage(pong);
   }
 
   public void sendFindNode(byte[] target) {
     waitForNeighbors = true;
-    FindNodeMessage msg =
-        new FindNodeMessage(p2pConfig, kadService.getPublicHomeNode(), Bytes.wrap(target));
+    KadFindNodeMessage msg =
+        new KadFindNodeMessage(kadService.getPublicHomeNode(), Bytes.wrap(target));
     sendMessage(msg);
   }
 
   public void sendNeighbours(List<Node> neighbours, long sequence) {
     Message msg =
-        new NeighborsMessage(p2pConfig, kadService.getPublicHomeNode(), neighbours, sequence);
+        new KadNeighborsMessage(kadService.getPublicHomeNode(), neighbours);
     sendMessage(msg);
   }
 

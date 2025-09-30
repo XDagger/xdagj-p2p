@@ -23,7 +23,6 @@
  */
 package io.xdag.p2p.discover.dns.tree;
 
-import com.google.protobuf.InvalidProtocolBufferException;
 import io.xdag.crypto.hash.HashUtils;
 import io.xdag.crypto.keys.ECKeyPair;
 import io.xdag.crypto.keys.PublicKey;
@@ -106,7 +105,7 @@ public class Tree {
       throws DnsException {
     List<Entry> nodesEntryList = new ArrayList<>();
     for (String enr : enrs) {
-      nodesEntryList.add(NodesEntry.parseEntry(p2pConfig, enr));
+      nodesEntryList.add(NodesEntry.parseEntry(enr));
     }
 
     List<Entry> linkEntryList = new ArrayList<>();
@@ -249,8 +248,8 @@ public class Tree {
       String joinStr = nodesEntry.substring(Entry.nodesPrefix.length());
       List<DnsNode> subNodes;
       try {
-        subNodes = DnsNode.decompress(p2pConfig, joinStr);
-      } catch (InvalidProtocolBufferException | UnknownHostException e) {
+        subNodes = DnsNode.decompress(joinStr);
+      } catch (UnknownHostException e) {
         log.error("", e);
         continue;
       }

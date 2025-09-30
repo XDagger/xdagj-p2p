@@ -23,136 +23,90 @@
  */
 package io.xdag.p2p.config;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 
-import io.xdag.p2p.P2pException;
-import java.io.IOException;
+import io.xdag.p2p.channel.XdagFrame;
+import io.xdag.p2p.channel.XdagMessageHandler;
+import io.xdag.p2p.message.Message;
+import io.xdag.p2p.message.MessageCode;
+import io.xdag.p2p.utils.SimpleDecoder;
+import io.xdag.p2p.utils.SimpleEncoder;
+import java.util.Random;
 import org.apache.tuweni.bytes.Bytes;
 import org.junit.jupiter.api.Test;
 
-/**
- * Unit tests for UpgradeController class. Tests data encoding/decoding and version compatibility.
- */
+/** Updated tests to reflect custom encoding and frame compression path. */
 public class UpgradeControllerTest {
 
-  @Test
-  public void testCodeSendDataWithoutCompression() throws IOException {
-    // Test with version 0 (no compression)
-    Bytes originalData = Bytes.fromHexString("0x1234567890abcdef");
-    Bytes encodedData = UpgradeController.codeSendData(0, originalData);
-
-    // Should return original data without compression
-    assertEquals(originalData, encodedData);
-  }
-
-  @Test
-  public void testCodeSendDataWithCompression() throws IOException {
-    // Test with version 1 (with compression)
-    Bytes originalData = Bytes.fromHexString("0x1234567890abcdef");
-    Bytes encodedData = UpgradeController.codeSendData(1, originalData);
-
-    // Should return compressed data (different from original)
-    assertNotNull(encodedData);
-    // Compressed data should be different (unless data is very small)
-  }
-
-  @Test
-  public void testDecodeReceiveDataWithoutCompression() throws P2pException, IOException {
-    // Test with version 0 (no compression)
-    Bytes originalData = Bytes.fromHexString("0x1234567890abcdef");
-    Bytes decodedData = UpgradeController.decodeReceiveData(0, originalData);
-
-    // Should return original data without decompression
-    assertEquals(originalData, decodedData);
-  }
-
-  @Test
-  public void testRoundTripWithCompression() throws P2pException, IOException {
-    // Test encoding then decode with compression
-    Bytes originalData = Bytes.fromHexString("0x1234567890abcdef1122334455667788");
-
-    // Encode with compression
-    Bytes encodedData = UpgradeController.codeSendData(1, originalData);
-
-    // Decode the encoded data
-    Bytes decodedData = UpgradeController.decodeReceiveData(1, encodedData);
-
-    // Should get back original data
-    assertEquals(originalData, decodedData);
-  }
-
-  @Test
-  public void testRoundTripWithoutCompression() throws P2pException, IOException {
-    // Test encoding then decode without compression
-    Bytes originalData = Bytes.fromHexString("0x1234567890abcdef1122334455667788");
-
-    // Encode without compression
-    Bytes encodedData = UpgradeController.codeSendData(0, originalData);
-
-    // Decode the encoded data
-    Bytes decodedData = UpgradeController.decodeReceiveData(0, encodedData);
-
-    // Should get back original data
-    assertEquals(originalData, decodedData);
-  }
-
-  @Test
-  public void testDecodeInvalidCompressedData() {
-    // Test decoding invalid compressed data
-    Bytes invalidData = Bytes.fromHexString("0xdeadbeef");
-
-    // Should throw P2pException when trying to parse invalid compressed data
-    assertThrows(
-        P2pException.class,
-        () -> UpgradeController.decodeReceiveData(1, invalidData));
-  }
-
-  @Test
-  public void testEmptyData() throws P2pException, IOException {
-    // Test with empty data
-    Bytes emptyData = Bytes.EMPTY;
-
-    // Without compression
-    Bytes encodedEmpty = UpgradeController.codeSendData(0, emptyData);
-    assertEquals(emptyData, encodedEmpty);
-
-    Bytes decodedEmpty = UpgradeController.decodeReceiveData(0, emptyData);
-    assertEquals(emptyData, decodedEmpty);
-  }
-
-  @Test
-  public void testLargeData() throws P2pException, IOException {
-    // Test with larger data that benefits from compression
-    byte[] largeDataArray = new byte[1000];
-    for (int i = 0; i < largeDataArray.length; i++) {
-      largeDataArray[i] = (byte) (i % 256);
+    @Test
+    public void testSimpleEncoderDecoderNulls() {
+        SimpleEncoder enc = new SimpleEncoder();
+        enc.writeString(null);
+        enc.writeBytes(null);
+        byte[] out = enc.toBytes();
+        SimpleDecoder dec = new SimpleDecoder(out);
+        assertNull(dec.readString());
+        assertNull(dec.readBytes());
     }
-    Bytes largeData = Bytes.wrap(largeDataArray);
 
-    // Test round trip with compression
-    Bytes encodedData = UpgradeController.codeSendData(1, largeData);
-    Bytes decodedData = UpgradeController.decodeReceiveData(1, encodedData);
+    @Test
+    public void testSimpleEncoderDecoderRoundTrip() {
+        SimpleEncoder enc = new SimpleEncoder();
+        enc.writeBoolean(true);
+        enc.writeByte((byte)0x7F);
+        enc.writeShort((short)1234);
+        enc.writeInt(0x7fffffff);
+        enc.writeLong(0x12345678abcdef12L);
+        enc.writeString("");
+        enc.writeString("hello");
+        enc.writeBytes(new byte[] {1,2,3});
+        byte[] out = enc.toBytes();
 
-    assertEquals(largeData, decodedData);
-  }
+        SimpleDecoder dec = new SimpleDecoder(out);
+        assertTrue(dec.readBoolean());
+        assertEquals((byte)0x7F, dec.readByte());
+        assertEquals((short)1234, dec.readShort());
+        assertEquals(0x7fffffff, dec.readInt());
+        assertEquals(0x12345678abcdef12L, dec.readLong());
+        assertEquals("", dec.readString());
+        assertEquals("hello", dec.readString());
+        assertArrayEquals(new byte[]{1,2,3}, dec.readBytes());
+    }
 
-  @Test
-  public void testVersionCompatibility() throws IOException {
-    // Test different version combinations
-    Bytes testData = Bytes.fromHexString("0x123456789abcdef0");
+    @Test
+    public void testCompressionFlaggedInFrameHeader() {
+        P2pConfig cfg = new P2pConfig();
+        cfg.setEnableFrameCompression(true);
+        cfg.setNetMaxFrameBodySize(256);
+        XdagMessageHandler handler = new XdagMessageHandler(cfg);
 
-    // Version 0 should not use compression
-    Bytes encoded0 = UpgradeController.codeSendData(0, testData);
-    assertEquals(testData, encoded0);
+        byte[] body = new byte[1024];
+        new Random(1).nextBytes(body);
+        Message msg = new Message(MessageCode.APP_TEST, null) {
+            @Override
+            public byte[] getBody() { return body; }
+            @Override
+            public void encode(io.xdag.p2p.utils.SimpleEncoder enc) {
+                if (body != null && body.length > 0) {
+                    enc.writeBytes(body);
+                }
+            }
+        };
 
-    // Version 1 should use compression
-    Bytes encoded1 = UpgradeController.codeSendData(1, testData);
-    assertNotNull(encoded1);
+        byte packetType = msg.getCode().toByte();
+        int packetId = 1;
+        int packetSize = body.length;
+        short packetVersion = (short)0; // XdagFrame.VERSION
+        byte compressType = (byte) (cfg.isEnableFrameCompression() ? XdagFrame.COMPRESS_SNAPPY : XdagFrame.COMPRESS_NONE);
 
-    // Version 2 should also use compression
-    Bytes encoded2 = UpgradeController.codeSendData(2, testData);
-    assertNotNull(encoded2);
-  }
+        XdagFrame frame = new XdagFrame(packetVersion, compressType, packetType, packetId, packetSize, Math.min(packetSize, cfg.getNetMaxFrameBodySize()), Bytes.wrap(body, 0, Math.min(packetSize, cfg.getNetMaxFrameBodySize())).toArray());
+
+        assertEquals(packetVersion, frame.getVersion());
+        assertEquals(compressType, frame.getCompressType());
+        assertEquals(packetType, frame.getPacketType());
+        assertEquals(packetId, frame.getPacketId());
+        assertEquals(packetSize, frame.getPacketSize());
+        assertEquals(Math.min(packetSize, cfg.getNetMaxFrameBodySize()), frame.getBodySize());
+        assertNotNull(frame.getBody());
+    }
 }

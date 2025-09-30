@@ -11,8 +11,6 @@ import io.xdag.p2p.channel.ChannelManager;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.message.node.Message;
 import io.xdag.p2p.message.node.MessageType;
-import io.xdag.p2p.message.node.PingMessage;
-import io.xdag.p2p.message.node.PongMessage;
 import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.Map;

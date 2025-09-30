@@ -23,7 +23,7 @@
  */
 package io.xdag.p2p.handler.discover;
 
-import io.xdag.p2p.message.discover.Message;
+import io.xdag.p2p.message.Message;
 import java.net.InetSocketAddress;
 import lombok.Getter;
 import lombok.Setter;

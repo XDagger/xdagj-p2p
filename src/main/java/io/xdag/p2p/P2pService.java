@@ -24,107 +24,98 @@
 package io.xdag.p2p;
 
 import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
-import io.xdag.p2p.channel.Channel;
 import io.xdag.p2p.channel.ChannelManager;
 import io.xdag.p2p.config.P2pConfig;
-import io.xdag.p2p.config.P2pConstant;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.discover.NodeManager;
-import io.xdag.p2p.discover.dns.DnsManager;
 import io.xdag.p2p.stats.P2pStats;
 import io.xdag.p2p.stats.P2pStatsManager;
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 @Getter
-@Slf4j(topic = "net")
+@Slf4j(topic = "p2p")
 public class P2pService {
 
-  private final P2pConfig p2pConfig;
+    private final P2pConfig config;
+    private final NodeManager nodeManager;
+    private final ChannelManager channelManager;
+    private final P2pStatsManager p2pStatsManager;
 
-  private final NodeManager nodeManager;
-  private final DnsManager dnsManager;
-  private final ChannelManager channelManager;
-  private final P2pStatsManager p2pStatsManager;
+    private PeerServer peerServer;
+    private PeerClient peerClient;
 
-  private volatile boolean isShutdown = false;
+    private volatile boolean isShutdown = false;
 
-  public P2pService(final P2pConfig p2pConfig) {
-    this.p2pConfig = p2pConfig;
-
-    nodeManager = new NodeManager(this.p2pConfig);
-    dnsManager = new DnsManager(this.p2pConfig, this.nodeManager);
-
-    channelManager = new ChannelManager(this.p2pConfig, nodeManager, dnsManager);
-    p2pStatsManager = new P2pStatsManager();
-  }
-
-  public void start() {
-    nodeManager.init();
-    channelManager.init();
-    dnsManager.init();
-    log.info("P2p service started");
-
-    Runtime.getRuntime().addShutdownHook(new Thread(this::close));
-  }
-
-  public void close() {
-    if (isShutdown) {
-      return;
+    public P2pService(final P2pConfig config) {
+        this.config = config;
+        this.nodeManager = new NodeManager(config);
+        this.channelManager = new ChannelManager(config, nodeManager);
+        this.p2pStatsManager = new P2pStatsManager();
     }
-    isShutdown = true;
-    dnsManager.close();
-    nodeManager.close();
-    channelManager.close();
-    log.info("P2p service closed");
-  }
 
-  public void register(P2pEventHandler p2PEventHandler) throws P2pException {
-    p2pConfig.addP2pEventHandle(p2PEventHandler);
-  }
+    public void start() {
+        if (isShutdown) {
+            log.warn("P2P service is already shut down.");
+            return;
+        }
 
-  @Deprecated
-  public void connect(InetSocketAddress address) {
-    channelManager.connect(address);
-  }
+        // Ensure node key is available for handshake; generate ephemeral if missing
+        if (config.getNodeKey() == null) {
+            try {
+                config.setNodeKey(io.xdag.crypto.keys.ECKeyPair.generate());
+                log.info("Generated ephemeral node key for handshake");
+            } catch (Exception e) {
+                log.warn("Failed to generate node key: {}", e.getMessage());
+            }
+        }
 
-  public ChannelFuture connect(Node node, ChannelFutureListener future) {
-    return channelManager.connect(node, future);
-  }
+        nodeManager.init();
 
-  public P2pStats getP2pStats() {
-    return p2pStatsManager.getP2pStats();
-  }
+        peerServer = new PeerServer(config, channelManager);
+        peerServer.start();
 
-  public List<Node> getTableNodes() {
-    return nodeManager.getTableNodes();
-  }
+        peerClient = new PeerClient(config, channelManager);
+        peerClient.start();
 
-  public List<Node> getConnectableNodes() {
-    Set<Node> nodes = new HashSet<>();
-    nodes.addAll(nodeManager.getConnectableNodes());
-    nodes.addAll(dnsManager.getDnsNodes());
-    return new ArrayList<>(nodes);
-  }
+        channelManager.start(peerClient);
+        // Trigger an immediate connect attempt to seeds (don't wait for scheduler)
+        channelManager.triggerImmediateConnect();
 
-  public List<Node> getAllNodes() {
-    Set<Node> nodes = new HashSet<>();
-    nodes.addAll(nodeManager.getAllNodes());
-    nodes.addAll(dnsManager.getDnsNodes());
-    return new ArrayList<>(nodes);
-  }
+        log.info("P2P service started successfully.");
+        Runtime.getRuntime().addShutdownHook(new Thread(this::stop, "p2p-shutdown"));
+    }
 
-  public void updateNodeId(Channel channel, String nodeId) {
-    channelManager.updateNodeId(channel, nodeId);
-  }
+    public void stop() {
+        if (isShutdown) {
+            return;
+        }
+        isShutdown = true;
 
-  public int getVersion() {
-    return P2pConstant.version;
-  }
+        log.info("Stopping P2P service...");
+        channelManager.stop();
+        if (peerClient != null) {
+            peerClient.stop();
+        }
+        if (peerServer != null) {
+            peerServer.stop();
+        }
+        nodeManager.close();
+        log.info("P2P service stopped.");
+    }
+
+    public ChannelFuture connect(InetSocketAddress remoteAddress) {
+        Node node = new Node(null, remoteAddress);
+        return channelManager.connectAsync(node, false);
+    }
+
+    public P2pStats getP2pStats() {
+        return p2pStatsManager.getP2pStats(channelManager);
+    }
+
+    public List<Node> getConnectableNodes() {
+        return nodeManager.getConnectableNodes();
+    }
 }

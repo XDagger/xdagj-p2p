@@ -60,7 +60,11 @@ public class NodeManager {
   }
 
   public Node getHomeNode() {
-    return discoverService.getPublicHomeNode();
+    Node home = discoverService != null ? discoverService.getPublicHomeNode() : null;
+    if (home == null && p2pConfig != null) {
+      home = new Node(null, p2pConfig.getIpV4(), p2pConfig.getIpV6(), p2pConfig.getPort());
+    }
+    return home;
   }
 
   public List<Node> getTableNodes() {
@@ -69,5 +73,13 @@ public class NodeManager {
 
   public List<Node> getAllNodes() {
     return discoverService.getAllNodes();
+  }
+
+  // Expose boot nodes via KadService when needed
+  public List<Node> getBootNodes() {
+    if (discoverService instanceof io.xdag.p2p.discover.kad.KadService ks) {
+      return ks.getBootNodes();
+    }
+    return List.of();
   }
 }

@@ -26,6 +26,7 @@ package io.xdag.p2p.channel;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.when;
 
+import io.xdag.p2p.PeerServer;
 import io.xdag.p2p.config.P2pConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

@@ -49,7 +49,7 @@ public class NodeBucket {
   }
 
   private NodeEntry getLastSeen() {
-    List<NodeEntry> sorted = nodes;
+    List<NodeEntry> sorted = new ArrayList<>(nodes);
     sorted.sort(new TimeComparator());
     return sorted.getFirst();
   }

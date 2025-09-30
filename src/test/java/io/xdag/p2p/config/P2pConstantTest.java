@@ -35,7 +35,7 @@ public class P2pConstantTest {
 
   @Test
   public void testNodeIdLength() {
-    assertEquals(64, P2pConstant.NODE_ID_LEN);
+    assertEquals(20, P2pConstant.NODE_ID_LEN);
     assertTrue(P2pConstant.NODE_ID_LEN > 0);
   }
 

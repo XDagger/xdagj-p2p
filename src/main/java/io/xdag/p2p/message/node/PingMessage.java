@@ -1,34 +1,71 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2020-2030 The XdagJ Developers
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 package io.xdag.p2p.message.node;
 
-import io.xdag.p2p.config.P2pConfig;
-import io.xdag.p2p.config.P2pConstant;
-import io.xdag.p2p.proto.Connect;
-import io.xdag.p2p.utils.BytesUtils;
-import org.apache.tuweni.bytes.Bytes;
+import io.xdag.p2p.message.Message;
+import io.xdag.p2p.message.MessageCode;
+import io.xdag.p2p.utils.SimpleDecoder;
+import io.xdag.p2p.utils.SimpleEncoder;
 
 public class PingMessage extends Message {
 
-  private final Connect.KeepAliveMessage keepAliveMessage;
+    private final long timestamp;
 
-  public PingMessage(P2pConfig p2pConfig, Bytes data) throws Exception {
-    super(p2pConfig, MessageType.PING, data);
-    this.keepAliveMessage = Connect.KeepAliveMessage.parseFrom(data.toArray());
-  }
+    public PingMessage() {
+        super(MessageCode.PING, PongMessage.class);
+        this.timestamp = System.currentTimeMillis();
+        SimpleEncoder enc = new SimpleEncoder();
+        enc.writeLong(timestamp);
+        this.body = enc.toBytes();
+    }
 
-  public PingMessage(P2pConfig p2pConfig) {
-    super(p2pConfig, MessageType.PING, null);
-    this.keepAliveMessage =
-        Connect.KeepAliveMessage.newBuilder().setTimestamp(System.currentTimeMillis()).build();
-    this.data = BytesUtils.wrap(this.keepAliveMessage.toByteArray());
-  }
+    public PingMessage(byte[] body) {
+        super(MessageCode.PING, PongMessage.class);
+        if (body != null && body.length >= 8) {
+            SimpleDecoder dec = new SimpleDecoder(body);
+            this.timestamp = dec.readLong();
+            this.body = body;
+        } else {
+            // Handle empty or invalid body - use current timestamp as fallback
+            this.timestamp = System.currentTimeMillis();
+            SimpleEncoder enc = new SimpleEncoder();
+            enc.writeLong(timestamp);
+            this.body = enc.toBytes();
+        }
+    }
 
-  public long getTimeStamp() {
-    return this.keepAliveMessage.getTimestamp();
-  }
+    public long getTimestamp() {
+        return timestamp;
+    }
 
-  @Override
-  public boolean valid() {
-    return getTimeStamp() > 0
-        && getTimeStamp() <= System.currentTimeMillis() + P2pConstant.NETWORK_TIME_DIFF;
-  }
+    @Override
+    public void encode(SimpleEncoder enc) {
+        enc.writeLong(timestamp);
+    }
+
+    @Override
+    public String toString() {
+        return "PingMessage [timestamp=" + timestamp + "]";
+    }
 }

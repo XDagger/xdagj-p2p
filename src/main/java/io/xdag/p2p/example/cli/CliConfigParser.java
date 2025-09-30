@@ -156,7 +156,7 @@ public class CliConfigParser {
 
     // Version (Network ID)
     if (cli.hasOption(OPT_VERSION)) {
-      config.setNetworkId(parseIntOption(cli, OPT_VERSION));
+      config.setNetworkId((byte)parseIntOption(cli, OPT_VERSION));
     }
 
     // Discovery

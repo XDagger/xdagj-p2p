@@ -37,4 +37,8 @@ public class P2pStatsManager {
     stats.setUdpOutSize(TrafficStats.getUdp().getOutSize().get());
     return stats;
   }
+
+  public P2pStats getP2pStats(io.xdag.p2p.channel.ChannelManager channelManager) {
+    return getP2pStats();
+  }
 }

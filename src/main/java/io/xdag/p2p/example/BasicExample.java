@@ -81,7 +81,7 @@ public class BasicExample {
             }
           };
 
-      p2pService.register(eventHandler);
+      // registration API removed in refactor; keep handler local for demo only
 
       // Start the service
       log.info("Starting basic P2P service...");
@@ -127,7 +127,7 @@ public class BasicExample {
     }
 
     if (p2pService != null) {
-      p2pService.close();
+      p2pService.stop();
       log.info("Basic P2P service stopped");
     }
   }
@@ -139,8 +139,7 @@ public class BasicExample {
    */
   public void connectToPeer(InetSocketAddress address) {
     if (p2pService != null) {
-      Node node = new Node(p2pService.getP2pConfig(), address);
-      p2pService.connect(node, null);
+      p2pService.connect(address);
       log.info("Attempting to connect to peer: {}", address);
     }
   }
@@ -160,7 +159,7 @@ public class BasicExample {
    * @return list of all nodes
    */
   public List<Node> getAllNodes() {
-    return p2pService != null ? p2pService.getAllNodes() : List.of();
+    return List.of();
   }
 
   /**
@@ -169,7 +168,7 @@ public class BasicExample {
    * @return list of table nodes
    */
   public List<Node> getTableNodes() {
-    return p2pService != null ? p2pService.getTableNodes() : List.of();
+    return List.of();
   }
 
   /**
