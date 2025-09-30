@@ -73,9 +73,6 @@ public class KadService implements DiscoverService {
     }
 
     public void init() {
-        // Ensure nodeKey is initialized for node ID generation and handshake signing
-        p2pConfig.ensureNodeKey();
-        
         for (InetSocketAddress address : p2pConfig.getSeedNodes()) {
             Node seed = new Node(null, address);
             seed.setNetworkId(p2pConfig.getNetworkId());
@@ -99,23 +96,25 @@ public class KadService implements DiscoverService {
                         p2pConfig.getPort());
         
         // Use public key as node ID for better security and identity verification
-        // If nodeKey is configured, derive node ID from public key (uncompressed, 65 bytes)
-        // Otherwise, fall back to random ID for testing/development
-        if (p2pConfig.getNodeKey() != null) {
-            this.homeNode.setId(
-                p2pConfig.getNodeKey()
-                         .getPublicKey()
-                         .toUncompressedBytes()
-                         .toUnprefixedHexString()
+        // nodeKey MUST be configured before initialization
+        if (p2pConfig.getNodeKey() == null) {
+            throw new IllegalStateException(
+                "NodeKey is not configured! Please set P2pConfig.nodeKey before calling init(). " +
+                "Node ID is derived from the public key to ensure node identity verification and " +
+                "prevent Sybil attacks. Generate a key pair using ECKeyPair.generate() or load " +
+                "from a persistent key file."
             );
-            log.debug("Node ID derived from nodeKey public key: {}", 
-                     this.homeNode.getId().substring(0, 16) + "...");
-        } else {
-            // Fallback to random ID if no nodeKey configured (for testing only)
-            this.homeNode.setId(org.apache.tuweni.bytes.Bytes.random(64).toUnprefixedHexString());
-            log.warn("No nodeKey configured, using random node ID. " +
-                    "This should only be used in testing environments.");
         }
+        
+        // Derive node ID from public key (uncompressed format, 65 bytes)
+        this.homeNode.setId(
+            p2pConfig.getNodeKey()
+                     .getPublicKey()
+                     .toUncompressedBytes()
+                     .toUnprefixedHexString()
+        );
+        log.info("Node ID derived from nodeKey public key: {}", 
+                 this.homeNode.getId().substring(0, 16) + "...");
         
         this.homeNode.setNetworkId(p2pConfig.getNetworkId());
         this.homeNode.setNetworkVersion(p2pConfig.getNetworkVersion());

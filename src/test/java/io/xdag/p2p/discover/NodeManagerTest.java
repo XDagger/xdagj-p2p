@@ -43,6 +43,8 @@ public class NodeManagerTest {
   @BeforeEach
   public void setUp() {
     config = new P2pConfig();
+    // Generate nodeKey for testing - required for node ID generation
+    config.generateNodeKey();
     nodeManager = new NodeManager(config);
     nodeManager.init(); // Initialize the discovery service
   }
@@ -111,6 +113,8 @@ public class NodeManagerTest {
     // Test that NodeManager respects config settings
     P2pConfig customConfig = new P2pConfig();
     customConfig.setDiscoverEnable(false);
+    // Generate nodeKey for testing - required for node ID generation
+    customConfig.generateNodeKey();
 
     NodeManager customManager = new NodeManager(customConfig);
     customManager.init();

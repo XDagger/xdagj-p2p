@@ -42,9 +42,11 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 
 @Getter
 @Setter
+@Slf4j
 public class P2pConfig {
 
   public List<P2pEventHandler> handlerList = new ArrayList<>();
@@ -125,14 +127,37 @@ public class P2pConfig {
 
   /**
    * Ensures that nodeKey is initialized. If not set, generates a new random key pair.
-   * This key pair is used for:
-   * - Node ID generation (derived from public key)
-   * - Handshake message signing
-   * - Node identity verification
+   * 
+   * <p><strong>WARNING:</strong> This method should only be used in testing environments.
+   * In production, you MUST load a persistent key pair from a secure key store to ensure
+   * the node ID remains consistent across restarts.
+   * 
+   * <p>This key pair is used for:
+   * <ul>
+   *   <li>Node ID generation (derived from public key)</li>
+   *   <li>Handshake message signing</li>
+   *   <li>Node identity verification</li>
+   * </ul>
+   * 
+   * @throws IllegalStateException if called when nodeKey is already set
    */
   public void ensureNodeKey() {
     if (this.nodeKey == null) {
       this.nodeKey = ECKeyPair.generate();
+      log.warn("Generated temporary nodeKey. This should ONLY be used in testing! " +
+              "In production, load a persistent key to ensure stable node identity.");
     }
+  }
+  
+  /**
+   * Generate and set a new random node key pair.
+   * 
+   * <p><strong>WARNING:</strong> This should only be used in testing environments.
+   * 
+   * @return the generated ECKeyPair
+   */
+  public ECKeyPair generateNodeKey() {
+    this.nodeKey = ECKeyPair.generate();
+    return this.nodeKey;
   }
 }

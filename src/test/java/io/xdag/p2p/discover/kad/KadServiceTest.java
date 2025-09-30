@@ -65,6 +65,10 @@ public class KadServiceTest {
     public void setUp() {
         p2pConfig = new P2pConfig();
         p2pConfig.setDiscoverEnable(false); // Disable discovery task for unit tests
+        
+        // Generate nodeKey for testing - required for node ID generation
+        p2pConfig.generateNodeKey();
+        
         kadService = new KadService(p2pConfig);
         kadService.init();
 
