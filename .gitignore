@@ -133,3 +133,13 @@ Thumbs.db
 
 # Cursor IDE
 .cursor/ 
+# Test results and analysis outputs (should not be committed)
+test-nodes/analysis_results*/
+test-nodes/logs/
+
+# Summary documents (temporary reference only)
+docs/*_SUMMARY.md
+docs/*_REPORT.md
+docs/MIGRATION_*.md
+*_ANALYSIS.md
+*_CHECKLIST.md
