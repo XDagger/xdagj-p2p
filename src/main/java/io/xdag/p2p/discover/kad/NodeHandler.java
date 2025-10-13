@@ -51,6 +51,14 @@ public class NodeHandler {
   private volatile boolean waitForPong = false;
   private volatile boolean waitForNeighbors = false;
 
+  // Simple reputation system: tracks successful and failed interactions
+  private final AtomicInteger reputation = new AtomicInteger(100); // Start with neutral reputation (0-200 range)
+  private static final int REPUTATION_PING_TIMEOUT_PENALTY = -5;
+  private static final int REPUTATION_PONG_RECEIVED_REWARD = 5;
+  private static final int REPUTATION_MIN = 0;
+  private static final int REPUTATION_MAX = 200;
+  private static final int REPUTATION_DEAD_THRESHOLD = 20;
+
   public NodeHandler(Node node, KadService kadService) {
     this.p2pConfig = kadService.getP2pConfig();
     this.node = node;
@@ -139,6 +147,9 @@ public class NodeHandler {
       node.setNetworkId(msg.getNetworkId());
       node.setNetworkVersion(msg.getNetworkVersion());
 
+      // Reward successful response
+      adjustReputation(REPUTATION_PONG_RECEIVED_REWARD);
+
       if (!node.isConnectible(p2pConfig.getNetworkId())) {
         changeState(State.DEAD);
       } else {
@@ -168,15 +179,49 @@ public class NodeHandler {
 
   public void handleTimedOut() {
     waitForPong = false;
+
+    // Penalize timeout
+    adjustReputation(REPUTATION_PING_TIMEOUT_PENALTY);
+
     if (pingTrials.getAndDecrement() > 0) {
       sendPing();
     } else {
       if (state == State.DISCOVERED || state == State.EVICTCANDIDATE) {
         changeState(State.DEAD);
       } else {
-        // TODO just influence to reputation
+        // Node has a history but timed out - check reputation
+        if (reputation.get() < REPUTATION_DEAD_THRESHOLD) {
+          log.info("Node {} reputation too low ({}), marking as DEAD",
+                   node.getPreferInetSocketAddress(), reputation.get());
+          changeState(State.DEAD);
+        } else {
+          log.debug("Node {} timed out but has acceptable reputation ({}), keeping alive",
+                    node.getPreferInetSocketAddress(), reputation.get());
+        }
       }
     }
+  }
+
+  /**
+   * Adjust the reputation score of this node.
+   *
+   * @param delta the amount to adjust (positive for reward, negative for penalty)
+   */
+  private void adjustReputation(int delta) {
+    int oldRep = reputation.get();
+    int newRep = Math.max(REPUTATION_MIN, Math.min(REPUTATION_MAX, oldRep + delta));
+    reputation.set(newRep);
+    log.debug("Node {} reputation: {} -> {} (delta: {})",
+              node.getPreferInetSocketAddress(), oldRep, newRep, delta);
+  }
+
+  /**
+   * Get the current reputation score of this node.
+   *
+   * @return reputation score (0-200, where 100 is neutral)
+   */
+  public int getReputationScore() {
+    return reputation.get();
   }
 
   public void sendPing() {

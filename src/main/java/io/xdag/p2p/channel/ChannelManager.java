@@ -65,6 +65,10 @@ public class ChannelManager {
     private final Cache<InetSocketAddress, Long> recentConnections =
             CacheBuilder.newBuilder().maximumSize(2000).expireAfterWrite(30, TimeUnit.SECONDS).build();
 
+    // Cache for banned nodes: key=InetAddress, value=ban expiry timestamp
+    private final Cache<InetAddress, Long> bannedNodes =
+            CacheBuilder.newBuilder().maximumSize(1000).build();
+
     @Getter
     private final AtomicInteger passivePeersCount = new AtomicInteger(0);
     @Getter
@@ -125,9 +129,54 @@ public class ChannelManager {
      */
     public void banNode(InetAddress inetAddress, long banTime) {
         if (inetAddress != null && banTime > 0) {
-            log.info("Banning node {} for {} ms", inetAddress, banTime);
-            // TODO: Implement actual banning logic if needed
-            // For now, just log the ban action
+            long banExpiry = System.currentTimeMillis() + banTime;
+            bannedNodes.put(inetAddress, banExpiry);
+            log.info("Banned node {} for {} ms (until {})", inetAddress, banTime, banExpiry);
+
+            // Close any existing connections from this IP
+            channels.values().stream()
+                    .filter(ch -> ch.getInetAddress() != null && ch.getInetAddress().equals(inetAddress))
+                    .forEach(ch -> {
+                        log.debug("Closing existing connection from banned node: {}", ch.getRemoteAddress());
+                        ch.close(0); // Close without additional ban time
+                    });
+        }
+    }
+
+    /**
+     * Check if a node is currently banned.
+     *
+     * @param inetAddress the IP address to check
+     * @return true if the node is banned, false otherwise
+     */
+    public boolean isBanned(InetAddress inetAddress) {
+        if (inetAddress == null) {
+            return false;
+        }
+
+        Long banExpiry = bannedNodes.getIfPresent(inetAddress);
+        if (banExpiry == null) {
+            return false;
+        }
+
+        // Check if ban has expired
+        if (System.currentTimeMillis() >= banExpiry) {
+            bannedNodes.invalidate(inetAddress);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Manually unban a node.
+     *
+     * @param inetAddress the IP address to unban
+     */
+    public void unbanNode(InetAddress inetAddress) {
+        if (inetAddress != null) {
+            bannedNodes.invalidate(inetAddress);
+            log.info("Unbanned node {}", inetAddress);
         }
     }
 
@@ -167,6 +216,12 @@ public class ChannelManager {
 
             InetSocketAddress address = node.getPreferInetSocketAddress();
             if (address != null && !isConnected(address) && recentConnections.getIfPresent(address) == null) {
+                // Skip banned nodes
+                if (isBanned(address.getAddress())) {
+                    log.debug("Skipping banned node: {}", address);
+                    continue;
+                }
+
                 log.debug("Attempting to connect to {}", address);
                 connectAsync(node, false);
                 connectCount++;
