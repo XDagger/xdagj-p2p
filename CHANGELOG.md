@@ -14,19 +14,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Atomic file operations with `.bak` backup files
   - Time-based reputation decay towards neutral (5 points/day)
   - Thread-safe concurrent operations
+- Enhanced ban system with reason codes and graduated durations
+  - `BanReason` enum with 13 predefined reasons (minor to critical offenses)
+  - `BanInfo` class tracking ban details (reason, count, timestamps)
+  - `BanStatistics` class for metrics and reporting
+  - Graduated ban durations for repeat offenders (2x per offense, max 30 days)
+  - Whitelist support for trusted nodes
+  - Rich ban management API (getBanInfo, getAllBannedNodes, etc.)
 - Data directory configuration in `P2pConfig` (default: "data")
 - TEST_MIGRATION_NOTES.md documenting test exclusion reasons
 
 ### Changed
 - `NodeHandler` now loads/saves reputation scores automatically
 - `KadService` manages `ReputationManager` lifecycle
+- `ChannelManager.banNode()` now uses BanReason enum (old method deprecated)
 - Improved code organization with better separation of concerns
 
 ### Planned
 - Re-enable and update channel module tests
 - Re-enable and update handler/node module tests
 - Re-enable and update performance tests
-- Add metrics and monitoring capabilities
+- Add Prometheus metrics export
 
 ## [0.1.1-dev] - 2025-10-13
 
