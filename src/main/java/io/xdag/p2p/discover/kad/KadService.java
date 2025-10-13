@@ -67,6 +67,7 @@ public class KadService implements DiscoverService {
     private ScheduledExecutorService pongTimer;
     private DiscoverTask discoverTask;
     private final P2pConfig p2pConfig;
+    private ReputationManager reputationManager;
 
     public KadService(P2pConfig p2pConfig) {
         this.p2pConfig = p2pConfig;
@@ -120,6 +121,13 @@ public class KadService implements DiscoverService {
         this.homeNode.setNetworkVersion(p2pConfig.getNetworkVersion());
         this.table = new NodeTable(homeNode);
 
+        // Initialize reputation manager
+        String reputationDir = p2pConfig.getDataDir() != null
+            ? p2pConfig.getDataDir() + "/reputation"
+            : "data/reputation";
+        this.reputationManager = new ReputationManager(reputationDir);
+        log.info("ReputationManager initialized with data directory: {}", reputationDir);
+
         if (p2pConfig.isDiscoverEnable()) {
             discoverTask = new DiscoverTask(this);
             discoverTask.init();
@@ -135,6 +143,10 @@ public class KadService implements DiscoverService {
 
     public void close() {
         try {
+            if (reputationManager != null) {
+                reputationManager.stop();
+            }
+
             if (pongTimer != null) {
                 pongTimer.shutdownNow();
             }

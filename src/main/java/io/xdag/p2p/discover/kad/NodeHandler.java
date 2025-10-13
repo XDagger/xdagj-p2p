@@ -64,6 +64,15 @@ public class NodeHandler {
     this.node = node;
     this.kadService = kadService;
     log.debug("Creating NodeHandler for node: {}", node.getPreferInetSocketAddress());
+
+    // Load existing reputation from persistence if available
+    String nodeId = node.getId();
+    if (nodeId != null && kadService.getReputationManager() != null) {
+      int savedReputation = kadService.getReputationManager().getReputation(nodeId);
+      reputation.set(savedReputation);
+      log.debug("Loaded reputation {} for node {}", savedReputation, node.getPreferInetSocketAddress());
+    }
+
     // send ping only if IP stack is compatible
     if (node.getPreferInetSocketAddress() != null) {
       changeState(State.DISCOVERED);
@@ -213,6 +222,12 @@ public class NodeHandler {
     reputation.set(newRep);
     log.debug("Node {} reputation: {} -> {} (delta: {})",
               node.getPreferInetSocketAddress(), oldRep, newRep, delta);
+
+    // Persist the updated reputation
+    String nodeId = node.getId();
+    if (nodeId != null && kadService.getReputationManager() != null) {
+      kadService.getReputationManager().setReputation(nodeId, newRep);
+    }
   }
 
   /**

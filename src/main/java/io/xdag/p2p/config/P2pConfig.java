@@ -67,6 +67,9 @@ public class P2pConfig {
   private boolean disconnectionPolicyEnable = false;
   private boolean nodeDetectEnable = false;
 
+  // data directory for persistent storage (reputation, bans, etc.)
+  private String dataDir = "data";
+
   // dns read config
   private List<String> treeUrls = new ArrayList<>();
 
