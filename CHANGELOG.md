@@ -7,11 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Reputation system persistence with automatic saves and backups
+  - `ReputationManager` class for disk-based reputation storage
+  - Automatic periodic saves every 60 seconds
+  - Atomic file operations with `.bak` backup files
+  - Time-based reputation decay towards neutral (5 points/day)
+  - Thread-safe concurrent operations
+- Data directory configuration in `P2pConfig` (default: "data")
+- TEST_MIGRATION_NOTES.md documenting test exclusion reasons
+
+### Changed
+- `NodeHandler` now loads/saves reputation scores automatically
+- `KadService` manages `ReputationManager` lifecycle
+- Improved code organization with better separation of concerns
+
 ### Planned
 - Re-enable and update channel module tests
 - Re-enable and update handler/node module tests
 - Re-enable and update performance tests
-- Enhance reputation system with persistence
 - Add metrics and monitoring capabilities
 
 ## [0.1.1-dev] - 2025-10-13
