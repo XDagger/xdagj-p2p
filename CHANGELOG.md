@@ -29,17 +29,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - DHT metrics (nodes count, lookup success rate)
   - Performance metrics (throughput, JVM stats)
   - HTTP server exposing /metrics endpoint on configurable port
+  - Fully integrated into ChannelManager and KadService
+  - Configuration options: `metricsEnabled` and `metricsPort` in P2pConfig
 - Data directory configuration in `P2pConfig` (default: "data")
 - TEST_MIGRATION_NOTES.md documenting test exclusion reasons
 
 ### Changed
 - `NodeHandler` now loads/saves reputation scores automatically
-- `KadService` manages `ReputationManager` lifecycle
+- `KadService` manages `ReputationManager` lifecycle and receives P2pMetrics instance
+- `ChannelManager` receives P2pMetrics instance and records connection/ban metrics
+- `NodeManager` receives P2pMetrics instance and passes it to KadService
+- `P2pService` initializes metrics and manages HTTP server lifecycle
 - `ChannelManager.banNode()` now uses BanReason enum (old method deprecated)
 - Improved code organization with better separation of concerns
 
+### Fixed
+- Prometheus CollectorRegistry conflicts in tests resolved with proper cleanup
+
 ### Planned
-- Integrate metrics collection into existing modules
 - Re-enable and update channel module tests
 - Re-enable and update handler/node module tests
 - Re-enable and update performance tests
