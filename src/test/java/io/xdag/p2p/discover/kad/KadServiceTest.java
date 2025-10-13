@@ -36,11 +36,13 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.prometheus.client.CollectorRegistry;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.handler.discover.UdpEvent;
 import io.xdag.p2p.message.discover.KadPingMessage;
 import io.xdag.p2p.discover.kad.table.KademliaOptions;
+import io.xdag.p2p.metrics.P2pMetrics;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
@@ -49,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.apache.tuweni.bytes.Bytes;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -65,11 +68,12 @@ public class KadServiceTest {
     public void setUp() {
         p2pConfig = new P2pConfig();
         p2pConfig.setDiscoverEnable(false); // Disable discovery task for unit tests
-        
+
         // Generate nodeKey for testing - required for node ID generation
         p2pConfig.generateNodeKey();
-        
-        kadService = new KadService(p2pConfig);
+
+        P2pMetrics metrics = new P2pMetrics();
+        kadService = new KadService(p2pConfig, metrics);
         kadService.init();
 
         homeNode = kadService.getPublicHomeNode();
@@ -77,6 +81,15 @@ public class KadServiceTest {
         InetSocketAddress remoteAddress = new InetSocketAddress("127.0.0.1", 22222);
         String remoteId = Bytes.random(64).toUnprefixedHexString();
         remoteNode = new Node(remoteId, remoteAddress);
+    }
+
+    @AfterEach
+    public void tearDown() {
+        // Clear the Prometheus registry to avoid conflicts between tests
+        CollectorRegistry.defaultRegistry.clear();
+        if (kadService != null) {
+            kadService.close();
+        }
     }
 
     @Test
@@ -169,8 +182,12 @@ public class KadServiceTest {
         bootnodeAddresses.add(new InetSocketAddress("127.0.0.1", 30302));
         p2pConfig.setSeedNodes(bootnodeAddresses);
 
+        // Clear registry before creating new metrics instance
+        CollectorRegistry.defaultRegistry.clear();
+
         // Re-initialize KadService to pick up the new config
-        kadService = new KadService(p2pConfig);
+        P2pMetrics metrics = new P2pMetrics();
+        kadService = new KadService(p2pConfig, metrics);
         kadService.init();
 
         assertEquals(2, kadService.getBootNodes().size());

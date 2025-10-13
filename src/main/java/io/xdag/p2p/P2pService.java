@@ -28,6 +28,7 @@ import io.xdag.p2p.channel.ChannelManager;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.discover.NodeManager;
+import io.xdag.p2p.metrics.P2pMetrics;
 import io.xdag.p2p.stats.P2pStats;
 import io.xdag.p2p.stats.P2pStatsManager;
 import java.net.InetSocketAddress;
@@ -43,6 +44,7 @@ public class P2pService {
     private final NodeManager nodeManager;
     private final ChannelManager channelManager;
     private final P2pStatsManager p2pStatsManager;
+    private final P2pMetrics metrics;
 
     private PeerServer peerServer;
     private PeerClient peerClient;
@@ -51,8 +53,9 @@ public class P2pService {
 
     public P2pService(final P2pConfig config) {
         this.config = config;
-        this.nodeManager = new NodeManager(config);
-        this.channelManager = new ChannelManager(config, nodeManager);
+        this.metrics = new P2pMetrics();
+        this.nodeManager = new NodeManager(config, metrics);
+        this.channelManager = new ChannelManager(config, nodeManager, metrics);
         this.p2pStatsManager = new P2pStatsManager();
     }
 
@@ -69,6 +72,16 @@ public class P2pService {
                 log.info("Generated ephemeral node key for handshake");
             } catch (Exception e) {
                 log.warn("Failed to generate node key: {}", e.getMessage());
+            }
+        }
+
+        // Initialize metrics if enabled
+        if (config.isMetricsEnabled()) {
+            try {
+                metrics.enable(config.getMetricsPort());
+                log.info("Prometheus metrics enabled on port {}", config.getMetricsPort());
+            } catch (Exception e) {
+                log.error("Failed to enable metrics: {}", e.getMessage());
             }
         }
 
@@ -95,6 +108,12 @@ public class P2pService {
         isShutdown = true;
 
         log.info("Stopping P2P service...");
+
+        // Disable metrics first
+        if (metrics != null && metrics.isMetricsEnabled()) {
+            metrics.disable();
+        }
+
         channelManager.stop();
         if (peerClient != null) {
             peerClient.stop();

@@ -35,6 +35,7 @@ import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.discover.NodeManager;
 import io.xdag.p2p.discover.dns.DnsManager;
 import io.xdag.p2p.message.node.DisconnectCode;
+import io.xdag.p2p.metrics.P2pMetrics;
 import java.net.InetSocketAddress;
 import org.apache.tuweni.bytes.Bytes;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,7 +64,8 @@ public class ChannelManagerTest {
   @BeforeEach
   public void beforeEach() {
     p2pConfig = new P2pConfig();
-    channelManager = new ChannelManager(p2pConfig, nodeManager, dnsManager);
+    P2pMetrics metrics = new P2pMetrics();
+    channelManager = new ChannelManager(p2pConfig, nodeManager, metrics);
     channelManager.getBannedNodes().cleanUp();
     clearChannels();
   }

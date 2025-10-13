@@ -25,20 +25,23 @@ package io.xdag.p2p.discover;
 
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.kad.KadService;
+import io.xdag.p2p.metrics.P2pMetrics;
 import java.util.List;
 
 public class NodeManager {
 
   private final P2pConfig p2pConfig;
+  private final P2pMetrics metrics;
   private DiscoverService discoverService;
   private DiscoverServer discoverServer;
 
-  public NodeManager(P2pConfig p2pConfig) {
+  public NodeManager(P2pConfig p2pConfig, P2pMetrics metrics) {
     this.p2pConfig = p2pConfig;
+    this.metrics = metrics;
   }
 
   public void init() {
-    discoverService = new KadService(p2pConfig);
+    discoverService = new KadService(p2pConfig, metrics);
     discoverService.init();
     if (p2pConfig.isDiscoverEnable()) {
       discoverServer = new DiscoverServer(p2pConfig);

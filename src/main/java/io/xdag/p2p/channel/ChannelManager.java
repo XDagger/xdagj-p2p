@@ -32,6 +32,7 @@ import io.xdag.p2p.PeerClient;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.discover.NodeManager;
+import io.xdag.p2p.metrics.P2pMetrics;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
@@ -58,6 +59,7 @@ public class ChannelManager {
     private final P2pConfig config;
     private final NodeManager nodeManager;
     private PeerClient peerClient;
+    private final P2pMetrics metrics;
 
     @Getter
     private final Map<InetSocketAddress, Channel> channels = new ConcurrentHashMap<>();
@@ -84,9 +86,10 @@ public class ChannelManager {
             Executors.newSingleThreadScheduledExecutor(new BasicThreadFactory.Builder().namingPattern("p2p-disconnect-%d").build());
 
 
-    public ChannelManager(P2pConfig config, NodeManager nodeManager) {
+    public ChannelManager(P2pConfig config, NodeManager nodeManager, P2pMetrics metrics) {
         this.config = config;
         this.nodeManager = nodeManager;
+        this.metrics = metrics;
     }
 
     public void start(PeerClient peerClient) {
@@ -173,6 +176,12 @@ public class ChannelManager {
         bannedNodes.put(inetAddress, banInfo);
         banStatistics.recordBan(reason, adjustedBanTime);
 
+        // Record metrics
+        if (metrics != null && metrics.isMetricsEnabled()) {
+            metrics.recordBan(reason.getDescription());
+            metrics.setNodesBanned(getBannedNodeCount());
+        }
+
         log.info("Banned node {} for {} ({}) - count: {}, expires: {}",
                  inetAddress, reason.getDescription(), formatDuration(adjustedBanTime),
                  currentCount, banExpiry);
@@ -223,6 +232,12 @@ public class ChannelManager {
         if (!banInfo.isActive()) {
             bannedNodes.remove(inetAddress);
             banStatistics.recordUnban();
+
+            // Update metrics
+            if (metrics != null && metrics.isMetricsEnabled()) {
+                metrics.setNodesBanned(getBannedNodeCount());
+            }
+
             log.debug("Ban expired for {}", inetAddress);
             return false;
         }
@@ -254,6 +269,12 @@ public class ChannelManager {
             BanInfo removed = bannedNodes.remove(inetAddress);
             if (removed != null) {
                 banStatistics.recordUnban();
+
+                // Update metrics
+                if (metrics != null && metrics.isMetricsEnabled()) {
+                    metrics.setNodesBanned(getBannedNodeCount());
+                }
+
                 log.info("Unbanned node {}", inetAddress);
             }
         }
@@ -376,6 +397,12 @@ public class ChannelManager {
                 // ignore if not available
             }
         }
+
+        // Update metrics with discovered nodes count
+        if (metrics != null && metrics.isMetricsEnabled()) {
+            metrics.setNodesDiscovered(connectableNodes.size());
+        }
+
         Collections.shuffle(connectableNodes);
 
         int connectCount = 0;
@@ -424,6 +451,10 @@ public class ChannelManager {
         }
         return peerClient.connect(node, (ChannelFutureListener) future -> {
             if (!future.isSuccess()) {
+                // Record connection failure
+                if (metrics != null && metrics.isMetricsEnabled()) {
+                    metrics.recordConnectionFailure();
+                }
                 log.warn("Connect to peer {} fail, cause:{}", node.getPreferInetSocketAddress(),
                         future.cause() != null ? future.cause().getMessage() : "unknown");
             }
@@ -433,11 +464,18 @@ public class ChannelManager {
     public void onChannelActive(Channel channel) {
         if (channels.putIfAbsent(channel.getRemoteAddress(), channel) == null) {
             activePeers.add(channel);
-            if (channel.isActive()) {
+            boolean isActive = channel.isActive();
+            if (isActive) {
                 activePeersCount.incrementAndGet();
             } else {
                 passivePeersCount.incrementAndGet();
             }
+
+            // Record connection metrics
+            if (metrics != null && metrics.isMetricsEnabled()) {
+                metrics.recordConnection(isActive);
+            }
+
             log.info("New channel connected: {}. Total channels: {}", channel.getRemoteAddress(), channels.size());
             // Notify application handlers
             try {
@@ -471,11 +509,20 @@ public class ChannelManager {
     public void onChannelInactive(Channel channel) {
         if (channels.remove(channel.getRemoteAddress()) != null) {
             activePeers.remove(channel);
-            if (channel.isActive()) {
+            boolean isActive = channel.isActive();
+            if (isActive) {
                 activePeersCount.decrementAndGet();
             } else {
                 passivePeersCount.decrementAndGet();
             }
+
+            // Record disconnection metrics
+            if (metrics != null && metrics.isMetricsEnabled()) {
+                long durationMs = System.currentTimeMillis() - channel.getStartTime();
+                double durationSeconds = durationMs / 1000.0;
+                metrics.recordDisconnection(isActive, durationSeconds);
+            }
+
             log.info("Channel disconnected: {}. Total channels: {}", channel.getRemoteAddress(), channels.size());
             // Notify application handlers
             try {

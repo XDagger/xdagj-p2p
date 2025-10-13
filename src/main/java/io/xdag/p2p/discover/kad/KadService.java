@@ -33,6 +33,7 @@ import io.xdag.p2p.message.discover.KadFindNodeMessage;
 import io.xdag.p2p.message.discover.KadNeighborsMessage;
 import io.xdag.p2p.message.discover.KadPingMessage;
 import io.xdag.p2p.message.discover.KadPongMessage;
+import io.xdag.p2p.metrics.P2pMetrics;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -68,9 +69,11 @@ public class KadService implements DiscoverService {
     private DiscoverTask discoverTask;
     private final P2pConfig p2pConfig;
     private ReputationManager reputationManager;
+    private final P2pMetrics metrics;
 
-    public KadService(P2pConfig p2pConfig) {
+    public KadService(P2pConfig p2pConfig, P2pMetrics metrics) {
         this.p2pConfig = p2pConfig;
+        this.metrics = metrics;
     }
 
     public void init() {
@@ -173,11 +176,24 @@ public class KadService implements DiscoverService {
         if (nodes.isEmpty()) {
             nodes.addAll(bootNodes);
         }
+
+        // Update metrics
+        if (metrics != null && metrics.isMetricsEnabled()) {
+            metrics.setNodesDiscovered(nodes.size());
+        }
+
         return nodes;
     }
 
     public List<Node> getTableNodes() {
-        return table.getTableNodes();
+        List<Node> nodes = table.getTableNodes();
+
+        // Update DHT metrics
+        if (metrics != null && metrics.isMetricsEnabled()) {
+            metrics.setDhtNodes(nodes.size());
+        }
+
+        return nodes;
     }
 
     public List<Node> getAllNodes() {
@@ -276,6 +292,11 @@ public class KadService implements DiscoverService {
             InetSocketAddress prefer = created.getNode().getPreferInetSocketAddress();
             if (prefer != null) {
                 nodeHandlerMap.put(prefer, created);
+
+                // Record node reputation metric when creating new handler
+                if (metrics != null && metrics.isMetricsEnabled()) {
+                    metrics.recordNodeReputation(created.getReputation().get());
+                }
             }
             return created;
         }
