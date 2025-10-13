@@ -65,9 +65,11 @@ public class ChannelManager {
     private final Cache<InetSocketAddress, Long> recentConnections =
             CacheBuilder.newBuilder().maximumSize(2000).expireAfterWrite(30, TimeUnit.SECONDS).build();
 
-    // Cache for banned nodes: key=InetAddress, value=ban expiry timestamp
-    private final Cache<InetAddress, Long> bannedNodes =
-            CacheBuilder.newBuilder().maximumSize(1000).build();
+    // Enhanced ban system with reason codes and statistics
+    private final Map<InetAddress, BanInfo> bannedNodes = new ConcurrentHashMap<>();
+    private final Map<InetAddress, AtomicInteger> banCounts = new ConcurrentHashMap<>();
+    private final BanStatistics banStatistics = new BanStatistics();
+    private final Set<InetAddress> whitelist = ConcurrentHashMap.newKeySet();
 
     @Getter
     private final AtomicInteger passivePeersCount = new AtomicInteger(0);
@@ -122,25 +124,78 @@ public class ChannelManager {
     }
 
     /**
-     * Ban a node's IP address for the specified duration.
+     * Ban a node's IP address with a specific reason.
+     *
+     * @param inetAddress the IP address to ban
+     * @param reason the ban reason (determines duration)
+     */
+    public void banNode(InetAddress inetAddress, BanReason reason) {
+        banNode(inetAddress, reason, reason.getDefaultDurationMs());
+    }
+
+    /**
+     * Ban a node's IP address with custom duration.
+     *
+     * @param inetAddress the IP address to ban
+     * @param reason the ban reason
+     * @param banTimeMs the ban duration in milliseconds (overrides default)
+     */
+    public void banNode(InetAddress inetAddress, BanReason reason, long banTimeMs) {
+        if (inetAddress == null || banTimeMs <= 0) {
+            return;
+        }
+
+        // Check whitelist
+        if (whitelist.contains(inetAddress)) {
+            log.info("Attempted to ban whitelisted node {}, ignoring", inetAddress);
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        long banExpiry = now + banTimeMs;
+
+        // Track ban count for this IP
+        AtomicInteger count = banCounts.computeIfAbsent(inetAddress, k -> new AtomicInteger(0));
+        int currentCount = count.incrementAndGet();
+
+        // Apply graduated ban duration for repeat offenders
+        long adjustedBanTime = banTimeMs;
+        if (currentCount > 1) {
+            // Double ban time for each repeat offense, up to 30 days max
+            adjustedBanTime = Math.min(banTimeMs * (long) Math.pow(2, currentCount - 1),
+                                       30L * 24 * 60 * 60 * 1000);
+            banExpiry = now + adjustedBanTime;
+            log.info("Repeat offender {} (count: {}), increasing ban duration to {}ms",
+                     inetAddress, currentCount, adjustedBanTime);
+        }
+
+        BanInfo banInfo = new BanInfo(inetAddress, reason, now, banExpiry, currentCount);
+        bannedNodes.put(inetAddress, banInfo);
+        banStatistics.recordBan(reason, adjustedBanTime);
+
+        log.info("Banned node {} for {} ({}) - count: {}, expires: {}",
+                 inetAddress, reason.getDescription(), formatDuration(adjustedBanTime),
+                 currentCount, banExpiry);
+
+        // Close any existing connections from this IP
+        channels.values().stream()
+                .filter(ch -> ch.getInetAddress() != null && ch.getInetAddress().equals(inetAddress))
+                .forEach(ch -> {
+                    log.debug("Closing existing connection from banned node: {}", ch.getRemoteAddress());
+                    ch.close(0); // Close without additional ban time
+                });
+    }
+
+    /**
+     * Ban a node's IP address for the specified duration (legacy method).
      *
      * @param inetAddress the IP address to ban
      * @param banTime the ban duration in milliseconds
+     * @deprecated Use {@link #banNode(InetAddress, BanReason)} instead
      */
+    @Deprecated
     public void banNode(InetAddress inetAddress, long banTime) {
-        if (inetAddress != null && banTime > 0) {
-            long banExpiry = System.currentTimeMillis() + banTime;
-            bannedNodes.put(inetAddress, banExpiry);
-            log.info("Banned node {} for {} ms (until {})", inetAddress, banTime, banExpiry);
-
-            // Close any existing connections from this IP
-            channels.values().stream()
-                    .filter(ch -> ch.getInetAddress() != null && ch.getInetAddress().equals(inetAddress))
-                    .forEach(ch -> {
-                        log.debug("Closing existing connection from banned node: {}", ch.getRemoteAddress());
-                        ch.close(0); // Close without additional ban time
-                    });
-        }
+        banNode(inetAddress, BanReason.MANUAL_BAN, banTime);
     }
 
     /**
@@ -154,18 +209,39 @@ public class ChannelManager {
             return false;
         }
 
-        Long banExpiry = bannedNodes.getIfPresent(inetAddress);
-        if (banExpiry == null) {
+        // Whitelisted nodes are never banned
+        if (whitelist.contains(inetAddress)) {
+            return false;
+        }
+
+        BanInfo banInfo = bannedNodes.get(inetAddress);
+        if (banInfo == null) {
             return false;
         }
 
         // Check if ban has expired
-        if (System.currentTimeMillis() >= banExpiry) {
-            bannedNodes.invalidate(inetAddress);
+        if (!banInfo.isActive()) {
+            bannedNodes.remove(inetAddress);
+            banStatistics.recordUnban();
+            log.debug("Ban expired for {}", inetAddress);
             return false;
         }
 
         return true;
+    }
+
+    /**
+     * Get ban information for a node.
+     *
+     * @param inetAddress the IP address to check
+     * @return BanInfo or null if not banned
+     */
+    public BanInfo getBanInfo(InetAddress inetAddress) {
+        if (inetAddress == null) {
+            return null;
+        }
+        BanInfo info = bannedNodes.get(inetAddress);
+        return (info != null && info.isActive()) ? info : null;
     }
 
     /**
@@ -175,9 +251,103 @@ public class ChannelManager {
      */
     public void unbanNode(InetAddress inetAddress) {
         if (inetAddress != null) {
-            bannedNodes.invalidate(inetAddress);
-            log.info("Unbanned node {}", inetAddress);
+            BanInfo removed = bannedNodes.remove(inetAddress);
+            if (removed != null) {
+                banStatistics.recordUnban();
+                log.info("Unbanned node {}", inetAddress);
+            }
         }
+    }
+
+    /**
+     * Add a node to the whitelist.
+     *
+     * @param inetAddress the IP address to whitelist
+     */
+    public void addToWhitelist(InetAddress inetAddress) {
+        if (inetAddress != null) {
+            whitelist.add(inetAddress);
+            // Remove from ban list if currently banned
+            if (bannedNodes.containsKey(inetAddress)) {
+                unbanNode(inetAddress);
+            }
+            log.info("Added {} to whitelist", inetAddress);
+        }
+    }
+
+    /**
+     * Remove a node from the whitelist.
+     *
+     * @param inetAddress the IP address to remove from whitelist
+     */
+    public void removeFromWhitelist(InetAddress inetAddress) {
+        if (inetAddress != null && whitelist.remove(inetAddress)) {
+            log.info("Removed {} from whitelist", inetAddress);
+        }
+    }
+
+    /**
+     * Check if a node is whitelisted.
+     *
+     * @param inetAddress the IP address to check
+     * @return true if whitelisted
+     */
+    public boolean isWhitelisted(InetAddress inetAddress) {
+        return inetAddress != null && whitelist.contains(inetAddress);
+    }
+
+    /**
+     * Get ban statistics.
+     *
+     * @return the BanStatistics object
+     */
+    public BanStatistics getBanStatistics() {
+        return banStatistics;
+    }
+
+    /**
+     * Get all currently banned nodes.
+     *
+     * @return collection of BanInfo for all active bans
+     */
+    public Collection<BanInfo> getAllBannedNodes() {
+        return bannedNodes.values().stream()
+                .filter(BanInfo::isActive)
+                .toList();
+    }
+
+    /**
+     * Get count of currently banned nodes.
+     *
+     * @return number of active bans
+     */
+    public int getBannedNodeCount() {
+        return (int) bannedNodes.values().stream()
+                .filter(BanInfo::isActive)
+                .count();
+    }
+
+    /**
+     * Format duration in human-readable form.
+     *
+     * @param durationMs duration in milliseconds
+     * @return formatted string (e.g., "5m", "2h", "3d")
+     */
+    private String formatDuration(long durationMs) {
+        long seconds = durationMs / 1000;
+        if (seconds < 60) {
+            return seconds + "s";
+        }
+        long minutes = seconds / 60;
+        if (minutes < 60) {
+            return minutes + "m";
+        }
+        long hours = minutes / 60;
+        if (hours < 24) {
+            return hours + "h";
+        }
+        long days = hours / 24;
+        return days + "d";
     }
 
 
