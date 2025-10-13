@@ -21,6 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Graduated ban durations for repeat offenders (2x per offense, max 30 days)
   - Whitelist support for trusted nodes
   - Rich ban management API (getBanInfo, getAllBannedNodes, etc.)
+- Prometheus metrics export with HTTP endpoint
+  - `P2pMetrics` class collecting 40+ metrics across 5 categories
+  - Connection metrics (active/passive counts, duration, success rate)
+  - Message metrics (sent/received by type, errors, size, latency)
+  - Node metrics (discovered, banned, reputation distribution)
+  - DHT metrics (nodes count, lookup success rate)
+  - Performance metrics (throughput, JVM stats)
+  - HTTP server exposing /metrics endpoint on configurable port
 - Data directory configuration in `P2pConfig` (default: "data")
 - TEST_MIGRATION_NOTES.md documenting test exclusion reasons
 
@@ -31,10 +39,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved code organization with better separation of concerns
 
 ### Planned
+- Integrate metrics collection into existing modules
 - Re-enable and update channel module tests
 - Re-enable and update handler/node module tests
 - Re-enable and update performance tests
-- Add Prometheus metrics export
 
 ## [0.1.1-dev] - 2025-10-13
 
