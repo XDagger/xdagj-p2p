@@ -8,58 +8,160 @@ on:
     branches: [ master, develop ]
 
 jobs:
-  ci:
-    runs-on: ubuntu-latest
+  test:
+    name: Test on ${{ matrix.os }} with Java ${{ matrix.java }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        java: ['21']
+        # Uncomment to test on multiple Java versions
+        # java: ['21', '22', '23']
+        # Uncomment to test on multiple OS
+        # os: [ubuntu-latest, macos-latest, windows-latest]
     env:
       CI: true
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
-    - name: Set up JDK 21
+
+    - name: Set up JDK ${{ matrix.java }}
       uses: actions/setup-java@v4
       with:
-        java-version: '21'
+        java-version: ${{ matrix.java }}
         distribution: 'temurin'
-    
-    - name: Cache Maven dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.m2
-        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-m2
-    
-    - name: Set protoc permissions
-      run: |
-        find ~/.m2/repository -name "protoc-*exe" -type f -exec chmod +x {} \; 2>/dev/null || true
-        find ~/.m2/repository -name "protoc-gen-*exe" -type f -exec chmod +x {} \; 2>/dev/null || true
-    
+        cache: 'maven'
+
     # Get project info for consistent naming
     - name: Get project info
       id: project
       run: |
         echo "VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_OUTPUT
         echo "ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)" >> $GITHUB_OUTPUT
-    
-    - name: Run tests
-      run: mvn clean test
-    
-    - name: Build package
-      run: mvn package -DskipTests
-    
-    # Upload test results for all builds (helps with debugging)
+
+    - name: Run tests with coverage
+      run: mvn clean test jacoco:report
+
     - name: Upload test results
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: ${{ steps.project.outputs.ARTIFACT_ID }}-test-results-${{ steps.project.outputs.VERSION }}-${{ github.run_number }}
-        path: target/surefire-reports/
-    
-    # Only upload release artifacts on tag pushes (from develop branch)
-    - name: Upload release artifacts
-      if: startsWith(github.ref, 'refs/tags/')
+        name: test-results-${{ matrix.os }}-java${{ matrix.java }}-${{ github.run_number }}
+        path: |
+          target/surefire-reports/
+          target/site/jacoco/
+        retention-days: 30
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      if: matrix.os == 'ubuntu-latest' && matrix.java == '21'
+      with:
+        files: target/site/jacoco/jacoco.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+      continue-on-error: true
+
+  build:
+    name: Build Release Artifacts
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: 'maven'
+
+    - name: Get project info
+      id: project
+      run: |
+        echo "VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_OUTPUT
+        echo "ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)" >> $GITHUB_OUTPUT
+
+    - name: Build all artifacts
+      run: mvn clean package -DskipTests
+
+    - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.project.outputs.ARTIFACT_ID }}-${{ steps.project.outputs.VERSION }}
-        path: target/${{ steps.project.outputs.ARTIFACT_ID }}-${{ steps.project.outputs.VERSION }}.jar 
+        name: ${{ steps.project.outputs.ARTIFACT_ID }}-${{ steps.project.outputs.VERSION }}-build${{ github.run_number }}
+        path: |
+          target/${{ steps.project.outputs.ARTIFACT_ID }}-${{ steps.project.outputs.VERSION }}.jar
+          target/${{ steps.project.outputs.ARTIFACT_ID }}-${{ steps.project.outputs.VERSION }}-jar-with-dependencies.jar
+          target/${{ steps.project.outputs.ARTIFACT_ID }}-${{ steps.project.outputs.VERSION }}-sources.jar
+          target/${{ steps.project.outputs.ARTIFACT_ID }}-${{ steps.project.outputs.VERSION }}-javadoc.jar
+        retention-days: 90
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: 'maven'
+
+    - name: Get project info
+      id: project
+      run: |
+        echo "VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_OUTPUT
+        echo "ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)" >> $GITHUB_OUTPUT
+
+    - name: Build release artifacts
+      run: mvn clean package -DskipTests
+
+    - name: Extract release notes
+      id: extract_notes
+      run: |
+        # Extract release notes from CHANGELOG.md
+        TAG_NAME=${GITHUB_REF#refs/tags/}
+
+        # Try to extract version-specific notes from CHANGELOG
+        if grep -q "## \[${TAG_NAME#v}\]" CHANGELOG.md 2>/dev/null; then
+          sed -n "/## \[${TAG_NAME#v}\]/,/## \[/p" CHANGELOG.md | sed '$d' > release_notes.md
+        else
+          # Fallback: use git tag annotation
+          git tag -l --format='%(contents)' $TAG_NAME > release_notes.md
+        fi
+
+        # If release notes are empty, use a default message
+        if [ ! -s release_notes.md ]; then
+          echo "Release ${TAG_NAME}" > release_notes.md
+          echo "" >> release_notes.md
+          echo "See [CHANGELOG.md](CHANGELOG.md) for details." >> release_notes.md
+        fi
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        body_path: release_notes.md
+        files: |
+          target/${{ steps.project.outputs.ARTIFACT_ID }}-${{ steps.project.outputs.VERSION }}.jar
+          target/${{ steps.project.outputs.ARTIFACT_ID }}-${{ steps.project.outputs.VERSION }}-jar-with-dependencies.jar
+          target/${{ steps.project.outputs.ARTIFACT_ID }}-${{ steps.project.outputs.VERSION }}-sources.jar
+          target/${{ steps.project.outputs.ARTIFACT_ID }}-${{ steps.project.outputs.VERSION }}-javadoc.jar
+        draft: false
+        prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+        fail_on_unmatched_files: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
