@@ -29,7 +29,10 @@ import io.xdag.p2p.example.message.MessageTypes;
 import io.xdag.p2p.example.message.TestMessage;
 import io.xdag.p2p.utils.BytesUtils;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -48,7 +51,13 @@ public class ExampleEventHandler extends P2pEventHandler {
 
   @Getter
   protected final ConcurrentMap<InetSocketAddress, Channel> channels = new ConcurrentHashMap<>();
-  
+
+  // Load balancing: track message send count per channel
+  protected final ConcurrentMap<InetSocketAddress, AtomicInteger> channelLoadCounters = new ConcurrentHashMap<>();
+
+  // Map to track which channel sent which message (for source exclusion)
+  protected final ConcurrentMap<String, InetSocketAddress> messageSourceMap = new ConcurrentHashMap<>();
+
   // Network test statistics
   protected final ConcurrentMap<String, Long> messageFirstReceived = new ConcurrentHashMap<>();
   protected final AtomicInteger totalReceived = new AtomicInteger(0);
@@ -79,6 +88,7 @@ public class ExampleEventHandler extends P2pEventHandler {
   public void onConnect(Channel channel) {
     InetSocketAddress address = channel.getInetSocketAddress();
     channels.put(address, channel);
+    channelLoadCounters.put(address, new AtomicInteger(0)); // Initialize load counter
     log.info("Connected to peer: {}", address);
     onPeerConnected(channel);
   }
@@ -87,6 +97,7 @@ public class ExampleEventHandler extends P2pEventHandler {
   public void onDisconnect(Channel channel) {
     InetSocketAddress address = channel.getInetSocketAddress();
     channels.remove(address);
+    channelLoadCounters.remove(address); // Clean up load counter
     log.info("Disconnected from peer: {}", address);
     onPeerDisconnected(channel);
   }
@@ -200,76 +211,138 @@ public class ExampleEventHandler extends P2pEventHandler {
     try {
       String messageId = message.getMessageId();
       long receiveTime = System.currentTimeMillis();
-      
-      log.debug("Received network test message: {} from {} (hops: {})", 
+
+      // Track message source for load-balanced forwarding
+      messageSourceMap.put(messageId, channel.getInetSocketAddress());
+
+      log.debug("Received network test message: {} from {} (hops: {})",
                messageId, channel.getInetSocketAddress(), message.getHopCount());
-      
+
       // Track statistics
       Long firstReceived = messageFirstReceived.get(messageId);
       if (firstReceived == null) {
         // First time receiving this message
         messageFirstReceived.put(messageId, receiveTime);
-        
+
         totalReceived.incrementAndGet();
         long latency = receiveTime - message.getCreateTime();
         totalLatency.addAndGet(latency);
-        
-        log.info("Network test message received: {} (hops: {}, latency: {}ms, sender: {})", 
+
+        log.info("Network test message received: {} (hops: {}, latency: {}ms, sender: {})",
                 messageId, message.getHopCount(), latency, message.getOriginSender());
-        
+
         // Forward message if not expired and not from this node
         if (!message.isExpired() && !message.getOriginSender().equals(nodeId)) {
           forwardNetworkTestMessage(message);
         }
-        
+
       } else {
         // Duplicate message
         duplicatesReceived.incrementAndGet();
-        log.debug("Duplicate network test message: {} (received {} times)", 
+        log.debug("Duplicate network test message: {} (received {} times)",
                  messageId, duplicatesReceived.get());
       }
-      
+
     } catch (Exception e) {
       log.error("Error handling network test message: {}", e.getMessage(), e);
     }
   }
 
   /**
-   * Forward a network test message to connected peers
+   * Forward a network test message to connected peers using load-balanced strategy
    *
    * @param originalMessage Original message to forward
    */
   protected void forwardNetworkTestMessage(TestMessage originalMessage) {
     try {
       TestMessage forwardCopy = originalMessage.createForwardCopy(nodeId);
-      
+
       if (forwardCopy != null && !forwardCopy.isExpired()) {
         Bytes appPayload = Bytes.concatenate(Bytes.of(MessageTypes.TEST.getType()), Bytes.wrap(forwardCopy.getData()));
         io.xdag.p2p.example.message.AppTestMessage networkMsg = new io.xdag.p2p.example.message.AppTestMessage(appPayload.toArray());
 
-        totalForwarded.incrementAndGet();
-        
-        log.debug("Forwarding network test message: {} (hops: {}/{})", 
-                 forwardCopy.getMessageId(), forwardCopy.getHopCount(), forwardCopy.getMaxHops());
+        // Get message source to exclude from forwarding
+        InetSocketAddress sourceAddress = messageSourceMap.get(originalMessage.getMessageId());
 
-        channels
-            .values()
-            .forEach(
-                channel -> {
-                  try {
-                    channel.send(networkMsg);
-                  } catch (Exception e) {
-                    log.error(
-                        "Failed to forward network test message to {}: {}",
-                        channel.getInetSocketAddress(),
-                        e.getMessage());
-                  }
-                });
+        // Select target channels using load-balanced strategy
+        List<Channel> targetChannels = selectForwardTargets(sourceAddress);
+
+        if (!targetChannels.isEmpty()) {
+          totalForwarded.incrementAndGet();
+
+          log.debug("Forwarding network test message: {} (hops: {}/{}) to {} channels",
+                   forwardCopy.getMessageId(), forwardCopy.getHopCount(), forwardCopy.getMaxHops(),
+                   targetChannels.size());
+
+          for (Channel channel : targetChannels) {
+            try {
+              channel.send(networkMsg);
+              // Update load counter for this channel
+              InetSocketAddress addr = channel.getInetSocketAddress();
+              AtomicInteger counter = channelLoadCounters.get(addr);
+              if (counter != null) {
+                counter.incrementAndGet();
+              }
+            } catch (Exception e) {
+              log.error("Failed to forward network test message to {}: {}",
+                       channel.getInetSocketAddress(), e.getMessage());
+            }
+          }
+        }
       }
-      
+
     } catch (Exception e) {
       log.error("Error forwarding network test message: {}", e.getMessage(), e);
     }
+  }
+
+  /**
+   * Select forward targets using load-balanced strategy
+   *
+   * Algorithm:
+   * 1. Exclude source channel (avoid sending back)
+   * 2. Sort channels by load (ascending)
+   * 3. Select top 50% low-load channels
+   * 4. If less than 2 channels available, select all
+   *
+   * @param sourceAddress Source channel address to exclude
+   * @return List of selected channels for forwarding
+   */
+  protected List<Channel> selectForwardTargets(InetSocketAddress sourceAddress) {
+    List<Channel> allChannels = new ArrayList<>(channels.values());
+
+    // Filter out source channel
+    List<Channel> candidateChannels = new ArrayList<>();
+    for (Channel ch : allChannels) {
+      if (sourceAddress == null || !ch.getInetSocketAddress().equals(sourceAddress)) {
+        candidateChannels.add(ch);
+      }
+    }
+
+    if (candidateChannels.isEmpty()) {
+      return candidateChannels;
+    }
+
+    // Sort by load (ascending - lower load first)
+    candidateChannels.sort(Comparator.comparingInt(ch -> {
+      AtomicInteger counter = channelLoadCounters.get(ch.getInetSocketAddress());
+      return counter != null ? counter.get() : 0;
+    }));
+
+    // Select top 50% low-load channels (at least 1, at most all candidates)
+    int selectCount = Math.max(1, candidateChannels.size() / 2);
+
+    // For small networks, be more aggressive
+    if (candidateChannels.size() <= 3) {
+      selectCount = candidateChannels.size();
+    }
+
+    List<Channel> selectedChannels = new ArrayList<>();
+    for (int i = 0; i < Math.min(selectCount, candidateChannels.size()); i++) {
+      selectedChannels.add(candidateChannels.get(i));
+    }
+
+    return selectedChannels;
   }
 
   /** Close all connections */

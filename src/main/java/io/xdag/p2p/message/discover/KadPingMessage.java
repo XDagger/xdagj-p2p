@@ -66,13 +66,31 @@ public class KadPingMessage extends Message {
   public KadPingMessage(byte[] body) {
     super(MessageCode.KAD_PING, KadPongMessage.class);
 
+    // Defensive check: minimum required bytes = 1 (networkId) + 2 (networkVersion) + 8 (timestamp) = 11 bytes
+    // Plus at least some bytes for from and to nodes
+    if (body == null || body.length < 11) {
+      throw new IllegalArgumentException(
+          "Invalid KadPingMessage body: expected at least 11 bytes, got " + (body == null ? "null" : body.length));
+    }
+
     SimpleDecoder dec = new SimpleDecoder(body);
     this.networkId = dec.readByte();
     this.networkVersion = dec.readShort();
     this.timestamp = dec.readLong();
 
-    this.from = new Node(dec.readBytes());
-    this.to = new Node(dec.readBytes());
+    byte[] fromBytes = dec.readBytes();
+    byte[] toBytes = dec.readBytes();
+
+    // Validate node data before creating Node objects
+    if (fromBytes == null || fromBytes.length == 0) {
+      throw new IllegalArgumentException("Invalid KadPingMessage: 'from' node data is missing or empty");
+    }
+    if (toBytes == null || toBytes.length == 0) {
+      throw new IllegalArgumentException("Invalid KadPingMessage: 'to' node data is missing or empty");
+    }
+
+    this.from = new Node(fromBytes);
+    this.to = new Node(toBytes);
 
     this.body = body;
   }

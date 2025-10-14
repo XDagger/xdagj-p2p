@@ -126,7 +126,13 @@ public abstract class HandshakeMessage extends Message {
         this.timestamp = dec.readLong();
         this.isGenerateBlock = dec.readBoolean();
         this.nodeTag = dec.readString();
-        this.signature = Signature.decode(Bytes.wrap(dec.readBytes()));
+
+        // Read and validate signature bytes
+        byte[] signatureBytes = dec.readBytes();
+        if (signatureBytes == null || signatureBytes.length == 0) {
+            throw new IllegalArgumentException("Invalid or missing signature in handshake message");
+        }
+        this.signature = Signature.decode(Bytes.wrap(signatureBytes));
         this.body = body;
     }
 

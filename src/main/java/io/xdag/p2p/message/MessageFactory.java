@@ -52,6 +52,11 @@ public class MessageFactory {
             return null;
         }
 
+        // Validate body is not null and has minimum size
+        if (body == null) {
+            throw new MessageException("Message body is null for code: " + c);
+        }
+
         try {
             return switch (c) {
                 case HANDSHAKE_INIT -> new InitMessage(body);
@@ -66,7 +71,13 @@ public class MessageFactory {
                 case KAD_NEIGHBORS -> new io.xdag.p2p.message.discover.KadNeighborsMessage(body);
                 case APP_TEST -> new io.xdag.p2p.example.message.AppTestMessage(body);
             };
+        } catch (IllegalArgumentException e) {
+            // Defensive programming - invalid message format
+            log.warn("Invalid message format for code {}: body length={}, error={}",
+                    c, body.length, e.getMessage());
+            throw new MessageException("Invalid message format for code " + c + ": " + e.getMessage(), e);
         } catch (Exception e) {
+            log.error("Failed to decode message for code {}: body length={}", c, body.length, e);
             throw new MessageException("Failed to decode message", e);
         }
     }

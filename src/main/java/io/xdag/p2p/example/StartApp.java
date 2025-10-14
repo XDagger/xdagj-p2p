@@ -104,9 +104,10 @@ public class StartApp {
     return new ExampleEventHandler(nodeId) {
       @Override
       protected void onPeerConnected(io.xdag.p2p.channel.Channel channel) {
-        log.info("New peer connected: {}", channel.getInetSocketAddress());
+        long timestamp = System.currentTimeMillis();
+        log.info("CONN_ESTABLISHED|{}|{}|{}|{}", timestamp, nodeId, channel.getInetSocketAddress(), getChannels().size());
         broadcastTestMessage("Welcome to the P2P network from " + nodeId + "!");
-        
+
         // Start testing when we have multiple connections
         if (getChannels().size() >= 2) {
           log.info("Starting network performance tests with {} connections", getChannels().size());
@@ -115,13 +116,34 @@ public class StartApp {
       }
 
       @Override
+      protected void onPeerDisconnected(io.xdag.p2p.channel.Channel channel) {
+        long timestamp = System.currentTimeMillis();
+        log.info("CONN_CLOSED|{}|{}|{}|{}", timestamp, nodeId, channel.getInetSocketAddress(), getChannels().size());
+      }
+
+      @Override
       protected void onTestMessage(io.xdag.p2p.channel.Channel channel, io.xdag.p2p.example.message.TestMessage message) {
         if (message.isNetworkTestMessage()) {
-          log.info("Node {}: Received network test message: {} (hops: {}, latency: {}ms, type: {})", 
-                  nodeId, message.getMessageId(), message.getHopCount(), message.getAge(), message.getTestType());
+          long timestamp = System.currentTimeMillis();
+          int messageSize = message.getData().length;
+          log.info("MSG_RECEIVED|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+                  timestamp, nodeId, message.getMessageId(), message.getOriginSender(),
+                  message.getHopCount(), message.getMaxHops(), message.getAge(), message.getTestType(), messageSize);
         } else {
-          log.info("Node {}: Received regular message from {}: {}", 
+          log.info("Node {}: Received regular message from {}: {}",
                   nodeId, channel.getInetSocketAddress(), message.getActualContent());
+        }
+      }
+
+      @Override
+      protected void forwardNetworkTestMessage(io.xdag.p2p.example.message.TestMessage originalMessage) {
+        super.forwardNetworkTestMessage(originalMessage);
+        if (!originalMessage.isExpired()) {
+          long timestamp = System.currentTimeMillis();
+          int messageSize = originalMessage.getData().length;
+          log.info("MSG_FORWARDED|{}|{}|{}|{}|{}|{}|{}",
+                  timestamp, nodeId, originalMessage.getMessageId(), originalMessage.getOriginSender(),
+                  originalMessage.getHopCount() + 1, getChannels().size(), messageSize);
         }
       }
     };
@@ -247,7 +269,12 @@ public class StartApp {
     if (eventHandler != null) {
       try {
         String stats = eventHandler.getNetworkTestStatistics();
-        log.info("Network test statistics: {}", stats);
+        log.info("STATS|{}", stats);
+
+        // Log detailed performance metrics
+        int connections = eventHandler.getChannels().size();
+        log.info("PERF_METRICS|{}|connections={}|active_channels={}",
+                nodeId, connections, connections);
       } catch (Exception e) {
         log.warn("Error logging network test statistics: {}", e.getMessage());
       }

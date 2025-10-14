@@ -59,23 +59,65 @@ public class XdagFrameCodec extends ByteToMessageCodec<XdagFrame> {
 
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws IOException {
+        // Need at least 20 bytes for header (with magic)
         if (in.readableBytes() < XdagFrame.HEADER_SIZE) {
             return;
         }
         in.markReaderIndex();
 
-        XdagFrame frame = XdagFrame.readHeader(in);
+        XdagFrame frame;
+        try {
+            frame = XdagFrame.readHeader(in);
+        } catch (IllegalArgumentException e) {
+            // Invalid magic number - try to resync
+            in.resetReaderIndex();
+            log.warn("Invalid magic number detected, channel={}, readable={}, error={}",
+                    ctx.channel(), in.readableBytes(), e.getMessage());
 
+            // Try to resync by searching for magic number
+            if (tryResyncByMagic(in)) {
+                log.info("Successfully resynced to magic number, channel={}", ctx.channel());
+                return;  // Retry decode on next call
+            }
+
+            // If resync failed, skip one byte and retry
+            in.skipBytes(1);
+            return;
+        }
+
+        // Validate frame version
         if (frame.getVersion() != XdagFrame.VERSION) {
             in.resetReaderIndex();
-            throw new IOException("Invalid frame version: " + frame.getVersion());
+            log.warn("Invalid frame version: expected={}, actual={}, channel={}, readable={}",
+                    XdagFrame.VERSION, frame.getVersion(), ctx.channel(), in.readableBytes());
+
+            // Try to resync by searching for magic number
+            if (tryResyncByMagic(in)) {
+                log.info("Successfully resynced after version error, channel={}", ctx.channel());
+                return;
+            }
+
+            in.skipBytes(1);
+            return;
         }
 
+        // Validate body size
         if (frame.getBodySize() > config.getNetMaxFrameBodySize()) {
             in.resetReaderIndex();
-            throw new IOException("Frame body too large: " + frame.getBodySize());
+            log.warn("Frame body too large: expected <{}, actual={}, channel={}, readable={}",
+                    config.getNetMaxFrameBodySize(), frame.getBodySize(), ctx.channel(), in.readableBytes());
+
+            // Try to resync by searching for magic number
+            if (tryResyncByMagic(in)) {
+                log.info("Successfully resynced after body size error, channel={}", ctx.channel());
+                return;
+            }
+
+            in.skipBytes(1);
+            return;
         }
 
+        // Check if we have enough bytes for the body
         if (in.readableBytes() < frame.getBodySize()) {
             in.resetReaderIndex();
             return;
@@ -86,5 +128,35 @@ public class XdagFrameCodec extends ByteToMessageCodec<XdagFrame> {
         frame.setBody(body);
 
         out.add(frame);
+    }
+
+    /**
+     * Tries to resync the stream by searching for the magic number
+     *
+     * @param in ByteBuf to search in
+     * @return true if magic number found and reader index repositioned, false otherwise
+     */
+    private boolean tryResyncByMagic(ByteBuf in) {
+        in.resetReaderIndex();
+        int maxSearchBytes = Math.min(in.readableBytes(), config.getNetMaxFrameBodySize());
+
+        for (int i = 0; i < maxSearchBytes - 4; i++) {
+            in.markReaderIndex();
+            int possibleMagic = in.readInt();
+
+            if (possibleMagic == XdagFrame.MAGIC_NUMBER) {
+                // Found magic! Reset to just before it so next decode will read it properly
+                in.resetReaderIndex();
+                return true;
+            }
+
+            // Not magic, move one byte forward
+            in.resetReaderIndex();
+            in.skipBytes(1);
+        }
+
+        // Magic not found, reset to beginning
+        in.resetReaderIndex();
+        return false;
     }
 }

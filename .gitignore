@@ -136,6 +136,8 @@ Thumbs.db
 # Test results and analysis outputs (should not be committed)
 test-nodes/analysis_results*/
 test-nodes/logs/
+test-nodes/pids/
+test-nodes/data/
 
 # Summary documents (temporary reference only)
 docs/*_SUMMARY.md

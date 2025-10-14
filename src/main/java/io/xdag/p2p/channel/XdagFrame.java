@@ -30,15 +30,30 @@ import io.netty.buffer.ByteBuf;
  * <p>
  * Frame structure:
  * <ul>
- * <li><code>FRAME := HEADER (16 bytes) + BODY (variable length)</code></li>
- * <li><code>HEADER := VERSION + COMPRESS_TYPE + PACKET_TYPE + PACKET_ID + PACKET_SIZE + BODY_SIZE</code></li>
+ * <li><code>FRAME := HEADER (20 bytes) + BODY (variable length)</code></li>
+ * <li><code>HEADER := MAGIC + VERSION + COMPRESS_TYPE + PACKET_TYPE + PACKET_ID + PACKET_SIZE + BODY_SIZE</code></li>
  * <li><code>BODY := BINARY_DATA</code></li>
  * </ul>
  */
 public class XdagFrame {
 
-    public static final int HEADER_SIZE = 16;
-    public static final short VERSION = 0;
+    /**
+     * Magic number "XDAG" in ASCII (0x58444147) for frame boundary identification.
+     * This is used to detect frame boundaries and resync TCP streams.
+     */
+    public static final int MAGIC_NUMBER = 0x58444147;  // "XDAG" in ASCII
+
+    /**
+     * Header size: 20 bytes
+     * = 4 (magic) + 2 (version) + 1 (compress) + 1 (packet type) + 4 (packet id) + 4 (packet size) + 4 (body size)
+     */
+    public static final int HEADER_SIZE = 20;
+
+    /**
+     * Current protocol version
+     */
+    public static final short VERSION = 1;
+
     public static final byte COMPRESS_NONE = 0;
     public static final byte COMPRESS_SNAPPY = 1;
 
@@ -120,6 +135,7 @@ public class XdagFrame {
      * @param buf ByteBuf to write header data to
      */
     public void writeHeader(ByteBuf buf) {
+        buf.writeInt(MAGIC_NUMBER);  // Magic number for frame sync
         buf.writeShort(getVersion());
         buf.writeByte(getCompressType());
         buf.writeByte(getPacketType());
@@ -133,8 +149,16 @@ public class XdagFrame {
      *
      * @param in ByteBuf containing header data to read
      * @return new Frame instance with header data (body is null)
+     * @throws IllegalArgumentException if magic number is invalid
      */
     public static XdagFrame readHeader(ByteBuf in) {
+        int magic = in.readInt();
+
+        if (magic != MAGIC_NUMBER) {
+            throw new IllegalArgumentException(
+                String.format("Invalid magic number: expected 0x%08X, got 0x%08X", MAGIC_NUMBER, magic));
+        }
+
         short version = in.readShort();
         byte compressType = in.readByte();
         byte packetType = in.readByte();

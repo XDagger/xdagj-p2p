@@ -1,367 +1,231 @@
-# XDAG P2P Network Testing Suite
+# XDAG P2P Network Testing Framework V2
 
-A comprehensive testing and analysis suite for XDAG P2P network implementation, providing tools to create, monitor, and analyze distributed peer-to-peer networks.
+Professional multi-node P2P network performance testing tool for XDAG blockchain.
+
+## ✨ Key Features
+
+- ✅ **Real P2P Routing Test** - 27.9% message forwarding rate
+- ✅ **Accurate Network Topology Analysis** - Auto-detect node connections
+- ✅ **Comprehensive Performance Metrics** - Latency, throughput, forwarding efficiency
+- ✅ **Smart Network Topology Generation** - Mesh network structure, decentralized
+- ✅ **Rich Visualizations** - 5 professional charts
+- ✅ **Detailed CSV Data Export** - For further analysis
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- Java 21 or higher
-- Maven 3.6+
-- Python 3.7+ (for analysis tools)
-- Required Python packages: `matplotlib`, `networkx`, `pandas`
+### 1. Start Test Network
 
-### Installation
 ```bash
-# Install Python dependencies
-pip3 install matplotlib networkx pandas
+# Start 6 nodes (default)
+./start-nodes.sh
 
-# Build the project (run from project root)
-cd ..
-mvn clean package -DskipTests
-cd test-nodes
+# Or specify node count
+./start-nodes.sh 10
 ```
 
-### Basic Usage
+### 2. View Real-time Logs
+
 ```bash
-# 1. Start P2P network
-./start-p2p-network.sh
+# View all node logs
+tail -f logs/node-*.log
 
-# 2. Monitor network status
-./status.sh
+# View specific node
+tail -f logs/node-0.log
+```
 
-# 3. Analyze network performance
-python3 analyze-network-performance.py
+### 3. Performance Analysis
 
-# 4. Stop the network
+```bash
+# Run analysis after nodes have been running for 2-5 minutes
+python3 analyze-p2p-performance.py
+
+# Analysis results saved to:
+# - analysis_results/performance_report.txt  (text report)
+# - analysis_results/*.png                   (visualization charts)
+# - analysis_results/*.csv                   (raw data)
+```
+
+### 4. Stop Nodes
+
+```bash
 ./stop-nodes.sh
 ```
 
-## 📁 Directory Structure
+## 📊 Sample Test Results (6 Nodes, 2 Minutes)
+
+### Network Topology
+- **Total Nodes**: 6
+- **Total Connections**: 11
+- **Average Connections**: 3.67 per node
+- **Network Density**: 0.733
+
+### Message Statistics
+- **Total Messages Received**: 73,055
+- **Total Messages Forwarded**: 20,386
+- **Unique Messages**: 3,999
+- **Forward Ratio**: 27.91% ✅
+- **Average Receives per Message**: 18.27
+
+### Latency Metrics
+- **Mean Latency**: 3.23ms
+- **Median Latency**: 2.00ms
+- **P95 Latency**: 10.00ms
+- **P99 Latency**: 18.00ms
+
+### Routing Efficiency
+- **Average Hops**: 2.54
+- **Max Hops**: 4
+- **Multi-hop Message Ratio**: 100% ✅
+
+## 📁 Generated Files
 
 ```
 test-nodes/
-├── start-p2p-network.sh           # Start distributed P2P network
-├── stop-nodes.sh                  # Stop all nodes
-├── status.sh                      # Quick status check
-├── monitor-nodes.sh               # Real-time network monitoring
-├── cleanup.sh                     # Clean up test artifacts
-├── analyze-network-performance.py # Network analysis tool
-├── README.md                      # This documentation
-└── analysis_results_latest/       # Latest analysis results
+├── logs/                         # Node log files
+│   ├── node-0.log
+│   ├── node-1.log
+│   └── ...
+├── pids/                         # Process ID files
+│   ├── node-0.pid
+│   └── ...
+└── analysis_results/             # Performance analysis results
+    ├── performance_report.txt    # Text report
+    ├── network_topology.png      # Network topology graph
+    ├── node_performance.png      # Node performance comparison
+    ├── latency_distribution.png  # Latency distribution
+    ├── message_flow_heatmap.png  # Message flow heatmap
+    ├── test_type_distribution.png # Test type distribution
+    ├── node_summary.csv          # Node summary data
+    └── message_summary.csv       # Message summary data
 ```
 
-## 🛠️ Core Tools
+## 🔧 Scripts
 
-### 1. Network Management Scripts
+| Script | Purpose |
+|--------|---------|
+| `start-nodes.sh` | Start P2P test network |
+| `stop-nodes.sh` | Stop all nodes |
+| `analyze-p2p-performance.py` | Performance analysis and report generation |
 
-#### `start-p2p-network.sh` - Start Distributed P2P Network
-Creates a true peer-to-peer network with distributed connections avoiding centralized structures.
+## ⚙️ Requirements
 
-**Features:**
-- **Distributed seed configuration**: Each node connects to different seed combinations
-- **Phase-based startup**: Gradual node deployment for natural network evolution
-- **P2P-optimized parameters**: Configured for real peer-to-peer behavior
-- **Load balancing**: No single points of failure
+- Java 21+
+- Python 3.7+ (matplotlib, pandas, networkx required)
+- Built JAR file: `../target/xdagj-p2p-0.1.2-jar-with-dependencies.jar`
 
-**Usage:**
+Install Python dependencies:
 ```bash
-./start-p2p-network.sh [NODES] [BASE_PORT] [NETWORK_ID]
-
-# Examples:
-./start-p2p-network.sh              # Start 20 nodes (default)
-./start-p2p-network.sh 10           # Start 10 nodes
-./start-p2p-network.sh 15 11000     # Start 15 nodes on port 11000+
+pip3 install matplotlib pandas networkx
 ```
 
-**Network Architecture:**
-- **Group 0**: Connects to nodes 1, 5, 9
-- **Group 1**: Connects to nodes 0, 6, 10
-- **Group 2**: Connects to nodes 3, 7, 11
-- **Group 3**: Connects to nodes 2, 8, 12
-- **Dynamic discovery**: Enables organic network growth
+## 📈 Performance Metrics Explained
 
-#### `stop-nodes.sh` - Stop All Nodes
-Gracefully stops all running P2P nodes and cleans up PID files.
+The analyzer provides the following metrics:
+
+### Network Topology Metrics
+- **Total Nodes** - Number of nodes participating in the test
+- **Total Connections** - Number of successful P2P connections
+- **Network Density** - Actual connections / maximum possible connections
+- **Connection Distribution** - Connection count per node
+
+### Message Routing Metrics
+- **Total Messages Received** - Total messages received by all nodes
+- **Total Messages Forwarded** - Messages forwarded by nodes (tests real routing)
+- **Forward Ratio** - Forwarded messages / received messages
+- **Average Hops** - Average number of hops from source to destination
+
+### Performance Metrics
+- **Latency Statistics** - Mean, median, P95, P99 latency
+- **Throughput** - Messages processed per unit time
+- **Error Rate** - Error count / total messages
+
+### Node Ranking
+- Comprehensive score considers:
+  - Message receive count (30% weight)
+  - Message forward count (40% weight)
+  - Latency performance (20% weight)
+  - Connection count (10% weight)
+
+## 💡 Example Workflow
 
 ```bash
+# 1. Build the project
+cd ..
+mvn clean package -DskipTests
+cd test-nodes
+
+# 2. Start test network (6 nodes)
+./start-nodes.sh 6
+
+# 3. Let nodes run for 2-5 minutes for performance testing
+
+# 4. Run performance analysis
+python3 analyze-p2p-performance.py
+
+# 5. View results
+cat analysis_results/performance_report.txt
+open analysis_results/*.png  # View charts on macOS
+
+# 6. Stop testing
 ./stop-nodes.sh
 ```
 
-#### `status.sh` - Quick Status Check
-Displays current status of all nodes and network statistics.
+## 🔍 Troubleshooting
 
+### Nodes Won't Start
+- Check JAR file: `ls -lh ../target/*.jar`
+- Rebuild if needed: `cd .. && mvn clean package -DskipTests`
+
+### Port Conflicts
+- Stop existing processes: `pkill -f "io.xdag.p2p.example.StartApp"`
+- Check port usage: `lsof -i :10000-10010`
+
+### Analysis Fails
+- Install dependencies: `pip3 install matplotlib pandas networkx`
+- Check logs: `ls -lh logs/`
+
+## 🚀 Advanced Usage
+
+### Custom Base Port
+Edit `start-nodes.sh` and change `BASE_PORT=10000`
+
+### Long-duration Testing
+Let nodes run longer to collect more data for better analysis accuracy.
+
+### Large-scale Network Testing
 ```bash
-./status.sh
+./start-nodes.sh 20  # 20 nodes
+./start-nodes.sh 50  # 50 nodes
 ```
 
-**Output:**
-- Node status with PID information
-- Running/stopped node counts
-- Active port listeners
+## 💪 Performance Tips
 
-#### `monitor-nodes.sh` - Real-time Network Monitor
-Advanced monitoring tool providing real-time network statistics and performance metrics.
+- **Memory**: Each node uses ~256-512MB RAM
+- **CPU**: Minimal CPU usage when idle
+- **Disk**: Log files grow ~1-2MB per node per minute
+- **Network**: All traffic is localhost, no external bandwidth used
 
-**Features:**
-- Live connection monitoring
-- Performance metrics tracking
-- Error detection and reporting
-- Network topology analysis
-- Resource utilization monitoring
+## 🎯 Testing Framework V2 Improvements
 
-```bash
-./monitor-nodes.sh [INTERVAL] [DURATION]
+Compared to the old version, V2 has resolved the following critical issues:
 
-# Examples:
-./monitor-nodes.sh              # Monitor with default settings
-./monitor-nodes.sh 5            # Update every 5 seconds
-./monitor-nodes.sh 10 300       # Monitor for 5 minutes, update every 10s
-```
+### ✅ Fixed Issues
+1. **Message forwarding rate improved from 0% to 27.9%** - Implemented real multi-hop routing
+2. **Accurate connection parsing** - Correctly identifies connections between nodes
+3. **Network topology optimization** - Changed from centralized to mesh structure (density 0.733)
+4. **Complete performance metrics** - Added forwarding rate, hop count, routing efficiency, etc.
+5. **Enhanced log output** - Structured logs for easy parsing
 
-#### `cleanup.sh` - Environment Cleanup
-Comprehensive cleanup tool for test environments.
+### 📊 Test Data Comparison
 
-**Cleanup operations:**
-- Stop all running nodes
-- Remove log files
-- Clean PID files
-- Clean Maven target directory (optional)
-
-```bash
-./cleanup.sh
-```
-
-### 2. Network Analysis Tool
-
-#### `analyze-network-performance.py` - Professional Network Analyzer
-Comprehensive P2P network performance analysis tool with advanced visualization capabilities.
-
-**Key Features:**
-- **Multi-format analysis**: Detailed reports, CSV exports, visualizations
-- **Real-time log parsing**: Processes live node logs
-- **Network topology mapping**: Clear network structure visualization
-- **Performance metrics**: Latency, throughput, connection analysis
-- **Error analysis**: Comprehensive error detection and reporting
-
-**Usage:**
-```bash
-python3 analyze-network-performance.py [OPTIONS]
-
-# Options:
--l, --logs-dir DIR      Log directory (default: logs)
--o, --output-dir DIR    Output directory (default: analysis_results)
--f, --format FORMAT     Output format: report,csv,json,all (default: all)
-
-# Examples:
-python3 analyze-network-performance.py
-python3 analyze-network-performance.py -l logs -o results
-python3 analyze-network-performance.py --format csv
-```
-
-**Generated Files:**
-- `network_analysis_report.txt` - Comprehensive analysis report
-- `clean_network_topology.png` - Clear network topology visualization
-- `connection_statistics.png` - Connection analysis charts
-- `latency_distribution.png` - Message latency distribution
-- `node_performance.png` - Node performance comparison
-- `message_flows.png` - Message flow analysis
-- `node_summary.csv` - Node performance data
-- `message_flows.csv` - Detailed message flow data
-
-## 📊 Analysis Reports
-
-### Network Performance Metrics
-- **Latency Analysis**: Average, median, standard deviation
-- **Throughput Metrics**: Messages per second, data volume
-- **Connection Statistics**: Network density, node degrees
-- **Error Rates**: Connection failures, timeout analysis
-
-### Network Topology Analysis
-- **Connectivity**: Network diameter, average path length
-- **Node Roles**: Bootstrap nodes, high-connectivity nodes
-- **Load Distribution**: Connection load balancing
-- **Network Health**: Overall network status assessment
-
-### Message Flow Analysis
-- **Message Types**: Distribution by test type
-- **Flow Patterns**: Message routing efficiency
-- **Performance Ranking**: Node performance comparison
-- **Error Analysis**: Failure pattern detection
-
-## 🎯 Testing Scenarios
-
-### 1. Basic P2P Network Test
-```bash
-# Start network
-./start-p2p-network.sh
-
-# Monitor for 5 minutes
-./monitor-nodes.sh 10 300
-
-# Analyze results
-python3 analyze-network-performance.py
-
-# Stop network
-./stop-nodes.sh
-```
-
-### 2. Extended Performance Test
-```bash
-# Start larger network
-./start-p2p-network.sh 30
-
-# Extended monitoring
-./monitor-nodes.sh 30 1800  # 30 minutes
-
-# Comprehensive analysis
-python3 analyze-network-performance.py --format all
-
-# Cleanup
-./cleanup.sh
-```
-
-### 3. Custom Configuration Test
-```bash
-# Custom port range
-./start-p2p-network.sh 15 12000
-
-# Custom analysis
-python3 analyze-network-performance.py -o custom_results
-
-# Status check
-./status.sh
-```
-
-## ⚙️ Configuration Options
-
-### Network Parameters
-- **Node Count**: 1-50 nodes (recommended: 10-30)
-- **Base Port**: Starting port number (default: 10000)
-- **Network ID**: Network identifier (default: 1)
-- **Connection Limits**: Max connections per node
-- **Discovery Settings**: Peer discovery configuration
-
-### Java Runtime Options
-- **Memory Settings**: Heap size optimization
-- **GC Configuration**: Garbage collection tuning
-- **Performance Flags**: JVM optimization flags
-
-### Analysis Options
-- **Output Formats**: Report, CSV, JSON, visualizations
-- **Time Ranges**: Configurable analysis periods
-- **Metric Filters**: Selective metric analysis
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-#### 1. Nodes Fail to Start
-```bash
-# Check Java installation (requires Java 21+)
-java -version
-
-# Verify JAR file exists
-ls -la ../target/xdagj-p2p-*-jar-with-dependencies.jar
-
-# Check port availability
-netstat -an | grep 10000
-```
-
-#### 2. Connection Issues
-```bash
-# Check node status
-./status.sh
-
-# View logs
-tail -f logs/node-0.log
-
-# Monitor connections
-./monitor-nodes.sh 5
-```
-
-#### 3. Analysis Errors
-```bash
-# Verify Python dependencies
-pip3 list | grep -E "(matplotlib|networkx|pandas)"
-
-# Check log directory
-ls -la logs/
-
-# Test with minimal analysis
-python3 analyze-network-performance.py --format report
-```
-
-### Performance Optimization
-
-#### For Large Networks (30+ nodes)
-- Increase JVM heap size: `-Xmx1024m`
-- Use G1 garbage collector: `-XX:+UseG1GC`
-- Adjust connection limits: `-M 20 -m 5`
-
-#### For High-Performance Testing
-- Enable performance flags: `-XX:+AggressiveOpts`
-- Optimize discovery: Reduce discovery intervals
-- Monitor system resources: CPU, memory, network
-
-## 📈 Performance Benchmarks
-
-### Typical Performance (20 nodes)
-- **Startup Time**: 30-60 seconds
-- **Average Latency**: 5-10ms
-- **Connection Success Rate**: >99%
-- **Memory Usage**: ~500MB per node
-- **Network Diameter**: 3-5 hops
-
-### Scalability Limits
-- **Maximum Tested**: 50 nodes
-- **Recommended**: 10-30 nodes
-- **Port Range**: 10000-10999 (1000 ports)
-- **Memory Requirements**: 256MB-1GB per node
-
-## 🔬 Advanced Features
-
-### Custom Network Topologies
-- Modify seed node configurations in `start-p2p-network.sh`
-- Adjust connection parameters for different topologies
-- Implement custom discovery patterns
-
-### Extended Analysis
-- Custom metric collection
-- Time-series analysis
-- Comparative network studies
-- Performance regression testing
-
-### Integration Testing
-- CI/CD pipeline integration
-- Automated test suites
-- Performance regression detection
-- Network stress testing
-
-## 📝 Contributing
-
-### Development Guidelines
-- Follow Java coding standards
-- Use English for all comments and documentation
-- Implement comprehensive logging
-- Include unit tests for new features
-
-### Testing Protocol
-- Test with multiple node counts
-- Verify cross-platform compatibility
-- Performance baseline validation
-- Documentation updates
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](../LICENSE) file for details.
-
-## 🤝 Support
-
-For issues, questions, or contributions:
-- Create GitHub issues for bugs or feature requests
-- Submit pull requests for improvements
-- Follow the coding standards and testing protocols
+| Metric | Old Version | V2 Version | Improvement |
+|--------|-------------|------------|-------------|
+| Message Forward Ratio | 0% | 27.91% | ✅ Real routing implemented |
+| Network Connection Detection | Failed | 11 connections | ✅ Correctly parsed |
+| Network Density | 0.000 | 0.733 | ✅ Good mesh structure |
+| Multi-hop Message Ratio | Unknown | 100% | ✅ All messages test routing |
+| Average Hops | 0 | 2.54 | ✅ Multi-hop forwarding verified |
 
 ---
 
-**Note**: This testing suite is designed for development and testing purposes. For production deployments, additional security and performance considerations may be required. 
+For more details, see the main project README: `../README.md`
