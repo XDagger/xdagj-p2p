@@ -98,27 +98,29 @@ public class XdagFrameCodecTest {
 
     @Test
     void testDecodeInvalidVersion() {
+        // With the new fault-tolerant design, invalid version frames are skipped, not rejected with exception
         XdagFrame frame = new XdagFrame((short) (XdagFrame.VERSION + 1), XdagFrame.COMPRESS_NONE, (byte) 1, 1, 4, 4, new byte[4]);
         ByteBuf buf = Unpooled.buffer();
         frame.writeHeader(buf);
         buf.writeBytes(frame.getBody());
 
-        Exception e = assertThrows(Exception.class, () -> channel.writeInbound(buf));
-        assertTrue(e.getCause() instanceof IOException);
-        assertTrue(e.getCause().getMessage().contains("Invalid frame version"));
+        // The codec will skip invalid version frames instead of throwing exception
+        assertFalse(channel.writeInbound(buf));
+        assertNull(channel.readInbound()); // No frame should be decoded
     }
 
     @Test
     void testDecodeFrameTooLarge() {
+        // With the new fault-tolerant design, oversized frames are skipped, not rejected with exception
         byte[] body = new byte[config.getNetMaxFrameBodySize() + 1];
         XdagFrame frame = new XdagFrame(XdagFrame.VERSION, XdagFrame.COMPRESS_NONE, (byte) 1, 1, body.length, body.length, body);
 
         ByteBuf buf = Unpooled.buffer();
         frame.writeHeader(buf); // Header contains the large size
 
-        Exception e = assertThrows(Exception.class, () -> channel.writeInbound(buf));
-        assertTrue(e.getCause() instanceof IOException);
-        assertTrue(e.getCause().getMessage().contains("Frame body too large"));
+        // The codec will skip oversized frames instead of throwing exception
+        assertFalse(channel.writeInbound(buf));
+        assertNull(channel.readInbound()); // No frame should be decoded
     }
 
     @Test

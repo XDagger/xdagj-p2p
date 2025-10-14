@@ -82,7 +82,7 @@ class XdagFrameTest {
     void testToString() {
         byte[] body = {1, 2, 3, 4};
         XdagFrame frame = new XdagFrame(XdagFrame.VERSION, XdagFrame.COMPRESS_NONE, (byte) 1, 123, body.length, body.length, body);
-        String expected = "XdagFrame [version=0, compressType=0, packetType=1, packetId=123, packetSize=4, bodySize=4]";
+        String expected = "XdagFrame [version=1, compressType=0, packetType=1, packetId=123, packetSize=4, bodySize=4]";
         assertEquals(expected, frame.toString());
     }
 }
