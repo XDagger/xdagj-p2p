@@ -38,8 +38,6 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -70,20 +68,19 @@ public class ChannelManager {
     // Enhanced ban system with reason codes and statistics
     private final Map<InetAddress, BanInfo> bannedNodes = new ConcurrentHashMap<>();
     private final Map<InetAddress, AtomicInteger> banCounts = new ConcurrentHashMap<>();
+
+    @Getter
     private final BanStatistics banStatistics = new BanStatistics();
     private final Set<InetAddress> whitelist = ConcurrentHashMap.newKeySet();
 
-    @Getter
     private final AtomicInteger passivePeersCount = new AtomicInteger(0);
-    @Getter
     private final AtomicInteger activePeersCount = new AtomicInteger(0);
-    @Getter
     private final AtomicInteger connectingPeersCount = new AtomicInteger(0);
 
     private final ScheduledExecutorService poolLoopExecutor =
-            Executors.newSingleThreadScheduledExecutor(new BasicThreadFactory.Builder().namingPattern("p2p-pool-%d").build());
+            Executors.newSingleThreadScheduledExecutor(BasicThreadFactory.builder().namingPattern("p2p-pool-%d").build());
     private final ScheduledExecutorService disconnectExecutor =
-            Executors.newSingleThreadScheduledExecutor(new BasicThreadFactory.Builder().namingPattern("p2p-disconnect-%d").build());
+            Executors.newSingleThreadScheduledExecutor(BasicThreadFactory.builder().namingPattern("p2p-disconnect-%d").build());
 
 
     public ChannelManager(P2pConfig config, NodeManager nodeManager, P2pMetrics metrics) {
@@ -114,7 +111,7 @@ public class ChannelManager {
     public void stop() {
         poolLoopExecutor.shutdownNow();
         disconnectExecutor.shutdownNow();
-        activePeers.forEach(channel -> channel.close(0)); // No ban time for graceful shutdown
+        activePeers.forEach(Channel::close); // Graceful shutdown without ban
     }
 
     /**
@@ -191,20 +188,8 @@ public class ChannelManager {
                 .filter(ch -> ch.getInetAddress() != null && ch.getInetAddress().equals(inetAddress))
                 .forEach(ch -> {
                     log.debug("Closing existing connection from banned node: {}", ch.getRemoteAddress());
-                    ch.close(0); // Close without additional ban time
+                    ch.close(); // Already banned, just close the connection
                 });
-    }
-
-    /**
-     * Ban a node's IP address for the specified duration (legacy method).
-     *
-     * @param inetAddress the IP address to ban
-     * @param banTime the ban duration in milliseconds
-     * @deprecated Use {@link #banNode(InetAddress, BanReason)} instead
-     */
-    @Deprecated
-    public void banNode(InetAddress inetAddress, long banTime) {
-        banNode(inetAddress, BanReason.MANUAL_BAN, banTime);
     }
 
     /**
@@ -317,16 +302,7 @@ public class ChannelManager {
         return inetAddress != null && whitelist.contains(inetAddress);
     }
 
-    /**
-     * Get ban statistics.
-     *
-     * @return the BanStatistics object
-     */
-    public BanStatistics getBanStatistics() {
-        return banStatistics;
-    }
-
-    /**
+  /**
      * Get all currently banned nodes.
      *
      * @return collection of BanInfo for all active bans
@@ -545,5 +521,9 @@ public class ChannelManager {
 
     public int getPassivePeersCount() {
         return passivePeersCount.get();
+    }
+
+    public AtomicInteger getConnectingPeersCount() {
+        return connectingPeersCount;
     }
 }
