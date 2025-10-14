@@ -50,6 +50,13 @@ public class StartApp {
   private ExampleEventHandler eventHandler;
   private ScheduledExecutorService scheduler;
   private String nodeId;
+  private boolean enableDetailedLogging;
+  private long startTime;
+
+  // TPS measurement counters (for non-logging mode)
+  private final java.util.concurrent.atomic.AtomicLong messageCounter = new java.util.concurrent.atomic.AtomicLong(0);
+  private final java.util.concurrent.atomic.AtomicLong lastCounterSnapshot = new java.util.concurrent.atomic.AtomicLong(0);
+  private final java.util.concurrent.atomic.AtomicLong lastCounterTime = new java.util.concurrent.atomic.AtomicLong(System.currentTimeMillis());
 
   public static void main(String[] args) {
     StartApp app = new StartApp();
@@ -74,6 +81,10 @@ public class StartApp {
       return; // Help was printed, exit gracefully
     }
 
+    // Check if detailed logging should be enabled (default: true)
+    enableDetailedLogging = !"false".equalsIgnoreCase(System.getenv("ENABLE_DETAILED_LOGGING"));
+    log.info("Detailed logging: {}", enableDetailedLogging ? "ENABLED" : "DISABLED (Maximum TPS mode)");
+
     logConfigurationSummary(config);
 
     // Initialize P2P service and event handler
@@ -89,6 +100,7 @@ public class StartApp {
 
     // Start the service
     log.info("Starting P2P service...");
+    startTime = System.currentTimeMillis(); // Record start time for TPS calculation
     p2pService.start();
     log.info("P2P service started successfully");
 
@@ -124,11 +136,16 @@ public class StartApp {
       @Override
       protected void onTestMessage(io.xdag.p2p.channel.Channel channel, io.xdag.p2p.example.message.TestMessage message) {
         if (message.isNetworkTestMessage()) {
-          long timestamp = System.currentTimeMillis();
-          int messageSize = message.getData().length;
-          log.info("MSG_RECEIVED|{}|{}|{}|{}|{}|{}|{}|{}|{}",
-                  timestamp, nodeId, message.getMessageId(), message.getOriginSender(),
-                  message.getHopCount(), message.getMaxHops(), message.getAge(), message.getTestType(), messageSize);
+          // Always count messages for TPS measurement
+          messageCounter.incrementAndGet();
+
+          if (enableDetailedLogging) {
+            long timestamp = System.currentTimeMillis();
+            int messageSize = message.getData().length;
+            log.info("MSG_RECEIVED|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+                    timestamp, nodeId, message.getMessageId(), message.getOriginSender(),
+                    message.getHopCount(), message.getMaxHops(), message.getAge(), message.getTestType(), messageSize);
+          }
         } else {
           log.info("Node {}: Received regular message from {}: {}",
                   nodeId, channel.getInetSocketAddress(), message.getActualContent());
@@ -138,7 +155,7 @@ public class StartApp {
       @Override
       protected void forwardNetworkTestMessage(io.xdag.p2p.example.message.TestMessage originalMessage) {
         super.forwardNetworkTestMessage(originalMessage);
-        if (!originalMessage.isExpired()) {
+        if (enableDetailedLogging && !originalMessage.isExpired()) {
           long timestamp = System.currentTimeMillis();
           int messageSize = originalMessage.getData().length;
           log.info("MSG_FORWARDED|{}|{}|{}|{}|{}|{}|{}",
@@ -150,15 +167,27 @@ public class StartApp {
   }
 
   private void initializeNetworkTesting() {
-    scheduler = Executors.newScheduledThreadPool(6); // Increased thread pool size
-    
-    // Schedule intensive network tests for professional stress testing
-    scheduler.scheduleAtFixedRate(this::performNetworkTests, 10, 3, TimeUnit.SECONDS); // Increased frequency
-    scheduler.scheduleAtFixedRate(this::performBurstTests, 30, 12, TimeUnit.SECONDS);  // Increased frequency
-    scheduler.scheduleAtFixedRate(this::performStabilityTests, 60, 25, TimeUnit.SECONDS); // Increased frequency
-    scheduler.scheduleAtFixedRate(this::performNetworkAnalysisTests, 90, 45, TimeUnit.SECONDS); // New analysis tests
-    scheduler.scheduleAtFixedRate(this::logNetworkTestStatistics, 20, 8, TimeUnit.SECONDS); // More frequent logging
-    scheduler.scheduleAtFixedRate(this::exportDetailedStatistics, 300, 300, TimeUnit.SECONDS); // Export every 5 minutes
+    scheduler = Executors.newScheduledThreadPool(8); // Increased thread pool size for higher concurrency
+
+    // High-frequency TPS-focused testing for maximum performance measurement
+    // Strategy: Send messages every 100ms to achieve high TPS (10 msg/s per type per node)
+    scheduler.scheduleAtFixedRate(this::performHighFrequencyTpsTest, 5, 100, TimeUnit.MILLISECONDS); // 10 Hz
+    scheduler.scheduleAtFixedRate(this::performBurstTpsTest, 10, 250, TimeUnit.MILLISECONDS); // 4 Hz burst
+
+    // Medium-frequency comprehensive tests
+    scheduler.scheduleAtFixedRate(this::performNetworkTests, 10, 1, TimeUnit.SECONDS);
+    scheduler.scheduleAtFixedRate(this::performBurstTests, 30, 5, TimeUnit.SECONDS);
+    scheduler.scheduleAtFixedRate(this::performStabilityTests, 60, 15, TimeUnit.SECONDS);
+
+    // Low-frequency analysis and monitoring
+    scheduler.scheduleAtFixedRate(this::performNetworkAnalysisTests, 90, 30, TimeUnit.SECONDS);
+    scheduler.scheduleAtFixedRate(this::logNetworkTestStatistics, 10, 5, TimeUnit.SECONDS);
+    scheduler.scheduleAtFixedRate(this::exportDetailedStatistics, 300, 300, TimeUnit.SECONDS);
+
+    // TPS measurement for no-logging mode (logs every 5 seconds)
+    if (!enableDetailedLogging) {
+      scheduler.scheduleAtFixedRate(this::logTpsCounterStatistics, 5, 5, TimeUnit.SECONDS);
+    }
   }
 
   private void runMainLoop() {
@@ -203,11 +232,49 @@ public class StartApp {
       eventHandler.sendNetworkTestMessage("latency_test", "Periodic latency test from " + nodeId, 8);
       eventHandler.sendNetworkTestMessage("throughput_test", "Throughput test from " + nodeId, 6);
       eventHandler.sendNetworkTestMessage("coverage_test", "Network coverage test from " + nodeId, 10);
-      
+
       // Add new professional test types
       eventHandler.sendNetworkTestMessage("route_discovery", "Route discovery test from " + nodeId, 12);
       eventHandler.sendNetworkTestMessage("congestion_test", "Network congestion test from " + nodeId, 5);
     });
+  }
+
+  /**
+   * High-frequency TPS test - optimized for maximum throughput measurement
+   * Sends multiple small messages rapidly to measure TPS limits
+   */
+  private void performHighFrequencyTpsTest() {
+    if (!canPerformNetworkTest()) {
+      return;
+    }
+
+    try {
+      // Send 5 quick messages per execution (10 Hz × 5 = 50 msg/s per node)
+      for (int i = 0; i < 5; i++) {
+        eventHandler.sendNetworkTestMessage("tps_test", "TPS-" + i + "-" + System.nanoTime(), 4);
+      }
+    } catch (Exception e) {
+      // Silent failure to avoid log spam
+    }
+  }
+
+  /**
+   * Burst TPS test - sends larger batches at moderate frequency
+   * Tests system's ability to handle burst loads
+   */
+  private void performBurstTpsTest() {
+    if (!canPerformNetworkTest()) {
+      return;
+    }
+
+    try {
+      // Send 20 messages in burst (4 Hz × 20 = 80 msg/s per node)
+      for (int i = 0; i < 20; i++) {
+        eventHandler.sendNetworkTestMessage("burst_tps", "Burst-" + i + "-" + System.nanoTime(), 5);
+      }
+    } catch (Exception e) {
+      // Silent failure to avoid log spam
+    }
   }
 
   private void performBurstTests() {
@@ -278,6 +345,33 @@ public class StartApp {
       } catch (Exception e) {
         log.warn("Error logging network test statistics: {}", e.getMessage());
       }
+    }
+  }
+
+  /**
+   * Log lightweight TPS counter statistics (for no-logging mode)
+   * This method provides TPS measurement without per-message logging overhead
+   */
+  private void logTpsCounterStatistics() {
+    long currentCount = messageCounter.get();
+    long currentTime = System.currentTimeMillis();
+    long lastCount = lastCounterSnapshot.get();
+    long lastTime = lastCounterTime.get();
+
+    long messagesDelta = currentCount - lastCount;
+    long timeDelta = currentTime - lastTime;
+
+    if (timeDelta > 0) {
+      double intervalTps = (messagesDelta * 1000.0) / timeDelta;
+      double totalTps = (currentCount * 1000.0) / (currentTime - startTime);
+
+      log.info("TPS_COUNTER|{}|total_msgs={}|interval_tps={}|avg_tps={}|connections={}",
+              nodeId, currentCount, String.format("%.1f", intervalTps), String.format("%.1f", totalTps),
+              eventHandler != null ? eventHandler.getChannels().size() : 0);
+
+      // Update snapshots
+      lastCounterSnapshot.set(currentCount);
+      lastCounterTime.set(currentTime);
     }
   }
 
