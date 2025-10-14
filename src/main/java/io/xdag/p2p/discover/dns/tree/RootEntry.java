@@ -51,9 +51,12 @@ public class RootEntry implements Entry {
   private Bytes signature;
 
   /**
-   * Constructor for RootEntry with existing DnsRoot.
+   * Constructor for RootEntry with all fields.
    *
-   * @param dnsRoot the DNS root protobuf object
+   * @param eRoot the entries root hash
+   * @param lRoot the links root hash
+   * @param seq the sequence number
+   * @param signature the signature bytes
    */
   public RootEntry(String eRoot, String lRoot, int seq, Bytes signature) {
     this.eRoot = eRoot;
