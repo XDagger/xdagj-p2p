@@ -47,13 +47,13 @@ public class KadFindNodeMessageTest {
     @BeforeEach
     public void setUp() {
         // Create a test node
-        String fromId = Bytes.random(64).toHexString();
+        String fromId = Bytes.random(20).toHexString();
         fromNode = new Node(fromId, new InetSocketAddress("127.0.0.1", 10001));
         fromNode.setNetworkId((byte) P2pConstant.MAINNET_ID);
         fromNode.setNetworkVersion((short) P2pConstant.MAINNET_VERSION);
         
         // Create a random target ID
-        targetId = Bytes.random(64);
+        targetId = Bytes.random(20);
     }
 
     @Test
@@ -175,8 +175,8 @@ public class KadFindNodeMessageTest {
     @Test
     public void testDifferentTargets() {
         // Test with different target IDs
-        Bytes target1 = Bytes.random(64);
-        Bytes target2 = Bytes.random(64);
+        Bytes target1 = Bytes.random(20);
+        Bytes target2 = Bytes.random(20);
         
         KadFindNodeMessage msg1 = new KadFindNodeMessage(fromNode, target1);
         KadFindNodeMessage msg2 = new KadFindNodeMessage(fromNode, target2);
@@ -258,7 +258,7 @@ public class KadFindNodeMessageTest {
     @Test
     public void testDifferentNodesProduceDifferentMessages() {
         // Test that different from nodes produce different messages
-        String altFromId = Bytes.random(64).toHexString();
+        String altFromId = Bytes.random(20).toHexString();
         Node altFromNode = new Node(altFromId, new InetSocketAddress("10.0.0.1", 20001));
         altFromNode.setNetworkId((byte) 1);
         altFromNode.setNetworkVersion((short) 1);

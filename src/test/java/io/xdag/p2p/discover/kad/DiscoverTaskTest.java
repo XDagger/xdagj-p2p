@@ -63,7 +63,7 @@ class DiscoverTaskTest {
     @Test
     void testNextTargetIdReturnsHomeIdEveryMaxLoop() {
         Node home = new Node(null, "127.0.0.1", null, 30303);
-        home.setId(Bytes.random(64).toUnprefixedHexString());
+        home.setId(Bytes.random(20).toUnprefixedHexString());
         Mockito.when(kadService.getPublicHomeNode()).thenReturn(home);
 
         Bytes last = null;
@@ -81,7 +81,7 @@ class DiscoverTaskTest {
     @Test
     void testLoopCounterResetsAfterHomeId() {
         Node home = new Node(null, "127.0.0.1", null, 30303);
-        home.setId(Bytes.random(64).toUnprefixedHexString());
+        home.setId(Bytes.random(20).toUnprefixedHexString());
         Mockito.when(kadService.getPublicHomeNode()).thenReturn(home);
 
         for (int i = 0; i < KademliaOptions.MAX_LOOP_NUM; i++) {

@@ -50,7 +50,7 @@ public class KadNeighborsMessageTest {
     @BeforeEach
     public void setUp() {
         // Create a from node
-        String fromId = Bytes.random(64).toHexString();
+        String fromId = Bytes.random(20).toHexString();
         fromNode = new Node(fromId, new InetSocketAddress("127.0.0.1", 10001));
         fromNode.setNetworkId((byte) P2pConstant.MAINNET_ID);
         fromNode.setNetworkVersion((short) P2pConstant.MAINNET_VERSION);
@@ -58,7 +58,7 @@ public class KadNeighborsMessageTest {
         // Create neighbor nodes
         neighbors = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
-            String neighborId = Bytes.random(64).toHexString();
+            String neighborId = Bytes.random(20).toHexString();
             Node neighbor = new Node(neighborId, new InetSocketAddress("192.168.1." + (100 + i), 10002 + i));
             neighbor.setNetworkId((byte) P2pConstant.MAINNET_ID);
             neighbor.setNetworkVersion((short) P2pConstant.MAINNET_VERSION);
@@ -205,7 +205,7 @@ public class KadNeighborsMessageTest {
         // Test with many neighbors (simulate a full bucket)
         List<Node> manyNeighbors = new ArrayList<>();
         for (int i = 0; i < 16; i++) {
-            String neighborId = Bytes.random(64).toHexString();
+            String neighborId = Bytes.random(20).toHexString();
             Node neighbor = new Node(neighborId, new InetSocketAddress("10.0.0." + i, 30000 + i));
             neighbor.setNetworkId((byte) 1);
             neighbor.setNetworkVersion((short) 1);

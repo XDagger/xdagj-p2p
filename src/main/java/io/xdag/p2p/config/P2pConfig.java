@@ -100,9 +100,6 @@ public class P2pConfig {
   // local node keypair (for handshake/signatures and node ID generation)
   private ECKeyPair nodeKey;
 
-  public boolean isEnableFrameCompression() { return enableFrameCompression; }
-  public int getNetMaxPacketSize() { return netMaxPacketSize; }
-
   /**
    * Get the default IP address with fallback to LAN IP if external IP is not available.
    *
@@ -141,7 +138,7 @@ public class P2pConfig {
    * 
    * <p>This key pair is used for:
    * <ul>
-   *   <li>Node ID generation (derived from public key)</li>
+   *   <li>Node ID generation (derived from XDAG address - 20 bytes, 160 bits)</li>
    *   <li>Handshake message signing</li>
    *   <li>Node identity verification</li>
    * </ul>

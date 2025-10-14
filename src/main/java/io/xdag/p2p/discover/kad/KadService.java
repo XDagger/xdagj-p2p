@@ -110,15 +110,14 @@ public class KadService implements DiscoverService {
             );
         }
         
-        // Derive node ID from public key (uncompressed format, 65 bytes)
+        // Derive node ID from XDAG address (20 bytes, 160 bits)
+        // This is the standard Kademlia node ID length (same as BitTorrent DHT)
         this.homeNode.setId(
             p2pConfig.getNodeKey()
-                     .getPublicKey()
-                     .toUncompressedBytes()
-                     .toUnprefixedHexString()
+                     .toAddress()              // Generate XDAG address (20 bytes)
+                     .toHexString()            // Convert to hex string (0x + 40 chars)
         );
-        log.info("Node ID derived from nodeKey public key: {}", 
-                 this.homeNode.getId().substring(0, 16) + "...");
+        log.info("Node ID (XDAG address): {}", this.homeNode.getId());
         
         this.homeNode.setNetworkId(p2pConfig.getNetworkId());
         this.homeNode.setNetworkVersion(p2pConfig.getNetworkVersion());

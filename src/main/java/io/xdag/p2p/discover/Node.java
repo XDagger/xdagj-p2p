@@ -37,9 +37,9 @@ import org.apache.commons.lang3.StringUtils;
  * Represents a network node in the XDAG P2P network.
  * 
  * <p>Node ID Generation:
- * The node ID is derived from the node's public key (ECKeyPair) for security and identity verification:
+ * The node ID is derived from the node's XDAG address (ECKeyPair.toAddress()) for security and identity verification:
  * <ul>
- *   <li>Uses uncompressed public key format (65 bytes)</li>
+ *   <li>Uses XDAG address format (20 bytes, 160 bits) - Kademlia standard</li>
  *   <li>Enables cryptographic verification of node identity</li>
  *   <li>Prevents Sybil attacks and node ID spoofing</li>
  *   <li>Integrates with XDAG's address system (xdagj-crypto)</li>
@@ -56,9 +56,9 @@ public class Node implements Serializable, Cloneable {
     private short networkVersion;
     
     /**
-     * Node ID derived from public key (uncompressed, 65 bytes = 130 hex chars).
+     * Node ID derived from XDAG address (20 bytes = 40 hex chars).
      * This ID is used for:
-     * - Kademlia DHT distance calculations
+     * - Kademlia DHT distance calculations (160-bit standard)
      * - Node identity verification
      * - Preventing node impersonation
      */

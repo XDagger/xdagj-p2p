@@ -79,7 +79,7 @@ public class KadServiceTest {
         homeNode = kadService.getPublicHomeNode();
 
         InetSocketAddress remoteAddress = new InetSocketAddress("127.0.0.1", 22222);
-        String remoteId = Bytes.random(64).toUnprefixedHexString();
+        String remoteId = Bytes.random(20).toUnprefixedHexString();
         remoteNode = new Node(remoteId, remoteAddress);
     }
 

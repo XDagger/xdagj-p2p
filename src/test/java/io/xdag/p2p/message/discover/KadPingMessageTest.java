@@ -47,8 +47,8 @@ public class KadPingMessageTest {
     @BeforeEach
     public void setUp() {
         // Create two test nodes with valid IDs
-        String fromId = Bytes.random(64).toHexString();
-        String toId = Bytes.random(64).toHexString();
+        String fromId = Bytes.random(20).toHexString();
+        String toId = Bytes.random(20).toHexString();
         
         fromNode = new Node(fromId, new InetSocketAddress("127.0.0.1", 10001));
         fromNode.setNetworkId((byte) P2pConstant.MAINNET_ID);
@@ -231,7 +231,7 @@ public class KadPingMessageTest {
     @Test
     public void testDifferentNodesProduceDifferentMessages() {
         // Test that different nodes produce different messages
-        String altFromId = Bytes.random(64).toHexString();
+        String altFromId = Bytes.random(20).toHexString();
         Node altFromNode = new Node(altFromId, new InetSocketAddress("10.0.0.1", 20001));
         altFromNode.setNetworkId((byte) P2pConstant.MAINNET_ID);
         altFromNode.setNetworkVersion((short) P2pConstant.MAINNET_VERSION);

@@ -74,9 +74,9 @@ public class DiscoverTask {
       String idHex = kadService.getPublicHomeNode().getId();
       return StringUtils.isNotEmpty(idHex)
           ? Bytes.fromHexStringLenient(idHex)
-          : Bytes.random(64);
+          : Bytes.random(20);  // 20 bytes = 160 bits (Kademlia standard)
     }
-    return Bytes.random(64);
+    return Bytes.random(20);  // 20 bytes = 160 bits (Kademlia standard)
   }
 
   private void discover(Bytes nodeId, int round, List<Node> prevTriedNodes) {

@@ -44,12 +44,12 @@ public class NodeBucketTest {
     @BeforeEach
     public void setUp() {
         bucket = new NodeBucket(0);
-        ownerId = Bytes.random(64);
+        ownerId = Bytes.random(20);
     }
 
     private NodeEntry createUniqueNodeEntry() {
         String ip = "127.0.0." + ipCounter++;
-        Node node = new Node(Bytes.random(32).toUnprefixedHexString(), ip, null, 30303, 30303);
+        Node node = new Node(Bytes.random(20).toUnprefixedHexString(), ip, null, 30303, 30303);
         return new NodeEntry(ownerId, node);
     }
 
