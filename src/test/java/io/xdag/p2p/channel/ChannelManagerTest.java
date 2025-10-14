@@ -103,8 +103,8 @@ public class ChannelManagerTest {
     assertNotNull(channelManager.getBanInfo(address));
 
     BanInfo banInfo = channelManager.getBanInfo(address);
-    assertEquals(BanReason.PROTOCOL_VIOLATION, banInfo.getReason());
-    assertEquals(1, banInfo.getBanCount());
+    assertEquals(BanReason.PROTOCOL_VIOLATION, banInfo.reason());
+    assertEquals(1, banInfo.banCount());
   }
 
   @Test
@@ -117,7 +117,7 @@ public class ChannelManagerTest {
     assertTrue(channelManager.isBanned(address));
     BanInfo banInfo = channelManager.getBanInfo(address);
     assertNotNull(banInfo);
-    assertEquals(BanReason.MALICIOUS_BEHAVIOR, banInfo.getReason());
+    assertEquals(BanReason.MALICIOUS_BEHAVIOR, banInfo.reason());
   }
 
   @Test
@@ -162,13 +162,13 @@ public class ChannelManagerTest {
     // First ban
     channelManager.banNode(address, BanReason.PROTOCOL_VIOLATION);
     BanInfo banInfo1 = channelManager.getBanInfo(address);
-    assertEquals(1, banInfo1.getBanCount());
+    assertEquals(1, banInfo1.banCount());
 
     // Unban and ban again - count should increase
     channelManager.unbanNode(address);
     channelManager.banNode(address, BanReason.PROTOCOL_VIOLATION);
     BanInfo banInfo2 = channelManager.getBanInfo(address);
-    assertEquals(2, banInfo2.getBanCount());
+    assertEquals(2, banInfo2.banCount());
   }
 
   @Test
@@ -483,7 +483,7 @@ public class ChannelManagerTest {
     assertTrue(channelManager.isBanned(address));
     BanInfo banInfo = channelManager.getBanInfo(address);
     assertNotNull(banInfo);
-    assertEquals(BanReason.MANUAL_BAN, banInfo.getReason());
+    assertEquals(BanReason.MANUAL_BAN, banInfo.reason());
   }
 
   @Test

@@ -50,6 +50,7 @@ import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
@@ -57,6 +58,13 @@ import org.apache.tuweni.bytes.Bytes;
 
 @Slf4j(topic = "net")
 public class NetUtils {
+
+  /** Pre-compiled IPv4 validation pattern for performance */
+  private static final Pattern IPV4_PATTERN = Pattern.compile(
+      "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$");
+
+  /** Pre-compiled IPv6 validation pattern for performance */
+  private static final Pattern IPV6_PATTERN = Pattern.compile("^[0-9a-fA-F:]+$");
 
   /**
    * Validate IPv4 address using the regex pattern to avoid DNS resolver dependency. More reliable for
@@ -70,11 +78,8 @@ public class NetUtils {
       return false;
     }
     try {
-      // Use regex pattern for basic IPv4 validation to avoid DNS resolver issues
-      String ipv4Pattern =
-          "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$";
-
-      if (!ip.matches(ipv4Pattern)) {
+      // Use pre-compiled regex pattern for better performance
+      if (!IPV4_PATTERN.matcher(ip).matches()) {
         return false;
       }
 
@@ -101,9 +106,8 @@ public class NetUtils {
         return false;
       }
 
-      // Simple check for IPv6 format (hex digits and colons)
-      String ipv6Pattern = "^[0-9a-fA-F:]+$";
-      if (!ip.matches(ipv6Pattern)) {
+      // Use pre-compiled regex pattern for better performance
+      if (!IPV6_PATTERN.matcher(ip).matches()) {
         return false;
       }
 
@@ -215,7 +219,8 @@ public class NetUtils {
       if (in != null) {
         try {
           in.close();
-        } catch (IOException ignored) {
+        } catch (IOException e) {
+          log.debug("Failed to close BufferedReader: {}", e.getMessage());
         }
       }
     }

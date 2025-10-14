@@ -61,7 +61,9 @@ public class XdagBusinessHandler extends SimpleChannelInboundHandler<Message> {
                 // Auto-respond to TCP keepalive pings at business layer
                 try {
                     ctx.writeAndFlush(new io.xdag.p2p.message.node.PongMessage());
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    log.warn("Failed to send pong response to {}: {}", remote, e.getMessage());
+                }
                 return;
             } else if (code == MessageCode.PONG) {
                 // Latency can be tracked here if needed

@@ -24,26 +24,23 @@
 package io.xdag.p2p.channel;
 
 import java.net.InetAddress;
-import lombok.Getter;
 
 /**
- * Information about a banned node.
+ * Information about a banned node. Java record for immutable ban data with automatic getters,
+ * equals, hashCode, and toString.
+ *
+ * @param address the banned IP address
+ * @param reason the reason for the ban
+ * @param banTimestamp the timestamp when the ban was applied
+ * @param banExpiryTimestamp the timestamp when the ban expires
+ * @param banCount the number of times this node has been banned
  */
-@Getter
-public class BanInfo {
-    private final InetAddress address;
-    private final BanReason reason;
-    private final long banTimestamp;
-    private final long banExpiryTimestamp;
-    private final int banCount; // Number of times this node has been banned
-
-    public BanInfo(InetAddress address, BanReason reason, long banTimestamp, long banExpiryTimestamp, int banCount) {
-        this.address = address;
-        this.reason = reason;
-        this.banTimestamp = banTimestamp;
-        this.banExpiryTimestamp = banExpiryTimestamp;
-        this.banCount = banCount;
-    }
+public record BanInfo(
+    InetAddress address,
+    BanReason reason,
+    long banTimestamp,
+    long banExpiryTimestamp,
+    int banCount) {
 
     /**
      * Check if the ban is still active.

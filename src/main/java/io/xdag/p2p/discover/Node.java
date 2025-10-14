@@ -174,13 +174,8 @@ public class Node implements Serializable, Cloneable {
             return getInetSocketAddressV4();
         } else if (StringUtils.isNotEmpty(hostV6)) {
             return getInetSocketAddressV6();
-        } else if (StringUtils.isNotEmpty(hostV4)) {
-            return getInetSocketAddressV4();
-        } else if (StringUtils.isNotEmpty(hostV6)) {
-            return getInetSocketAddressV6();
-        } else {
-            return null;
         }
+        return null;
     }
 
     public String getHostKey() {
@@ -257,8 +252,9 @@ public class Node implements Serializable, Cloneable {
     public Object clone() {
         try {
             return super.clone();
-        } catch (CloneNotSupportedException ignored) {
+        } catch (CloneNotSupportedException e) {
+            // This should never happen since we implement Cloneable
+            throw new AssertionError("Clone not supported for Node", e);
         }
-        return null;
     }
 }

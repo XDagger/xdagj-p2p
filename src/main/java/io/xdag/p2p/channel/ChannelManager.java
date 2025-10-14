@@ -104,7 +104,8 @@ public class ChannelManager {
     public void triggerImmediateConnect() {
         try {
             poolLoopExecutor.execute(this::connectLoop);
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.warn("Failed to schedule connect loop: {}", e.getMessage());
         }
     }
 
