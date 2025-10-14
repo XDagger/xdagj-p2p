@@ -475,12 +475,11 @@ public class ChannelManagerTest {
   public void testDeprecatedBanNodeMethod() {
     InetAddress address = a1.getAddress();
 
-    // Use deprecated method
-    @SuppressWarnings("deprecation")
-    boolean result = true;
-    channelManager.banNode(address, 5000);
+    // Use method with custom duration
+    long customDuration = 5000;
+    channelManager.banNode(address, BanReason.MANUAL_BAN, customDuration);
 
-    // Should still work
+    // Should work with custom duration
     assertTrue(channelManager.isBanned(address));
     BanInfo banInfo = channelManager.getBanInfo(address);
     assertNotNull(banInfo);
