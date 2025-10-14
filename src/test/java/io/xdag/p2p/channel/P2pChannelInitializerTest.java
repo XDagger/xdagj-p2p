@@ -24,13 +24,16 @@
 package io.xdag.p2p.channel;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
-import io.netty.channel.embedded.EmbeddedChannel;
+import io.netty.channel.ChannelPipeline;
+import io.netty.channel.socket.nio.NioSocketChannel;
 import io.xdag.crypto.keys.ECKeyPair;
 import io.xdag.p2p.config.P2pConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 class P2pChannelInitializerTest {
 
@@ -40,28 +43,64 @@ class P2pChannelInitializerTest {
 
     @BeforeEach
     void setUp() {
-        config = mock(P2pConfig.class);
+        // Use real P2pConfig instead of mock for proper initialization
+        config = new P2pConfig();
+        config.setNetMaxFrameBodySize(1024 * 1024); // 1MB
         channelManager = mock(ChannelManager.class);
-        keyPair = ECKeyPair.create();
+        keyPair = ECKeyPair.generate();
     }
 
     @Test
-    void testInitChannel_Outbound() {
+    void testInitChannel_Outbound() throws Exception {
         P2pChannelInitializer initializer = new P2pChannelInitializer(config, channelManager, keyPair, true);
-        EmbeddedChannel ch = new EmbeddedChannel(initializer);
 
-        assertNotNull(ch.pipeline().get("readTimeoutHandler"));
-        assertNotNull(ch.pipeline().get("xdagFrameCodec"));
-        assertNotNull(ch.pipeline().get("handshakeHandler"));
+        // Create a mock NioSocketChannel to test initialization
+        NioSocketChannel mockChannel = Mockito.mock(NioSocketChannel.class);
+        ChannelPipeline mockPipeline = Mockito.mock(ChannelPipeline.class);
+
+        Mockito.when(mockChannel.pipeline()).thenReturn(mockPipeline);
+        Mockito.when(mockPipeline.addLast(Mockito.anyString(), Mockito.any())).thenReturn(mockPipeline);
+        Mockito.when(mockPipeline.addLast(Mockito.any())).thenReturn(mockPipeline);
+        Mockito.when(mockChannel.config()).thenReturn(Mockito.mock(io.netty.channel.socket.SocketChannelConfig.class));
+
+        // Call initChannel
+        initializer.initChannel(mockChannel);
+
+        // Verify that handlers were added (at least 4 handlers)
+        Mockito.verify(mockPipeline).addLast(Mockito.eq("readTimeoutHandler"), Mockito.any());
+        Mockito.verify(mockPipeline).addLast(Mockito.eq("xdagFrameCodec"), Mockito.any(XdagFrameCodec.class));
+        Mockito.verify(mockPipeline).addLast(Mockito.eq("handshakeHandler"), Mockito.any(HandshakeHandler.class));
     }
 
     @Test
-    void testInitChannel_Inbound() {
+    void testInitChannel_Inbound() throws Exception {
         P2pChannelInitializer initializer = new P2pChannelInitializer(config, channelManager, keyPair, false);
-        EmbeddedChannel ch = new EmbeddedChannel(initializer);
 
-        assertNotNull(ch.pipeline().get("readTimeoutHandler"));
-        assertNotNull(ch.pipeline().get("xdagFrameCodec"));
-        assertNotNull(ch.pipeline().get("handshakeHandler"));
+        // Create a mock NioSocketChannel to test initialization
+        NioSocketChannel mockChannel = Mockito.mock(NioSocketChannel.class);
+        ChannelPipeline mockPipeline = Mockito.mock(ChannelPipeline.class);
+
+        Mockito.when(mockChannel.pipeline()).thenReturn(mockPipeline);
+        Mockito.when(mockPipeline.addLast(Mockito.anyString(), Mockito.any())).thenReturn(mockPipeline);
+        Mockito.when(mockPipeline.addLast(Mockito.any())).thenReturn(mockPipeline);
+        Mockito.when(mockChannel.config()).thenReturn(Mockito.mock(io.netty.channel.socket.SocketChannelConfig.class));
+
+        // Call initChannel
+        initializer.initChannel(mockChannel);
+
+        // Verify that handlers were added
+        Mockito.verify(mockPipeline).addLast(Mockito.eq("readTimeoutHandler"), Mockito.any());
+        Mockito.verify(mockPipeline).addLast(Mockito.eq("xdagFrameCodec"), Mockito.any(XdagFrameCodec.class));
+        Mockito.verify(mockPipeline).addLast(Mockito.eq("handshakeHandler"), Mockito.any(HandshakeHandler.class));
+    }
+
+    @Test
+    void testConstructor() {
+        // Test that initializer can be constructed with different configurations
+        P2pChannelInitializer outbound = new P2pChannelInitializer(config, channelManager, keyPair, true);
+        assertNotNull(outbound);
+
+        P2pChannelInitializer inbound = new P2pChannelInitializer(config, channelManager, keyPair, false);
+        assertNotNull(inbound);
     }
 }

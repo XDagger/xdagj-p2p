@@ -32,7 +32,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-class XdagFrameCodecTest {
+public class XdagFrameCodecTest {
 
     private P2pConfig config;
     private EmbeddedChannel channel;
@@ -52,19 +52,23 @@ class XdagFrameCodecTest {
 
         // Test encoding
         assertTrue(channel.writeOutbound(originalFrame));
-        assertTrue(channel.finish());
 
         ByteBuf encoded = channel.readOutbound();
+        assertNotNull(encoded);
         assertEquals(XdagFrame.HEADER_SIZE + body.length, encoded.readableBytes());
 
-        // Test decoding
-        assertTrue(channel.writeInbound(encoded));
-        assertTrue(channel.finish());
+        // Test decoding - need a new channel since we need to decode
+        XdagFrameCodec decodeCodec = new XdagFrameCodec(config);
+        EmbeddedChannel decodeChannel = new EmbeddedChannel(decodeCodec);
 
-        XdagFrame decodedFrame = channel.readInbound();
+        assertTrue(decodeChannel.writeInbound(encoded));
+
+        XdagFrame decodedFrame = decodeChannel.readInbound();
         assertNotNull(decodedFrame);
         assertEquals(originalFrame.getPacketId(), decodedFrame.getPacketId());
         assertArrayEquals(originalFrame.getBody(), decodedFrame.getBody());
+
+        decodeChannel.finish();
     }
 
     @Test
@@ -122,10 +126,12 @@ class XdagFrameCodecTest {
         byte[] body = new byte[config.getNetMaxFrameBodySize() + 1];
         XdagFrame largeFrame = new XdagFrame(XdagFrame.VERSION, XdagFrame.COMPRESS_NONE, (byte) 1, 1, body.length, body.length, body);
 
-        // Encoding a too-large frame should not write anything to the outbound buffer
-        // and should log an error (which we can't easily test here).
-        assertFalse(channel.writeOutbound(largeFrame));
-        assertFalse(channel.finish());
-        assertNull(channel.readOutbound());
+        // The encoder will log an error and not write anything when the frame is too large
+        assertTrue(channel.writeOutbound(largeFrame));
+
+        // The encoder rejects the frame by not writing to the buffer, so we get an empty ByteBuf
+        ByteBuf encoded = channel.readOutbound();
+        assertNotNull(encoded);
+        assertEquals(0, encoded.readableBytes(), "Encoder should not produce any bytes for frames that are too large");
     }
 }

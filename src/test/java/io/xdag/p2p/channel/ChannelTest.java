@@ -40,8 +40,8 @@ import io.netty.channel.ChannelPipeline;
 import io.xdag.p2p.P2pException;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
+import io.xdag.p2p.message.Message;
 import io.xdag.p2p.message.node.HelloMessage;
-import io.xdag.p2p.message.node.Message;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -87,7 +87,8 @@ class ChannelTest {
 
   @BeforeEach
   void setUp() {
-    channel = new Channel(p2pConfig, channelManager);
+    channel = new Channel(channelManager);
+    channel.setP2pConfig(p2pConfig);
     testAddress = new InetSocketAddress("127.0.0.1", 8080);
 
     // Mock basic netty channel behavior
@@ -109,11 +110,10 @@ class ChannelTest {
   @Test
   void testConstructor() {
     // Given & When
-    Channel newChannel = new Channel(p2pConfig, channelManager);
+    Channel newChannel = new Channel(channelManager);
 
     // Then
     assertNotNull(newChannel);
-    assertEquals(p2pConfig, newChannel.getP2pConfig());
     assertEquals(channelManager, newChannel.getChannelManager());
     assertFalse(newChannel.isDisconnect());
     assertFalse(newChannel.isFinishHandshake());
@@ -150,7 +150,7 @@ class ChannelTest {
     // Given
     when(handshakeMessage.getFrom()).thenReturn(node);
     when(handshakeMessage.getVersion()).thenReturn(1);
-    when(node.getHexId()).thenReturn("test-node-id");
+    when(node.getId()).thenReturn("test-node-id");
 
     // When
     channel.setHandshakeMessage(handshakeMessage);
@@ -171,7 +171,7 @@ class ChannelTest {
     channel.send(message);
 
     // Then
-    verify(ctx).writeAndFlush(any());
+    verify(nettyChannel).writeAndFlush(any());
     assertTrue(channel.getLastSendTime() > 0);
   }
 
@@ -185,7 +185,7 @@ class ChannelTest {
     channel.send(testData);
 
     // Then
-    verify(ctx).writeAndFlush(any());
+    verify(nettyChannel).writeAndFlush(any());
     assertTrue(channel.getLastSendTime() > 0);
   }
 
@@ -293,8 +293,10 @@ class ChannelTest {
   @Test
   void testEqualsAndHashCode() {
     // Given
-    Channel channel1 = new Channel(p2pConfig, channelManager);
-    Channel channel2 = new Channel(p2pConfig, channelManager);
+    Channel channel1 = new Channel(channelManager);
+    channel1.setP2pConfig(p2pConfig);
+    Channel channel2 = new Channel(channelManager);
+    channel2.setP2pConfig(p2pConfig);
 
     channel1.setChannelHandlerContext(ctx);
     channel2.setChannelHandlerContext(ctx);
@@ -452,7 +454,7 @@ class ChannelTest {
     channel.send(testData);
 
     // Then
-    verify(ctx).writeAndFlush(any());
+    verify(nettyChannel).writeAndFlush(any());
     assertTrue(channel.getLastSendTime() > 0);
   }
 
@@ -466,17 +468,16 @@ class ChannelTest {
     channel.send(message);
 
     // Then
-    verify(ctx).writeAndFlush(any());
+    verify(nettyChannel).writeAndFlush(any());
     verify(message).needToLog();
-    verify(message).getSendData();
+    // Note: getSendData is not called in Message send path, only in Bytes send path
   }
 
   @Test
   void testSendWithException() {
     // Given
     channel.setChannelHandlerContext(ctx);
-    when(ctx.writeAndFlush(any())).thenThrow(new RuntimeException("Send failed"));
-    when(nettyChannel.close()).thenReturn(channelFuture);
+    when(nettyChannel.writeAndFlush(any())).thenThrow(new RuntimeException("Send failed"));
     Bytes testData = Bytes.wrap("test".getBytes());
 
     // When

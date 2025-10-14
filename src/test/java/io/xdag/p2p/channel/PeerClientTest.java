@@ -53,8 +53,6 @@ import org.mockito.quality.Strictness;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class PeerClientTest {
 
-  @Mock private P2pConfig p2pConfig;
-
   @Mock private ChannelManager channelManager;
 
   @Mock private Node node;
@@ -65,14 +63,17 @@ class PeerClientTest {
 
   @BeforeEach
   void setUp() {
-    peerClient = new PeerClient(p2pConfig, channelManager);
+    // Use real P2pConfig instead of mock for proper initialization
+    P2pConfig realP2pConfig = new P2pConfig();
+    realP2pConfig.generateNodeKey(); // Required for P2pChannelInitializer
+
+    peerClient = new PeerClient(realP2pConfig, channelManager);
     InetSocketAddress testAddress = new InetSocketAddress("127.0.0.1", 8080);
 
     // Mock Node behavior
     when(node.getPreferInetSocketAddress()).thenReturn(testAddress);
     when(node.getPort()).thenReturn(8080);
-    when(node.getHexId()).thenReturn("test-node-id");
-    when(node.getId()).thenReturn(Bytes.wrap("test-id".getBytes()));
+    when(node.getId()).thenReturn("test-node-id");
 
     // Mock ChannelManager
     when(channelManager.isShutdown()).thenReturn(false);
@@ -80,8 +81,12 @@ class PeerClientTest {
 
   @Test
   void testConstructorShouldInitializeFields() {
-    // Given & When
-    PeerClient client = new PeerClient(p2pConfig, channelManager);
+    // Given
+    P2pConfig realConfig = new P2pConfig();
+    realConfig.generateNodeKey();
+
+    // When
+    PeerClient client = new PeerClient(realConfig, channelManager);
 
     // Then
     assertNotNull(client);
@@ -90,51 +95,51 @@ class PeerClientTest {
   }
 
   @Test
-  void testInitShouldCreateWorkerGroup() throws Exception {
+  void testStartShouldCreateWorkerGroup() throws Exception {
     // When
-    peerClient.init();
+    peerClient.start();
 
     // Then
     // Verify that workerGroup is created by checking it's not null
     Field workerGroupField = PeerClient.class.getDeclaredField("workerGroup");
     workerGroupField.setAccessible(true);
     Object workerGroup = workerGroupField.get(peerClient);
-    assertNotNull(workerGroup, "WorkerGroup should be initialized after init()");
+    assertNotNull(workerGroup, "WorkerGroup should be initialized after start()");
   }
 
   @Test
-  void testCloseShouldShutdownWorkerGroup() throws Exception {
+  void testStopShouldShutdownWorkerGroup() throws Exception {
     // Given
-    peerClient.init();
+    peerClient.start();
     Field workerGroupField = PeerClient.class.getDeclaredField("workerGroup");
     workerGroupField.setAccessible(true);
     Object workerGroup = workerGroupField.get(peerClient);
-    assertNotNull(workerGroup, "WorkerGroup should exist before close()");
+    assertNotNull(workerGroup, "WorkerGroup should exist before stop()");
 
     // When
-    assertDoesNotThrow(() -> peerClient.close());
+    assertDoesNotThrow(() -> peerClient.stop());
 
     // Then
-    // The close method should complete without throwing exceptions
+    // The stop method should complete without throwing exceptions
     // WorkerGroup shutdown is handled internally by Netty
   }
 
   @Test
   void testConnectWithHostAndPortShouldNotThrow() {
     // Given
-    peerClient.init();
+    peerClient.start();
     String host = "127.0.0.1";
     int port = 8080;
-    String remoteId = "test-remote-id";
 
-    // When & Then
-    assertDoesNotThrow(() -> peerClient.connect(host, port, remoteId));
+    // When & Then - connect() method tries to sync on connection
+    // It will fail for invalid address but should not throw uncaught exceptions
+    assertDoesNotThrow(() -> peerClient.connect(host, port));
   }
 
   @Test
-  void testConnectWithNodeShouldReturnChannelFutureWhenNotShutdown() {
+  void testConnectWithNodeAndListenerShouldReturnChannelFutureWhenNotShutdown() {
     // Given
-    peerClient.init();
+    peerClient.start();
     when(channelManager.isShutdown()).thenReturn(false);
 
     // When
@@ -147,9 +152,9 @@ class PeerClientTest {
   }
 
   @Test
-  void testConnectWithNodeShouldReturnNullWhenShutdown() {
+  void testConnectWithNodeAndListenerShouldReturnNullWhenShutdown() {
     // Given
-    peerClient.init();
+    peerClient.start();
     when(channelManager.isShutdown()).thenReturn(true);
 
     // When
@@ -161,27 +166,26 @@ class PeerClientTest {
   }
 
   @Test
-  void testConnectAsyncWithNodeShouldHandleDiscoveryMode() {
+  void testConnectAsyncWithNodeShouldAttemptConnection() {
     // Given
-    peerClient.init();
-    boolean discoveryMode = true;
+    peerClient.start();
     when(channelManager.isShutdown()).thenReturn(false);
 
     // When
-    ChannelFuture result = peerClient.connectAsync(node, discoveryMode);
+    ChannelFuture result = peerClient.connectAsync(node);
 
     // Then
-    // Should not throw exception and handle discovery mode properly
+    // Should not throw exception and return ChannelFuture or null
   }
 
   @Test
   void testConnectAsyncShouldReturnNullWhenShutdown() {
     // Given
-    peerClient.init();
+    peerClient.start();
     when(channelManager.isShutdown()).thenReturn(true);
 
     // When
-    ChannelFuture result = peerClient.connectAsync(node, true);
+    ChannelFuture result = peerClient.connectAsync(node);
 
     // Then
     // Note: The shutdown check happens AFTER connectAsync, not before,
@@ -190,66 +194,61 @@ class PeerClientTest {
   }
 
   @Test
-  void testConnectAsyncWithNullNodeIdShouldUseDefaultId() {
+  void testConnectAsyncWithNullNodeIdShouldNotThrow() {
     // Given
-    peerClient.init();
+    peerClient.start();
     when(node.getId()).thenReturn(null);
     when(channelManager.isShutdown()).thenReturn(false);
 
-    // When
-    ChannelFuture result = peerClient.connectAsync(node, false);
-
-    // Then
-    // Should handle null node ID by using NetUtils.getNodeId()
-    // The method should not throw an exception
+    // When & Then
+    // Should not throw exception even with null node ID
+    assertDoesNotThrow(() -> peerClient.connectAsync(node));
   }
 
   @Test
-  void testMultipleInitAndCloseCyclesShouldWork() throws Exception {
+  void testMultipleStartAndStopCyclesShouldWork() throws Exception {
     // When & Then
     assertDoesNotThrow(
         () -> {
-          peerClient.init();
-          peerClient.close();
-          peerClient.init();
-          peerClient.close();
+          peerClient.start();
+          peerClient.stop();
+          peerClient.start();
+          peerClient.stop();
         });
 
     // Verify the final state
     Field workerGroupField = PeerClient.class.getDeclaredField("workerGroup");
     workerGroupField.setAccessible(true);
     Object workerGroup = workerGroupField.get(peerClient);
-    // After close(), workerGroup should still exist but be shutdown
+    // After stop(), workerGroup should still exist but be shutdown
     assertNotNull(workerGroup);
   }
 
   @Test
   void testConnectWithInvalidHostShouldHandleGracefully() {
     // Given
-    peerClient.init();
+    peerClient.start();
     String invalidHost = "invalid.host.name.that.does.not.exist";
     int port = 8080;
-    String remoteId = "test-remote-id";
 
     // When & Then
-    assertDoesNotThrow(() -> peerClient.connect(invalidHost, port, remoteId));
+    assertDoesNotThrow(() -> peerClient.connect(invalidHost, port));
     // The method should handle connection failures gracefully without throwing
   }
 
   @Test
   void testConnectAsyncWithValidNodeShouldAttemptConnection() {
     // Given
-    peerClient.init();
+    peerClient.start();
     Node validNode = mock(Node.class);
     InetSocketAddress validAddress = new InetSocketAddress("127.0.0.1", 8080);
     when(validNode.getPreferInetSocketAddress()).thenReturn(validAddress);
     when(validNode.getPort()).thenReturn(8080);
-    when(validNode.getHexId()).thenReturn("valid-node-id");
-    when(validNode.getId()).thenReturn(Bytes.wrap("valid-id".getBytes()));
+    when(validNode.getId()).thenReturn("valid-node-id");
     when(channelManager.isShutdown()).thenReturn(false);
 
     // When
-    ChannelFuture result = peerClient.connectAsync(validNode, false);
+    ChannelFuture result = peerClient.connectAsync(validNode);
 
     // Then
     // The method should attempt to create a connection
@@ -257,12 +256,12 @@ class PeerClientTest {
   }
 
   @Test
-  void testCloseWithoutInitShouldThrowNullPointer() {
-    // Given - PeerClient not initialized (workerGroup is null)
+  void testStopWithoutStartShouldThrowNullPointer() {
+    // Given - PeerClient not started (workerGroup is null)
 
     // When & Then
     // The current implementation doesn't handle null workerGroup gracefully
     // This test documents the current behavior - it throws NullPointerException
-    assertThrows(NullPointerException.class, () -> peerClient.close());
+    assertThrows(NullPointerException.class, () -> peerClient.stop());
   }
 }

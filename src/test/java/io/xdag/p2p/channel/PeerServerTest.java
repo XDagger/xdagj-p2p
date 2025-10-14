@@ -1,57 +1,33 @@
-/*
- * The MIT License (MIT)
- *
- * Copyright (c) 2022-2030 The XdagJ Developers
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 package io.xdag.p2p.channel;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import io.xdag.p2p.PeerServer;
 import io.xdag.p2p.config.P2pConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 /**
  * Unit tests for PeerServer class. Tests P2P server functionality including server startup and
- * shutdown.
+ * shutdown. Note: These are lightweight unit tests that verify basic construction and lifecycle
+ * methods. Full integration tests that bind to ports are in separate integration test suites.
  */
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class PeerServerTest {
 
-  @Mock private P2pConfig p2pConfig;
-
-  @Mock private ChannelManager channelManager;
-
+  private P2pConfig p2pConfig;
+  private ChannelManager channelManager;
   private PeerServer peerServer;
 
   @BeforeEach
   void setUp() {
+    // Use real P2pConfig instead of mock for proper initialization
+    p2pConfig = new P2pConfig();
+    p2pConfig.generateNodeKey(); // Required for P2pChannelInitializer
+
+    // Mock ChannelManager since we don't need real channel management in unit tests
+    channelManager = org.mockito.Mockito.mock(ChannelManager.class);
+
     peerServer = new PeerServer(p2pConfig, channelManager);
   }
 
@@ -61,145 +37,94 @@ class PeerServerTest {
     PeerServer server = new PeerServer(p2pConfig, channelManager);
 
     // Then
-    assertNotNull(server);
-  }
-
-  @Test
-  void testInitWithValidPort() {
-    // Given
-    when(p2pConfig.getPort()).thenReturn(8080);
-
-    // When
-    peerServer.init();
-
-    // Then - should not throw any exception
-    // The init method starts a new thread for the server,
-    // We need to give it a moment to start
-    try {
-      Thread.sleep(100);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
-  }
-
-  @Test
-  void testInitWithZeroPort() {
-    // Given
-    when(p2pConfig.getPort()).thenReturn(0);
-
-    // When
-    peerServer.init();
-
-    // Then - should not throw any exception
-    // When port is 0 or negative, no server thread is started
-  }
-
-  @Test
-  void testInitWithNegativePort() {
-    // Given
-    when(p2pConfig.getPort()).thenReturn(-1);
-
-    // When
-    peerServer.init();
-
-    // Then - should not throw any exception
-    // When port is 0 or negative, no server thread is started
-  }
-
-  @Test
-  void testClose() {
-    // When
-    peerServer.close();
-
-    // Then - should not throw any exception
-    // Close should handle the case where the server is not listening to gracefully
-  }
-
-  @Test
-  void testCloseAfterInit() {
-    // Given
-    when(p2pConfig.getPort()).thenReturn(8080);
-    peerServer.init();
-
-    // Give the server thread time to start
-    try {
-      Thread.sleep(100);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
-
-    // When
-    peerServer.close();
-
-    // Then - should not throw any exception
-    // Close should properly shut down the server
+    assertNotNull(server, "PeerServer should be constructed successfully");
   }
 
   @Test
   void testStartWithValidPort() {
     // Given
-    int port = 0; // Use port 0 to let the system choose an available port
+    p2pConfig.setPort(8080);
 
-    // When
-    // We run this in a separate thread since start() is blocking
-    Thread serverThread = new Thread(() -> peerServer.start(port));
-    serverThread.setDaemon(true);
-    serverThread.start();
+    // When & Then - start() spawns a background thread, should not throw
+    assertDoesNotThrow(() -> peerServer.start(),
+        "start() should spawn background thread without throwing");
 
-    // Give the server time to start
+    // Clean up - stop the server
     try {
-      Thread.sleep(100);
+      Thread.sleep(50); // Give server thread time to start
+      peerServer.stop();
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
     }
-
-    // Then - should not throw any exception
-    // The server should start successfully on an available port
   }
 
   @Test
-  void testStartWithInvalidPort() {
+  void testStartWithZeroPort() {
+    // Given - port 0 means do not start server
+    p2pConfig.setPort(0);
+
+    // When & Then - should not start any thread
+    assertDoesNotThrow(() -> peerServer.start(),
+        "start() with port 0 should not throw");
+  }
+
+  @Test
+  void testStartWithNegativePort() {
+    // Given - negative port means do not start server
+    p2pConfig.setPort(-1);
+
+    // When & Then - should not start any thread
+    assertDoesNotThrow(() -> peerServer.start(),
+        "start() with negative port should not throw");
+  }
+
+  @Test
+  void testStopWithoutStart() {
+    // When & Then - stop() should handle case where server was never started
+    assertDoesNotThrow(() -> peerServer.stop(),
+        "stop() should handle case where start() was never called");
+  }
+
+  @Test
+  void testStopAfterStart() {
     // Given
-    int invalidPort = -1;
+    p2pConfig.setPort(0); // Use ephemeral port to avoid conflicts
 
     // When
-    // We run this in a separate thread since start() is blocking
-    Thread serverThread = new Thread(() -> peerServer.start(invalidPort));
-    serverThread.setDaemon(true);
-    serverThread.start();
+    assertDoesNotThrow(() -> {
+      peerServer.start();
+      Thread.sleep(50); // Give server time to start
+      peerServer.stop();
+    }, "stop() after start() should not throw");
+  }
 
-    // Give the server time to attempt start
+  @Test
+  void testMultipleStops() {
+    // When & Then - multiple stop() calls should be idempotent
+    assertDoesNotThrow(() -> {
+      peerServer.stop();
+      peerServer.stop();
+      peerServer.stop();
+    }, "Multiple stop() calls should be idempotent");
+  }
+
+  @Test
+  void testStartMethodWithPort() {
+    // This tests the blocking start(int port) method indirectly
+    // We can't easily test it directly as it blocks, so we test via the public start() method
+
+    // Given
+    p2pConfig.setPort(0); // ephemeral port
+
+    // When & Then
+    assertDoesNotThrow(() -> peerServer.start(),
+        "start() method should invoke start(int port) without throwing");
+
     try {
-      Thread.sleep(100);
+      Thread.sleep(50);
+      peerServer.stop();
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
     }
-
-    // Then - should not throw any exception,
-    // The server should handle invalid ports gracefully
-  }
-
-  @Test
-  void testMultipleInitAndClose() {
-    // Given
-    when(p2pConfig.getPort()).thenReturn(8080);
-
-    // When
-    peerServer.init();
-    peerServer.close();
-    peerServer.init();
-    peerServer.close();
-
-    // Then - should not throw any exception
-    // Multiple init/close cycles should be handled gracefully
-  }
-
-  @Test
-  void testCloseWithoutInit() {
-    // When
-    peerServer.close();
-
-    // Then - should not throw any exception
-    // Close should handle the case where init was never called
   }
 }

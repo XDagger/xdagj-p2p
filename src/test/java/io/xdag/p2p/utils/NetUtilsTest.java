@@ -30,10 +30,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import io.xdag.p2p.Peer;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.config.P2pConstant;
 import io.xdag.p2p.discover.Node;
-import io.xdag.p2p.proto.Discover;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.util.Objects;
@@ -66,25 +66,37 @@ public class NetUtilsTest {
     boolean flag = NetUtils.validNode(null);
     assertFalse(flag);
 
+    // Test with Node created from InetSocketAddress
     InetSocketAddress address = new InetSocketAddress("1.1.1.1", 1000);
-    Node node = new Node(p2pConfig, address);
+    Node node = new Node("test-node-id", address);
     flag = NetUtils.validNode(node);
     assertTrue(flag);
 
-    node.setId(Bytes.wrap(new byte[10]));
-    flag = NetUtils.validNode(node);
-    assertFalse(flag);
-
-    node = new Node(p2pConfig, NetUtils.getNodeId(), "1.1.1", null, 1000);
-    flag = NetUtils.validNode(node);
+    // Test node with invalid IP
+    Node nodeInvalidIp = new Node("test-node-id-2", "1.1.1", null, 1000);
+    flag = NetUtils.validNode(nodeInvalidIp);
     assertFalse(flag);
   }
 
   @Test
   public void testGetNode() {
-    Discover.Peer peer = Discover.Peer.newBuilder().setPort(100).build();
+    // Create a Peer using the new SimpleCodec-based Peer class
+    Peer peer = new Peer(
+        (byte) 1,        // networkId
+        (short) 1,       // networkVersion
+        "test-peer-id",  // peerId
+        "192.168.1.1",   // ip
+        100,             // port
+        "test-client",   // clientId
+        new String[]{"xdag/1"}, // capabilities
+        0L,              // latestBlockNumber
+        false,           // isGenerateBlock
+        "test"           // nodeTag
+    );
+
     Node node = NetUtils.getNode(p2pConfig, peer);
     assertEquals(100, node.getPort());
+    assertEquals("192.168.1.1", node.getHostV4());
   }
 
   @Test
@@ -234,58 +246,50 @@ public class NetUtilsTest {
   @Test
   public void testGetNodeWithFallback() {
     // Test with peer containing IPv4 address
-    Discover.Peer peerWithIpv4 = Discover.Peer.newBuilder()
-        .setPort(8000)
-        .setNodeId(com.google.protobuf.ByteString.copyFrom("test-node-id".getBytes()))
-        .setAddress(com.google.protobuf.ByteString.copyFrom("192.168.1.1".getBytes()))
-        .build();
-    
+    Peer peerWithIpv4 = new Peer(
+        (byte) 1,           // networkId
+        (short) 1,          // networkVersion
+        "test-node-id",     // peerId
+        "192.168.1.1",      // ip
+        8000,               // port
+        "test-client",      // clientId
+        new String[]{"xdag/1"}, // capabilities
+        0L,                 // latestBlockNumber
+        false,              // isGenerateBlock
+        "test"              // nodeTag
+    );
+
     InetSocketAddress sourceAddress = new InetSocketAddress("10.0.0.1", 9000);
     Node node = NetUtils.getNodeWithFallback(p2pConfig, peerWithIpv4, sourceAddress);
-    
+
     assertEquals("192.168.1.1", node.getHostV4());
     assertEquals(8000, node.getPort());
-    
-    // Test with peer containing IPv6 address
-    Discover.Peer peerWithIpV6 = Discover.Peer.newBuilder()
-        .setPort(8000)
-        .setNodeId(com.google.protobuf.ByteString.copyFrom("test-node-id".getBytes()))
-        .setAddressIpv6(com.google.protobuf.ByteString.copyFrom("2001:db8::1".getBytes()))
-        .build();
-    
-    Node node2 = NetUtils.getNodeWithFallback(p2pConfig, peerWithIpV6, sourceAddress);
-    // IPv6 address is normalized, so use the normalized form
-    assertEquals("2001:db8:0:0:0:0:0:1", node2.getHostV6());
-    
-    // Test fallback to source address when peer has no IP
-    Discover.Peer emptyPeer = Discover.Peer.newBuilder()
-        .setPort(8000)
-        .setNodeId(com.google.protobuf.ByteString.copyFrom("test-node-id".getBytes()))
-        .build();
-    
+
+    // Test with peer containing no IP (fallback to source address)
+    Peer emptyPeer = new Peer(
+        (byte) 1,           // networkId
+        (short) 1,          // networkVersion
+        "test-node-id-2",   // peerId
+        null,               // ip (null to trigger fallback)
+        8000,               // port
+        "test-client",      // clientId
+        new String[]{"xdag/1"}, // capabilities
+        0L,                 // latestBlockNumber
+        false,              // isGenerateBlock
+        "test"              // nodeTag
+    );
+
     InetSocketAddress ipv4Source = new InetSocketAddress("172.16.0.1", 9000);
     Node nodeWithFallback = NetUtils.getNodeWithFallback(p2pConfig, emptyPeer, ipv4Source);
     assertEquals("172.16.0.1", nodeWithFallback.getHostV4());
-    
+
     // Test fallback with IPv6 source
     InetSocketAddress ipv6Source = new InetSocketAddress("::1", 9000);
     Node nodeWithIpv6Fallback = NetUtils.getNodeWithFallback(p2pConfig, emptyPeer, ipv6Source);
     assertEquals("0:0:0:0:0:0:0:1", nodeWithIpv6Fallback.getHostV6());
   }
 
-  @Test
-  public void testGetNodeId() {
-    Bytes nodeId1 = NetUtils.getNodeId();
-    Bytes nodeId2 = NetUtils.getNodeId();
-    
-    assertNotNull(nodeId1);
-    assertNotNull(nodeId2);
-    assertEquals(P2pConstant.NODE_ID_LEN, nodeId1.size());
-    assertEquals(P2pConstant.NODE_ID_LEN, nodeId2.size());
-    
-    // Should generate different IDs each time
-    assertNotEquals(nodeId1, nodeId2);
-  }
+  // Note: testGetNodeId() removed because NetUtils.getNodeId() method no longer exists
 
   @Test
   public void testGetAllLocalAddress() {
@@ -347,29 +351,27 @@ public class NetUtilsTest {
   @Test
   public void testValidNodeEdgeCases() {
     // Test node with null ID
-    Node nodeWithNullId = new Node(p2pConfig, null, "127.0.0.1", null, 8000);
+    Node nodeWithNullId = new Node(null, "127.0.0.1", null, 8000);
     assertFalse(NetUtils.validNode(nodeWithNullId));
-    
-    // Test node with wrong ID length
-    Bytes shortId = Bytes.wrap(new byte[10]); // Wrong length
-    Node nodeWithShortId = new Node(p2pConfig, shortId, "127.0.0.1", null, 8000);
-    assertFalse(NetUtils.validNode(nodeWithShortId));
-    
+
+    // Test node with empty ID
+    Node nodeWithEmptyId = new Node("", "127.0.0.1", null, 8000);
+    assertFalse(NetUtils.validNode(nodeWithEmptyId));
+
     // Test node with no IP addresses
-    Bytes validId = NetUtils.getNodeId();
-    Node nodeWithNoIp = new Node(p2pConfig, validId, null, null, 8000);
+    Node nodeWithNoIp = new Node("valid-node-id", null, null, 8000);
     assertFalse(NetUtils.validNode(nodeWithNoIp));
-    
+
     // Test node with both valid IPv4 and IPv6
-    Node nodeWithBothIps = new Node(p2pConfig, validId, "192.168.1.1", "2001:db8::1", 8000);
+    Node nodeWithBothIps = new Node("valid-id", "192.168.1.1", "2001:db8::1", 8000);
     assertTrue(NetUtils.validNode(nodeWithBothIps));
-    
+
     // Test node with valid IPv6 only
-    Node nodeWithIpv6Only = new Node(p2pConfig, validId, null, "2001:db8::1", 8000);
+    Node nodeWithIpv6Only = new Node("valid-id", null, "2001:db8::1", 8000);
     assertTrue(NetUtils.validNode(nodeWithIpv6Only));
-    
+
     // Test node with invalid IPv6
-    Node nodeWithInvalidIpv6 = new Node(p2pConfig, validId, null, "invalid-ipv6", 8000);
+    Node nodeWithInvalidIpv6 = new Node("valid-id", null, "invalid-ipv6", 8000);
     assertFalse(NetUtils.validNode(nodeWithInvalidIpv6));
   }
 

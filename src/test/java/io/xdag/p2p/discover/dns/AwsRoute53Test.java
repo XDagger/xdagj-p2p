@@ -94,7 +94,6 @@ public class AwsRoute53Test {
     try {
       publish =
           new AwsClient(
-              p2pConfig,
               "random1",
               "random2",
               "random3",

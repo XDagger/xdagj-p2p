@@ -24,9 +24,10 @@
 package io.xdag.p2p.discover.kad;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -34,13 +35,10 @@ import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.handler.discover.UdpEvent;
 import io.xdag.p2p.message.discover.KadFindNodeMessage;
-import io.xdag.p2p.message.discover.KadNeighborsMessage;
 import io.xdag.p2p.message.discover.KadPingMessage;
-import io.xdag.p2p.message.discover.KadPongMessage;
-import java.net.InetSocketAddress;
 import java.security.SecureRandom;
-import java.util.Collections;
-import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.apache.tuweni.bytes.Bytes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,12 +46,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class NodeHandlerTest {
 
     @Mock private KadService kadService;
     @Mock private P2pConfig p2pConfig;
+    @Mock private ScheduledExecutorService pongTimer;
 
     private Node homeNode;
     private Node remoteNode;
@@ -68,82 +70,106 @@ public class NodeHandlerTest {
         byte[] remoteId = new byte[64];
         random.nextBytes(homeId);
         random.nextBytes(remoteId);
-        
+
         homeNode = new Node(Bytes.wrap(homeId).toHexString(), "127.0.0.1", null, 10001);
         remoteNode = new Node(Bytes.wrap(remoteId).toHexString(), "127.0.0.2", null, 10002);
-        
+
         when(kadService.getP2pConfig()).thenReturn(p2pConfig);
         when(kadService.getPublicHomeNode()).thenReturn(homeNode);
         when(kadService.getTable()).thenReturn(new io.xdag.p2p.discover.kad.table.NodeTable(homeNode));
-        
+        when(p2pConfig.getNetworkId()).thenReturn((byte) 1);
+        when(kadService.getPongTimer()).thenReturn(pongTimer);
+        when(pongTimer.isShutdown()).thenReturn(false);
+        when(pongTimer.schedule(any(Runnable.class), anyLong(), any(TimeUnit.class))).thenReturn(null);
+
         remoteNodeHandler = new NodeHandler(remoteNode, kadService);
     }
 
     @Test
     public void testHandlePing() {
+        // Given
         KadPingMessage ping = new KadPingMessage(homeNode, remoteNode);
+
+        // When
         remoteNodeHandler.handlePing(ping);
 
+        // Then - verify latest message (there are 2: one from constructor, one from handlePing)
         ArgumentCaptor<UdpEvent> captor = ArgumentCaptor.forClass(UdpEvent.class);
-        verify(kadService).sendOutbound(captor.capture());
+        verify(kadService, atLeast(2)).sendOutbound(captor.capture());
 
-        UdpEvent sentEvent = captor.getValue();
+        // Get the last sent event (the PONG response)
+        UdpEvent sentEvent = captor.getAllValues().get(captor.getAllValues().size() - 1);
         assertEquals(remoteNode.getPreferInetSocketAddress(), sentEvent.getAddress());
-        assertEquals(io.xdag.p2p.message.MessageCode.KAD_PONG, sentEvent.getMessage().getCode());
+        assertEquals(io.xdag.p2p.message.MessageCode.KAD_PONG, sentEvent.getMessage().getType());
     }
-
 
     @Test
     public void testHandleFindNode() {
+        // Given
         byte[] targetId = new byte[64];
         random.nextBytes(targetId);
         KadFindNodeMessage findNode = new KadFindNodeMessage(homeNode, Bytes.wrap(targetId));
 
+        // When
         remoteNodeHandler.handleFindNode(findNode);
 
+        // Then - verify latest message (there are 2: one PING from constructor, one NEIGHBORS from handleFindNode)
         ArgumentCaptor<UdpEvent> captor = ArgumentCaptor.forClass(UdpEvent.class);
-        verify(kadService).sendOutbound(captor.capture());
+        verify(kadService, atLeast(2)).sendOutbound(captor.capture());
 
-        UdpEvent sentEvent = captor.getValue();
+        // Get the last sent event (the NEIGHBORS response)
+        UdpEvent sentEvent = captor.getAllValues().get(captor.getAllValues().size() - 1);
         assertEquals(remoteNode.getPreferInetSocketAddress(), sentEvent.getAddress());
-        assertEquals(io.xdag.p2p.message.MessageCode.KAD_NEIGHBORS, sentEvent.getMessage().getCode());
-    }
-
-    // NOTE: The following tests are disabled because the API has changed
-    // waitForPong(), isWaitingForPong(), waitForFindNode(), and isWaitingForNeighbors() methods
-    // no longer exist in the current NodeHandler implementation.
-    // These tests should be rewritten based on the new internal state management approach.
-    
-    /*
-    @Test
-    public void testHandlePong() {
-        // API changed: waitForPong() method no longer exists
-        KadPongMessage pong = new KadPongMessage();
-        remoteNodeHandler.handlePong(pong);
-        // Cannot verify waiting state as the API has changed
+        assertEquals(io.xdag.p2p.message.MessageCode.KAD_NEIGHBORS, sentEvent.getMessage().getType());
     }
 
     @Test
-    public void testHandleNeighbours() {
-        // API changed: waitForFindNode() method no longer exists
-        List<Node> neighbors = Collections.singletonList(homeNode);
-        KadNeighborsMessage neighborsMessage = new KadNeighborsMessage(homeNode, neighbors);
-        remoteNodeHandler.handleNeighbours(neighborsMessage);
-        // Cannot verify waiting state as the API has changed
+    public void testNodeHandlerCreation() {
+        // Verify NodeHandler can be created successfully
+        assertNotNull(remoteNodeHandler);
+        assertNotNull(remoteNodeHandler.getNode());
+        assertEquals(remoteNode, remoteNodeHandler.getNode());
+        assertNotNull(remoteNodeHandler.getState());
     }
 
     @Test
-    public void testSendPing_NotWaiting() {
+    public void testGetReputationScore() {
+        // Verify initial reputation score
+        int initialReputation = remoteNodeHandler.getReputationScore();
+        assertEquals(100, initialReputation, "Initial reputation should be 100 (neutral)");
+    }
+
+    @Test
+    public void testSendPing() {
+        // Given - NodeHandler is already created in setUp and sent initial PING
+
+        // When - send another PING
         remoteNodeHandler.sendPing();
-        verify(kadService).sendOutbound(any(UdpEvent.class));
+
+        // Then - should have sent at least 2 PINGs (1 from constructor, 1 from this call)
+        ArgumentCaptor<UdpEvent> captor = ArgumentCaptor.forClass(UdpEvent.class);
+        verify(kadService, atLeast(2)).sendOutbound(captor.capture());
+
+        // Verify all sent messages are PINGs
+        for (UdpEvent event : captor.getAllValues()) {
+            assertEquals(remoteNode.getPreferInetSocketAddress(), event.getAddress());
+            assertEquals(io.xdag.p2p.message.MessageCode.KAD_PING, event.getMessage().getType());
+        }
     }
 
     @Test
-    public void testSendPing_AlreadyWaiting() {
-        // API changed: waitForPong() method no longer exists
-        remoteNodeHandler.sendPing();
-        // Cannot verify waiting behavior as the API has changed
+    public void testStateTransitions() {
+        // Verify initial state
+        assertEquals(NodeHandler.State.DISCOVERED, remoteNodeHandler.getState(),
+                     "New node should start in DISCOVERED state");
     }
-    */
 
+    @Test
+    public void testToString() {
+        // Verify toString contains useful information
+        String nodeHandlerString = remoteNodeHandler.toString();
+        assertNotNull(nodeHandlerString);
+        assert(nodeHandlerString.contains("NodeHandler"));
+        assert(nodeHandlerString.contains("state"));
+    }
 }
