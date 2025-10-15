@@ -223,6 +223,16 @@ public class Channel {
   }
 
   /**
+   * Close the channel without banning (for internal use, e.g., when already banned).
+   * This prevents infinite recursion when ChannelManager.banNode() closes existing connections.
+   */
+  public void closeWithoutBan() {
+    this.isDisconnect = true;
+    this.disconnectTime = System.currentTimeMillis();
+    ctx.close();
+  }
+
+  /**
    * Send a P2P message through this channel.
    *
    * @param message the P2P message to send

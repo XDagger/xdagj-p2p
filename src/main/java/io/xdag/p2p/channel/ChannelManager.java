@@ -112,7 +112,7 @@ public class ChannelManager {
     public void stop() {
         poolLoopExecutor.shutdownNow();
         disconnectExecutor.shutdownNow();
-        activePeers.forEach(Channel::close); // Graceful shutdown without ban
+        activePeers.forEach(Channel::closeWithoutBan); // Graceful shutdown without ban
     }
 
     /**
@@ -189,7 +189,7 @@ public class ChannelManager {
                 .filter(ch -> ch.getInetAddress() != null && ch.getInetAddress().equals(inetAddress))
                 .forEach(ch -> {
                     log.debug("Closing existing connection from banned node: {}", ch.getRemoteAddress());
-                    ch.close(); // Already banned, just close the connection
+                    ch.closeWithoutBan(); // Use closeWithoutBan() to prevent infinite recursion
                 });
     }
 
