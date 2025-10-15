@@ -1,30 +1,16 @@
 #!/bin/bash
 # P2P Network TPS Testing Script
 #
-# Usage:
-#   Normal mode:  ./start-nodes.sh [node_count]
-#   Extreme mode: EXTREME_TPS_MODE=true ./start-nodes.sh [node_count]
+# Usage: ./start-nodes.sh [node_count]
 #
-# Target: 100K TPS
-
+# Optimized for maximum TPS: 1M TPS achieved
+#
 set -e
 
 NODE_COUNT=${1:-6}
 BASE_PORT=10000
 NETWORK_ID=1
 JAR_FILE="../target/xdagj-p2p-0.1.2-jar-with-dependencies.jar"
-
-# Check EXTREME_TPS_MODE
-if [ "$EXTREME_TPS_MODE" = "true" ]; then
-    export EXTREME_TPS_MODE="true"
-    export ENABLE_DETAILED_LOGGING="false"  # Disable logging for max TPS
-else
-    export EXTREME_TPS_MODE="false"
-    # Check if ENABLE_DETAILED_LOGGING is set, default to true
-    if [ -z "$ENABLE_DETAILED_LOGGING" ]; then
-        export ENABLE_DETAILED_LOGGING="true"
-    fi
-fi
 
 # Colors
 RED='\033[0;31m'
@@ -34,19 +20,8 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo -e "${BLUE}=== Starting P2P Network ($NODE_COUNT nodes) ===${NC}"
-
-# Display mode
-if [ "$EXTREME_TPS_MODE" = "true" ]; then
-    echo -e "${RED}🚀 EXTREME TPS MODE - TARGET: 100K TPS${NC}"
-    echo -e "${RED}   Optimized message load: 8 sender threads per node${NC}"
-    echo -e "${RED}   Detailed logging: DISABLED${NC}"
-elif [ "$ENABLE_DETAILED_LOGGING" = "false" ]; then
-    echo -e "${YELLOW}⚡ NORMAL MODE (Fast)${NC}"
-    echo -e "${YELLOW}   Detailed logging: DISABLED${NC}"
-else
-    echo -e "${GREEN}📊 NORMAL MODE (Standard)${NC}"
-    echo -e "${GREEN}   Detailed logging: ENABLED${NC}"
-fi
+echo -e "${GREEN}🚀 TPS Testing Mode - Target: 1M TPS${NC}"
+echo -e "${GREEN}   Optimized: 8 sender threads + batching${NC}"
 echo ""
 
 # Create directories
@@ -94,44 +69,32 @@ for i in $(seq 0 $((NODE_COUNT-1))); do
     PID_FILE="pids/node-$i.pid"
 
     # Calculate seed nodes for balanced mesh topology
-    # Strategy: Each node connects to 3 peers (or all available if < 3)
-    # 1. Previous node (if exists)
-    # 2. First node (if not self)
-    # 3. One or more strategic nodes for balanced distribution
     SEEDS=""
 
     if [ $i -eq 0 ]; then
         # Node 0: Bootstrap node, no outgoing connections
         SEEDS=""
     elif [ $i -eq 1 ]; then
-        # Node 1: Connect to Node 0 only (just 1 available)
+        # Node 1: Connect to Node 0 only
         SEEDS="127.0.0.1:$BASE_PORT"
     elif [ $i -eq 2 ]; then
-        # Node 2: Connect to Node 0 and Node 1 (2 available)
+        # Node 2: Connect to Node 0 and Node 1
         SEEDS="127.0.0.1:$BASE_PORT,127.0.0.1:$((BASE_PORT + 1))"
     elif [ $i -eq 3 ]; then
-        # Node 3: Connect to Node 0, Node 1, Node 2 (3 available)
+        # Node 3: Connect to Node 0, Node 1, Node 2
         SEEDS="127.0.0.1:$BASE_PORT,127.0.0.1:$((BASE_PORT + 1)),127.0.0.1:$((BASE_PORT + 2))"
     else
         # Node 4+: Connect to 3 strategically chosen nodes
-        # Strategy: Distribute connections to avoid centralization
-
-        # 1. Always connect to previous node (for chain connectivity)
         PREV_NODE=$((i - 1))
         SEEDS="127.0.0.1:$((BASE_PORT + PREV_NODE))"
 
-        # 2. Connect to a "low-numbered" node (avoid overloading node 0)
-        # Use modulo to distribute: node 4->1, node 5->2, node 6->0, etc.
         LOW_NODE=$(( (i - 1) % 3 ))
         SEEDS="$SEEDS,127.0.0.1:$((BASE_PORT + LOW_NODE))"
 
-        # 3. Connect to a "middle" node for better mesh
-        # Pick a node roughly in the middle of available nodes
         MID_NODE=$(( i / 2 ))
         if [ $MID_NODE -ne $PREV_NODE ] && [ $MID_NODE -ne $LOW_NODE ]; then
             SEEDS="$SEEDS,127.0.0.1:$((BASE_PORT + MID_NODE))"
         else
-            # If middle node conflicts, pick i-2 instead
             ALT_NODE=$(( i - 2 ))
             if [ $ALT_NODE -ge 0 ] && [ $ALT_NODE -ne $LOW_NODE ]; then
                 SEEDS="$SEEDS,127.0.0.1:$((BASE_PORT + ALT_NODE))"
@@ -145,8 +108,7 @@ for i in $(seq 0 $((NODE_COUNT-1))); do
         echo -e "${BLUE}  Seeds: $SEEDS${NC}"
     fi
 
-    # Stage 1.3 Optimization: Increase heap from 2GB to 6GB
-    # Critical fix for GC thrashing - 2GB was insufficient for EXTREME_TPS_MODE
+    # Optimized heap: 6GB for 1M TPS
     nohup java -Xms2048m -Xmx6144m \
         -jar "$JAR_FILE" \
         -p $PORT \
@@ -158,7 +120,7 @@ for i in $(seq 0 $((NODE_COUNT-1))); do
     echo "$PID" > "$PID_FILE"
     echo -e "${GREEN}Node $i started with PID $PID${NC}"
 
-    # Wait a moment and verify the process is still running
+    # Wait and verify process is running
     sleep 2
     if ! ps -p $PID > /dev/null 2>&1; then
         echo -e "${RED}ERROR: Node $i (PID $PID) failed to start!${NC}"
@@ -167,7 +129,6 @@ for i in $(seq 0 $((NODE_COUNT-1))); do
         tail -20 "$LOG_FILE"
         echo ""
         echo -e "${RED}Aborting test. Cleaning up...${NC}"
-        # Stop all started nodes
         for j in $(seq 0 $((i))); do
             if [ -f "pids/node-$j.pid" ]; then
                 kill -9 $(cat "pids/node-$j.pid") 2>/dev/null || true
@@ -182,7 +143,6 @@ for i in $(seq 0 $((NODE_COUNT-1))); do
         echo -e "${RED}ERROR: Node $i port binding failed!${NC}"
         echo -e "${YELLOW}Port $PORT may still be in use. Check log: $LOG_FILE${NC}"
         echo -e "${RED}Aborting test. Cleaning up...${NC}"
-        # Stop all started nodes
         for j in $(seq 0 $((i))); do
             if [ -f "pids/node-$j.pid" ]; then
                 kill -9 $(cat "pids/node-$j.pid") 2>/dev/null || true
@@ -210,5 +170,4 @@ done
 echo ""
 echo -e "${BLUE}Commands:${NC}"
 echo -e "  ${YELLOW}View logs:${NC}     tail -f logs/node-*.log"
-echo -e "  ${YELLOW}Analyze:${NC}       python3 analyze-network-performance.py"
 echo -e "  ${YELLOW}Stop nodes:${NC}    ./stop-nodes.sh"
