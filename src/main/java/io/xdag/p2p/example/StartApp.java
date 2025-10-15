@@ -405,6 +405,7 @@ public class StartApp {
   private void shutdown() {
     log.info("Shutting down P2P application...");
 
+    // Stop scheduler first to prevent new messages
     if (scheduler != null) {
       scheduler.shutdown();
       try {
@@ -417,20 +418,23 @@ public class StartApp {
       }
     }
 
+    // Stop P2P service BEFORE closing connections
+    // This sets ChannelManager.isShutdown() flag, preventing ban during close
+    if (p2pService != null) {
+      try {
+        p2pService.stop();
+        log.info("P2P service stopped");
+      } catch (Exception e) {
+        log.error("Error stopping P2P service: {}", e.getMessage());
+      }
+    }
+
+    // Now safe to close connections (won't trigger ban)
     if (eventHandler != null) {
       try {
         eventHandler.closeAllConnections();
       } catch (Exception e) {
         log.warn("Error closing connections: {}", e.getMessage());
-      }
-    }
-
-    if (p2pService != null) {
-      try {
-    p2pService.stop();
-        log.info("P2P service stopped");
-      } catch (Exception e) {
-        log.error("Error stopping P2P service: {}", e.getMessage());
       }
     }
   }

@@ -447,14 +447,14 @@ public class ExampleEventHandler extends P2pEventHandler {
     return selectedChannels;
   }
 
-  /** Close all connections */
+  /** Close all connections without banning (for graceful shutdown) */
   public void closeAllConnections() {
     channels
         .values()
         .forEach(
             channel -> {
               try {
-                channel.close();
+                channel.closeWithoutBan();
               } catch (Exception e) {
                 log.error(
                     "Error closing channel {}: {}", channel.getInetSocketAddress(), e.getMessage());

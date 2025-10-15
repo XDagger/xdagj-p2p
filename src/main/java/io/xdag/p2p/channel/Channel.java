@@ -183,7 +183,13 @@ public class Channel {
     } else {
       log.error("Close peer {}, exception caught", address, throwable);
     }
-    close();
+
+    // During shutdown, don't ban nodes - just close gracefully
+    if (channelManager != null && channelManager.isShutdown()) {
+      closeWithoutBan();
+    } else {
+      close();
+    }
   }
 
   /**
