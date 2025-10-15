@@ -184,13 +184,13 @@ public class ChannelManager {
                  inetAddress, reason.getDescription(), formatDuration(adjustedBanTime),
                  currentCount, banExpiry);
 
-        // Close any existing connections from this IP
-        channels.values().stream()
-                .filter(ch -> ch.getInetAddress() != null && ch.getInetAddress().equals(inetAddress))
-                .forEach(ch -> {
-                    log.debug("Closing existing connection from banned node: {}", ch.getRemoteAddress());
-                    ch.closeWithoutBan(); // Use closeWithoutBan() to prevent infinite recursion
-                });
+        // Close any existing connections from this IP - optimized to avoid stream
+        for (Channel ch : channels.values()) {
+            if (ch.getInetAddress() != null && ch.getInetAddress().equals(inetAddress)) {
+                log.debug("Closing existing connection from banned node: {}", ch.getRemoteAddress());
+                ch.closeWithoutBan(); // Use closeWithoutBan() to prevent infinite recursion
+            }
+        }
     }
 
     /**
@@ -303,15 +303,20 @@ public class ChannelManager {
         return inetAddress != null && whitelist.contains(inetAddress);
     }
 
-  /**
+    /**
      * Get all currently banned nodes.
      *
      * @return collection of BanInfo for all active bans
      */
     public Collection<BanInfo> getAllBannedNodes() {
-        return bannedNodes.values().stream()
-                .filter(BanInfo::isActive)
-                .toList();
+        List<BanInfo> activeBans = new ArrayList<>();
+        long now = System.currentTimeMillis();
+        for (BanInfo info : bannedNodes.values()) {
+            if (info.isActive()) {
+                activeBans.add(info);
+            }
+        }
+        return activeBans;
     }
 
     /**
@@ -320,9 +325,13 @@ public class ChannelManager {
      * @return number of active bans
      */
     public int getBannedNodeCount() {
-        return (int) bannedNodes.values().stream()
-                .filter(BanInfo::isActive)
-                .count();
+        int count = 0;
+        for (BanInfo info : bannedNodes.values()) {
+            if (info.isActive()) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /**

@@ -184,13 +184,17 @@ public class XdagMessageHandler extends MessageToMessageCodec<XdagFrame, Message
     }
 
     private static final class PacketAggregate {
-        final List<XdagFrame> frames = new ArrayList<>();
+        final List<XdagFrame> frames;
         final int expectedSize;
         final AtomicInteger remaining;
 
         PacketAggregate(int size) {
             this.expectedSize = size;
             this.remaining = new AtomicInteger(size);
+            // Pre-allocate list with estimated capacity to reduce resizing
+            // Assume average frame size of 32KB, so estimate frame count
+            int estimatedFrames = Math.max(1, (size / 32768) + 1);
+            this.frames = new ArrayList<>(estimatedFrames);
         }
     }
 }
