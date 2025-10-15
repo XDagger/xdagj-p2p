@@ -1,6 +1,11 @@
 #!/bin/bash
-# Simple P2P Network Test Script
-# Usage: ./start-nodes.sh [node_count]
+# P2P Network TPS Testing Script
+#
+# Usage:
+#   Normal mode:  ./start-nodes.sh [node_count]
+#   Extreme mode: EXTREME_TPS_MODE=true ./start-nodes.sh [node_count]
+#
+# Target: 100K TPS
 
 set -e
 
@@ -9,11 +14,16 @@ BASE_PORT=10000
 NETWORK_ID=1
 JAR_FILE="../target/xdagj-p2p-0.1.2-jar-with-dependencies.jar"
 
-# Check if ENABLE_DETAILED_LOGGING environment variable is set
-# Default: true (detailed logging enabled)
-# Set to "false" for maximum TPS performance mode
-if [ -z "$ENABLE_DETAILED_LOGGING" ]; then
-    export ENABLE_DETAILED_LOGGING="true"
+# Check EXTREME_TPS_MODE
+if [ "$EXTREME_TPS_MODE" = "true" ]; then
+    export EXTREME_TPS_MODE="true"
+    export ENABLE_DETAILED_LOGGING="false"  # Disable logging for max TPS
+else
+    export EXTREME_TPS_MODE="false"
+    # Check if ENABLE_DETAILED_LOGGING is set, default to true
+    if [ -z "$ENABLE_DETAILED_LOGGING" ]; then
+        export ENABLE_DETAILED_LOGGING="true"
+    fi
 fi
 
 # Colors
@@ -25,13 +35,17 @@ NC='\033[0m'
 
 echo -e "${BLUE}=== Starting P2P Network ($NODE_COUNT nodes) ===${NC}"
 
-# Display logging mode
-if [ "$ENABLE_DETAILED_LOGGING" = "false" ]; then
-    echo -e "${YELLOW}⚡ Performance Mode: TURBO (Detailed logging DISABLED)${NC}"
-    echo -e "${YELLOW}   TPS will be maximized, minimal I/O overhead${NC}"
+# Display mode
+if [ "$EXTREME_TPS_MODE" = "true" ]; then
+    echo -e "${RED}🚀 EXTREME TPS MODE - TARGET: 100K TPS${NC}"
+    echo -e "${RED}   Maximum message load, 32 sender threads per node${NC}"
+    echo -e "${RED}   Detailed logging: DISABLED${NC}"
+elif [ "$ENABLE_DETAILED_LOGGING" = "false" ]; then
+    echo -e "${YELLOW}⚡ NORMAL MODE (Fast)${NC}"
+    echo -e "${YELLOW}   Detailed logging: DISABLED${NC}"
 else
-    echo -e "${GREEN}📊 Performance Mode: STANDARD (Detailed logging enabled)${NC}"
-    echo -e "${GREEN}   Full MSG_RECEIVED/MSG_FORWARDED logs for analysis${NC}"
+    echo -e "${GREEN}📊 NORMAL MODE (Standard)${NC}"
+    echo -e "${GREEN}   Detailed logging: ENABLED${NC}"
 fi
 echo ""
 
