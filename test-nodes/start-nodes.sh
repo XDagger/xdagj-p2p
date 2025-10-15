@@ -38,7 +38,7 @@ echo -e "${BLUE}=== Starting P2P Network ($NODE_COUNT nodes) ===${NC}"
 # Display mode
 if [ "$EXTREME_TPS_MODE" = "true" ]; then
     echo -e "${RED}🚀 EXTREME TPS MODE - TARGET: 100K TPS${NC}"
-    echo -e "${RED}   Maximum message load, 32 sender threads per node${NC}"
+    echo -e "${RED}   Optimized message load: 8 sender threads per node${NC}"
     echo -e "${RED}   Detailed logging: DISABLED${NC}"
 elif [ "$ENABLE_DETAILED_LOGGING" = "false" ]; then
     echo -e "${YELLOW}⚡ NORMAL MODE (Fast)${NC}"

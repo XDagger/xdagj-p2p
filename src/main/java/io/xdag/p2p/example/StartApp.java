@@ -158,17 +158,18 @@ public class StartApp {
     if (extremeTpsMode) {
       log.warn("======================================");
       log.warn("EXTREME TPS MODE - TARGET: 100K TPS");
-      log.warn("Maximum message load");
+      log.warn("Optimized message load: 8 sender threads");
       log.warn("======================================");
 
-      // 32 concurrent sender threads
-      scheduler = Executors.newScheduledThreadPool(32);
+      // Reduced to 8 concurrent sender threads + 1 for monitoring
+      // More threads doesn't always mean better performance due to contention
+      scheduler = Executors.newScheduledThreadPool(9);
 
-      for (int i = 0; i < 32; i++) {
+      for (int i = 0; i < 8; i++) {
         scheduler.submit(this::extremeTpsSender);
       }
 
-      // Performance monitoring every 5 seconds
+      // Performance monitoring every 5 seconds (needs dedicated thread)
       scheduler.scheduleAtFixedRate(this::logTpsCounterStatistics, 5, 5, TimeUnit.SECONDS);
 
     } else {
@@ -205,8 +206,9 @@ public class StartApp {
   }
 
   /**
-   * EXTREME MODE: Send messages at maximum possible rate
+   * EXTREME MODE: Send messages at maximum possible rate with optimized batching
    * Target: 100K TPS
+   * Reduced batch size to 100 (from 200) to reduce memory pressure
    */
   private void extremeTpsSender() {
     long messagesSent = 0;
@@ -219,12 +221,14 @@ public class StartApp {
         }
 
         try {
-          // Send in large batches for maximum efficiency
-          for (int i = 0; i < 200; i++) {
+          // Smaller batches (100 instead of 200) to reduce memory pressure
+          for (int i = 0; i < 100; i++) {
             eventHandler.sendNetworkTestMessage("tps_test",
                 "EXT-" + Thread.currentThread().getId() + "-" + messagesSent, 3);
             messagesSent++;
           }
+          // Small yield to prevent CPU saturation
+          Thread.sleep(1);
         } catch (Exception e) {
           // Brief pause on error
           Thread.sleep(10);
