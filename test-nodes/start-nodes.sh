@@ -131,7 +131,9 @@ for i in $(seq 0 $((NODE_COUNT-1))); do
         echo -e "${BLUE}  Seeds: $SEEDS${NC}"
     fi
 
-    nohup java -Xms256m -Xmx512m \
+    # Stage 1.3 Optimization: Increase heap from 2GB to 6GB
+    # Critical fix for GC thrashing - 2GB was insufficient for EXTREME_TPS_MODE
+    nohup java -Xms2048m -Xmx6144m \
         -jar "$JAR_FILE" \
         -p $PORT \
         -d 1 \

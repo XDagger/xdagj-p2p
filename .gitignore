@@ -156,3 +156,7 @@ docs/MIGRATION_*.md
 *PERFORMANCE*.md
 *STAGE*_*.md
 *TPS_*.md
+
+# Optimization docs (internal use only)
+.optimization-docs/
+

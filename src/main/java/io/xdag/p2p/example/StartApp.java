@@ -116,21 +116,27 @@ public class StartApp {
     return new ExampleEventHandler(nodeId) {
       @Override
       protected void onPeerConnected(io.xdag.p2p.channel.Channel channel) {
-        long timestamp = System.currentTimeMillis();
-        log.info("CONN_ESTABLISHED|{}|{}|{}|{}", timestamp, nodeId, channel.getInetSocketAddress(), getChannels().size());
+        // Simple connection log
+        log.info("[{}] Connected: {} (Total: {})",
+                 nodeId,
+                 channel.getInetSocketAddress(),
+                 getChannels().size());
+
         broadcastTestMessage("Welcome to the P2P network from " + nodeId + "!");
 
         // Start testing when we have multiple connections
         if (getChannels().size() >= 2) {
-          log.info("Starting network performance tests with {} connections", getChannels().size());
           sendNetworkTestMessage("connection_test", "Testing new connection from " + nodeId, 6);
         }
       }
 
       @Override
       protected void onPeerDisconnected(io.xdag.p2p.channel.Channel channel) {
-        long timestamp = System.currentTimeMillis();
-        log.info("CONN_CLOSED|{}|{}|{}|{}", timestamp, nodeId, channel.getInetSocketAddress(), getChannels().size());
+        // Simple disconnection log
+        log.info("[{}] Disconnected: {} (Remaining: {})",
+                 nodeId,
+                 channel.getInetSocketAddress(),
+                 getChannels().size());
       }
 
       @Override
@@ -167,26 +173,50 @@ public class StartApp {
   }
 
   private void initializeNetworkTesting() {
-    scheduler = Executors.newScheduledThreadPool(8); // Increased thread pool size for higher concurrency
+    // Check if EXTREME_TPS mode is enabled
+    boolean extremeTpsMode = "true".equalsIgnoreCase(System.getenv("EXTREME_TPS_MODE"));
 
-    // High-frequency TPS-focused testing for maximum performance measurement
-    // Strategy: Send messages every 100ms to achieve high TPS (10 msg/s per type per node)
-    scheduler.scheduleAtFixedRate(this::performHighFrequencyTpsTest, 5, 100, TimeUnit.MILLISECONDS); // 10 Hz
-    scheduler.scheduleAtFixedRate(this::performBurstTpsTest, 10, 250, TimeUnit.MILLISECONDS); // 4 Hz burst
+    if (extremeTpsMode) {
+      log.warn("======================================");
+      log.warn("EXTREME TPS MODE ENABLED!");
+      log.warn("WARNING: This will generate MAXIMUM message load");
+      log.warn("System may experience high CPU/memory usage");
+      log.warn("Use for stress testing and capacity planning only");
+      log.warn("======================================");
 
-    // Medium-frequency comprehensive tests
-    scheduler.scheduleAtFixedRate(this::performNetworkTests, 10, 1, TimeUnit.SECONDS);
-    scheduler.scheduleAtFixedRate(this::performBurstTests, 30, 5, TimeUnit.SECONDS);
-    scheduler.scheduleAtFixedRate(this::performStabilityTests, 60, 15, TimeUnit.SECONDS);
+      // Use massive thread pool for extreme concurrency
+      scheduler = Executors.newScheduledThreadPool(32);
 
-    // Low-frequency analysis and monitoring
-    scheduler.scheduleAtFixedRate(this::performNetworkAnalysisTests, 90, 30, TimeUnit.SECONDS);
-    scheduler.scheduleAtFixedRate(this::logNetworkTestStatistics, 10, 5, TimeUnit.SECONDS);
-    scheduler.scheduleAtFixedRate(this::exportDetailedStatistics, 300, 300, TimeUnit.SECONDS);
+      // EXTREME MODE: Remove ALL delays, send at maximum possible rate
+      // Each thread continuously sends messages without any sleep
+      for (int i = 0; i < 16; i++) {  // 16 concurrent senders per node
+        scheduler.submit(this::extremeTpsSender);
+      }
 
-    // TPS measurement for no-logging mode (logs every 5 seconds)
-    if (!enableDetailedLogging) {
+      // Monitoring only (no rate limiting)
+      // Unified performance monitoring: Output every 5 seconds with all key metrics
       scheduler.scheduleAtFixedRate(this::logTpsCounterStatistics, 5, 5, TimeUnit.SECONDS);
+
+    } else {
+      // NORMAL MODE: Controlled rate with delays
+      scheduler = Executors.newScheduledThreadPool(8);
+
+      // High-frequency TPS-focused testing
+      scheduler.scheduleAtFixedRate(this::performHighFrequencyTpsTest, 5, 100, TimeUnit.MILLISECONDS); // 10 Hz
+      scheduler.scheduleAtFixedRate(this::performBurstTpsTest, 10, 250, TimeUnit.MILLISECONDS); // 4 Hz burst
+
+      // Medium-frequency comprehensive tests
+      scheduler.scheduleAtFixedRate(this::performNetworkTests, 10, 1, TimeUnit.SECONDS);
+      scheduler.scheduleAtFixedRate(this::performBurstTests, 30, 5, TimeUnit.SECONDS);
+      scheduler.scheduleAtFixedRate(this::performStabilityTests, 60, 15, TimeUnit.SECONDS);
+
+      // Low-frequency analysis and monitoring
+      scheduler.scheduleAtFixedRate(this::performNetworkAnalysisTests, 90, 30, TimeUnit.SECONDS);
+
+      // TPS measurement for no-logging mode
+      if (!enableDetailedLogging) {
+        scheduler.scheduleAtFixedRate(this::logTpsCounterStatistics, 5, 5, TimeUnit.SECONDS);
+      }
     }
   }
 
@@ -332,25 +362,9 @@ public class StartApp {
     });
   }
 
-  private void logNetworkTestStatistics() {
-    if (eventHandler != null) {
-      try {
-        String stats = eventHandler.getNetworkTestStatistics();
-        log.info("STATS|{}", stats);
-
-        // Log detailed performance metrics
-        int connections = eventHandler.getChannels().size();
-        log.info("PERF_METRICS|{}|connections={}|active_channels={}",
-                nodeId, connections, connections);
-      } catch (Exception e) {
-        log.warn("Error logging network test statistics: {}", e.getMessage());
-      }
-    }
-  }
-
   /**
-   * Log lightweight TPS counter statistics (for no-logging mode)
-   * This method provides TPS measurement without per-message logging overhead
+   * Unified performance monitoring log - Simple one-line output
+   * Consolidates all statistics to avoid log clutter
    */
   private void logTpsCounterStatistics() {
     long currentCount = messageCounter.get();
@@ -363,36 +377,28 @@ public class StartApp {
 
     if (timeDelta > 0) {
       double intervalTps = (messagesDelta * 1000.0) / timeDelta;
-      double totalTps = (currentCount * 1000.0) / (currentTime - startTime);
+      long elapsedSeconds = (currentTime - startTime) / 1000;
+      int connections = eventHandler != null ? eventHandler.getChannels().size() : 0;
 
-      log.info("TPS_COUNTER|{}|total_msgs={}|interval_tps={}|avg_tps={}|connections={}",
-              nodeId, currentCount, String.format("%.1f", intervalTps), String.format("%.1f", totalTps),
-              eventHandler != null ? eventHandler.getChannels().size() : 0);
+      // Get memory information
+      Runtime runtime = Runtime.getRuntime();
+      long usedMemory = runtime.totalMemory() - runtime.freeMemory();
+      double memoryPercent = (usedMemory * 100.0) / runtime.maxMemory();
+
+      // Simple one-line format
+      log.info("[{}] Uptime: {}s | TPS: {} | Messages: {} | Connections: {} | Memory: {}/{}MB ({}%)",
+               nodeId,
+               elapsedSeconds,
+               String.format("%.0f", intervalTps),
+               String.format("%,d", currentCount),
+               connections,
+               usedMemory / (1024 * 1024),
+               runtime.maxMemory() / (1024 * 1024),
+               String.format("%.1f", memoryPercent));
 
       // Update snapshots
       lastCounterSnapshot.set(currentCount);
       lastCounterTime.set(currentTime);
-    }
-  }
-
-  /**
-   * Export detailed network statistics to file for professional analysis
-   */
-  private void exportDetailedStatistics() {
-    if (eventHandler != null) {
-      try {
-        String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-        String detailedStats = String.format(
-            "{\"timestamp\": \"%s\", \"nodeId\": \"%s\", \"connections\": %d, \"stats\": \"%s\"}",
-            timestamp, nodeId, eventHandler.getChannels().size(), 
-            eventHandler.getNetworkTestStatistics().replace("\"", "\\\"")
-        );
-        
-        // Log to console for now - could be enhanced to write to file
-        log.info("DETAILED_STATS: {}", detailedStats);
-      } catch (Exception e) {
-        log.warn("Error exporting detailed statistics: {}", e.getMessage());
-      }
     }
   }
 
@@ -429,6 +435,53 @@ public class StartApp {
     }
   }
 
+  /**
+   * EXTREME TPS MODE: Send messages continuously at maximum possible rate
+   * This method runs in a tight loop without any sleep delays
+   */
+  private void extremeTpsSender() {
+    // Silent start, no individual thread logs
+    long messagesSent = 0;
+    long errorCount = 0;
+
+    try {
+      while (!Thread.currentThread().isInterrupted()) {
+        // Check if we can send
+        if (!canPerformNetworkTest()) {
+          // Wait a bit if no connections yet
+          Thread.sleep(100);
+          continue;
+        }
+
+        try {
+          // Send in batches for efficiency
+          for (int i = 0; i < 100; i++) {
+            eventHandler.sendNetworkTestMessage(
+                "extreme_tps",
+                "EXTREME-" + Thread.currentThread().getId() + "-" + messagesSent,
+                4  // Lower hop count for higher throughput
+            );
+            messagesSent++;
+          }
+
+          // No individual thread logs, unified by logTpsCounterStatistics
+
+        } catch (Exception e) {
+          errorCount++;
+          // Don't spam logs with errors
+          if (errorCount % 10000 == 1) {
+            log.warn("Sender thread error (count: {}): {}", errorCount, e.getMessage());
+          }
+          // Brief pause on error to prevent tight error loop
+          Thread.sleep(10);
+        }
+      }
+    } catch (InterruptedException e) {
+      // Silent exit, no individual thread logs
+      Thread.currentThread().interrupt();
+    }
+  }
+
   private void logConfigurationSummary(P2pConfig config) {
     log.info("=== P2P Configuration Summary ===");
     log.info("Port: {}", config.getPort());
@@ -446,7 +499,7 @@ public class StartApp {
     }
 
     if (config.getTreeUrls() != null && !config.getTreeUrls().isEmpty()) {
-      log.info("Tree URLs: {}", config.getTreeUrls());
+      log.info("Tree URLs: {}", config.getSeedNodes());
     }
 
     if (config.getPublishConfig() != null && config.getPublishConfig().isDnsPublishEnable()) {
