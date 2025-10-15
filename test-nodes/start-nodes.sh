@@ -9,6 +9,13 @@ BASE_PORT=10000
 NETWORK_ID=1
 JAR_FILE="../target/xdagj-p2p-0.1.2-jar-with-dependencies.jar"
 
+# Check if ENABLE_DETAILED_LOGGING environment variable is set
+# Default: true (detailed logging enabled)
+# Set to "false" for maximum TPS performance mode
+if [ -z "$ENABLE_DETAILED_LOGGING" ]; then
+    export ENABLE_DETAILED_LOGGING="true"
+fi
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -17,6 +24,16 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo -e "${BLUE}=== Starting P2P Network ($NODE_COUNT nodes) ===${NC}"
+
+# Display logging mode
+if [ "$ENABLE_DETAILED_LOGGING" = "false" ]; then
+    echo -e "${YELLOW}⚡ Performance Mode: TURBO (Detailed logging DISABLED)${NC}"
+    echo -e "${YELLOW}   TPS will be maximized, minimal I/O overhead${NC}"
+else
+    echo -e "${GREEN}📊 Performance Mode: STANDARD (Detailed logging enabled)${NC}"
+    echo -e "${GREEN}   Full MSG_RECEIVED/MSG_FORWARDED logs for analysis${NC}"
+fi
+echo ""
 
 # Create directories
 mkdir -p logs pids

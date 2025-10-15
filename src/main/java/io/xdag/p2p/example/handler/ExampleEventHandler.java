@@ -175,13 +175,14 @@ public class ExampleEventHandler extends P2pEventHandler {
    */
   public void sendNetworkTestMessage(String testType, String content, int maxHops) {
     String messageId = UUID.randomUUID().toString().substring(0, 8);
-    TestMessage testMessage = new TestMessage(messageId, nodeId, System.currentTimeMillis(), 
+    TestMessage testMessage = new TestMessage(messageId, nodeId, System.currentTimeMillis(),
                                             0, maxHops, testType, content);
-    
+
     Bytes appPayload = Bytes.concatenate(Bytes.of(MessageTypes.TEST.getType()), Bytes.wrap(testMessage.getData()));
     io.xdag.p2p.example.message.AppTestMessage networkMsg = new io.xdag.p2p.example.message.AppTestMessage(appPayload.toArray());
 
-    log.info("Sending network test message: {} (type: {}, maxHops: {})", 
+    // Use DEBUG level to reduce log volume in high-TPS scenarios
+    log.debug("Sending network test message: {} (type: {}, maxHops: {})",
              messageId, testType, maxHops);
 
     channels
@@ -228,7 +229,8 @@ public class ExampleEventHandler extends P2pEventHandler {
         long latency = receiveTime - message.getCreateTime();
         totalLatency.addAndGet(latency);
 
-        log.info("Network test message received: {} (hops: {}, latency: {}ms, sender: {})",
+        // Use DEBUG level to avoid excessive logging in high-TPS scenarios
+        log.debug("Network test message received: {} (hops: {}, latency: {}ms, sender: {})",
                 messageId, message.getHopCount(), latency, message.getOriginSender());
 
         // Forward message if not expired and not from this node
