@@ -145,3 +145,14 @@ docs/*_REPORT.md
 docs/MIGRATION_*.md
 *_ANALYSIS.md
 *_CHECKLIST.md
+
+# Claude Code files
+.claude/
+.claudeignore  
+.clauderc
+
+# Optimization and performance analysis documents (local only)
+*OPTIMIZATION*.md
+*PERFORMANCE*.md
+*STAGE*_*.md
+*TPS_*.md
