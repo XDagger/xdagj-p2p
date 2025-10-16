@@ -37,6 +37,8 @@ import static org.mockito.Mockito.when;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
+import io.netty.util.Attribute;
+import io.netty.util.AttributeKey;
 import io.xdag.p2p.P2pException;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
@@ -82,6 +84,8 @@ class ChannelTest {
 
   @Mock private Message message;
 
+  @Mock private Attribute<Channel> channelAttribute;
+
   private Channel channel;
   private InetSocketAddress testAddress;
 
@@ -98,6 +102,10 @@ class ChannelTest {
     when(nettyChannel.close()).thenReturn(channelFuture);
     when(ctx.writeAndFlush(any())).thenReturn(channelFuture);
     when(channelFuture.addListener(any())).thenReturn(channelFuture);
+
+    // Mock channel attribute for XdagFrameCodec
+    when(nettyChannel.attr(any(AttributeKey.class))).thenReturn(channelAttribute);
+    when(channelAttribute.get()).thenReturn(channel);
 
     // Mock P2pConfig
     when(p2pConfig.getTrustNodes()).thenReturn(new ArrayList<>());

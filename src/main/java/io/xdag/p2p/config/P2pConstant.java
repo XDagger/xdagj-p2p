@@ -45,6 +45,7 @@ public class P2pConstant {
   public static final short DEVNET_VERSION = 0;
 
   public static int version = 1;
+  // 0 means using Netty default: cores * 2
   public static final int TCP_NETTY_WORK_THREAD_NUM = 0;
   public static final int UDP_NETTY_WORK_THREAD_NUM = 1;
   public static final int NODE_CONNECTION_TIMEOUT = 2000;

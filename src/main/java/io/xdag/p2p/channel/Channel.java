@@ -37,9 +37,11 @@ import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.config.P2pConstant;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.message.Message;
+import io.xdag.p2p.message.MessageQueue;
 import io.xdag.p2p.message.node.HelloMessage;
 import io.xdag.p2p.handler.node.XdagBusinessHandler;
 import io.xdag.p2p.stats.TrafficStats;
+import io.xdag.p2p.stats.LayeredStats;
 import io.xdag.p2p.utils.BytesUtils;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -123,12 +125,19 @@ public class Channel {
   /** Count of ping messages for latency calculation */
   private long count;
 
+  /** Message queue for batching outgoing messages */
+  private MessageQueue messageQueue;
+
+  /** Layered statistics tracker for network and application layer metrics */
+  private LayeredStats layeredStats;
+
   /**
    * Default constructor for Channel. Initializes a new P2P communication channel with default
    * values.
    */
   public Channel( ChannelManager channelManager) {
     this.channelManager = channelManager;
+    this.layeredStats = new LayeredStats();
   }
 
   /**
@@ -142,6 +151,10 @@ public class Channel {
     this.discoveryMode = discoveryMode;
     this.nodeId = nodeId;
     this.isActive = StringUtils.isNotEmpty(nodeId);
+
+    // Initialize message queue
+    this.messageQueue = new MessageQueue(p2pConfig, this);
+
     pipeline.addLast("readTimeoutHandler", new ReadTimeoutHandler(60, TimeUnit.SECONDS));
     pipeline.addLast(TrafficStats.getTcp());
     // Do not add protobuf length prepender; XDAG frames are raw (header + body)
@@ -175,7 +188,13 @@ public class Channel {
     } else {
       log.error("Close peer {}, exception caught", address, throwable);
     }
-    close();
+
+    // During shutdown, don't ban nodes - just close gracefully
+    if (channelManager != null && channelManager.isShutdown()) {
+      closeWithoutBan();
+    } else {
+      close();
+    }
   }
 
   /**
@@ -200,6 +219,14 @@ public class Channel {
     this.inetSocketAddress = (InetSocketAddress) ctx.channel().remoteAddress();
     this.inetAddress = inetSocketAddress.getAddress();
     this.isTrustPeer = p2pConfig.getTrustNodes().contains(inetAddress);
+
+    // Store Channel reference in Netty context attributes for XdagFrameCodec to access
+    ctx.channel().attr(XdagFrameCodec.CHANNEL_ATTRIBUTE).set(this);
+
+    // Activate message queue after context is set
+    if (messageQueue != null) {
+      messageQueue.activate(ctx);
+    }
   }
 
   /**
@@ -211,6 +238,12 @@ public class Channel {
   public void close(BanReason reason, long banTime) {
     this.isDisconnect = true;
     this.disconnectTime = System.currentTimeMillis();
+
+    // Deactivate message queue before closing
+    if (messageQueue != null) {
+      messageQueue.deactivate();
+    }
+
     channelManager.banNode(this.inetAddress, reason, banTime);
     ctx.close();
   }
@@ -229,6 +262,12 @@ public class Channel {
   public void closeWithoutBan() {
     this.isDisconnect = true;
     this.disconnectTime = System.currentTimeMillis();
+
+    // Deactivate message queue before closing
+    if (messageQueue != null) {
+      messageQueue.deactivate();
+    }
+
     ctx.close();
   }
 
@@ -244,7 +283,13 @@ public class Channel {
       log.debug("Send message to channel {}, {}", inetSocketAddress, message);
     }
     try {
-      ctx.channel().writeAndFlush(message);
+      // Use MessageQueue for batching instead of direct writeAndFlush
+      if (messageQueue != null) {
+        messageQueue.sendMessage(message);
+      } else {
+        // Fallback to direct send if queue not initialized
+        ctx.channel().writeAndFlush(message);
+      }
       setLastSendTime(System.currentTimeMillis());
     } catch (Exception e) {
       log.warn("Send message to {} failed, {}", inetSocketAddress, e.getMessage());

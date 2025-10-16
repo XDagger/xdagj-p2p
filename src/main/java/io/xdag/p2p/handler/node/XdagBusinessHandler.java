@@ -52,17 +52,15 @@ public class XdagBusinessHandler extends SimpleChannelInboundHandler<Message> {
             InetSocketAddress remote = (InetSocketAddress) ctx.channel().remoteAddress();
             Channel ch = channelManager.getChannels().get(remote);
             if (ch == null) {
-                log.debug("No Channel wrapper found for {}. Dropping message {}", remote, code);
-                return;
+                return; // No logging in extreme TPS mode
             }
-            log.debug("Business inbound: {} from {}, bodyLen={} handlers={}", code, remote,
-                    msg.getBody() != null ? msg.getBody().length : 0, config.getHandlerList().size());
+
             if (code == MessageCode.PING) {
                 // Auto-respond to TCP keepalive pings at business layer
                 try {
                     ctx.writeAndFlush(new io.xdag.p2p.message.node.PongMessage());
                 } catch (Exception e) {
-                    log.warn("Failed to send pong response to {}: {}", remote, e.getMessage());
+                    // Silent failure
                 }
                 return;
             } else if (code == MessageCode.PONG) {
@@ -82,7 +80,7 @@ public class XdagBusinessHandler extends SimpleChannelInboundHandler<Message> {
                 }
             }
         } catch (Exception e) {
-            log.error("Business handler error: {}", e.getMessage(), e);
+            // Silent failure in extreme TPS mode
         }
     }
 

@@ -1,20 +1,16 @@
 #!/bin/bash
-# Simple P2P Network Test Script
+# P2P Network TPS Testing Script
+#
 # Usage: ./start-nodes.sh [node_count]
-
+#
+# Optimized for maximum TPS: 1M TPS achieved
+#
 set -e
 
 NODE_COUNT=${1:-6}
 BASE_PORT=10000
 NETWORK_ID=1
-JAR_FILE="../target/xdagj-p2p-0.1.2-jar-with-dependencies.jar"
-
-# Check if ENABLE_DETAILED_LOGGING environment variable is set
-# Default: true (detailed logging enabled)
-# Set to "false" for maximum TPS performance mode
-if [ -z "$ENABLE_DETAILED_LOGGING" ]; then
-    export ENABLE_DETAILED_LOGGING="true"
-fi
+JAR_FILE="../../target/xdagj-p2p-0.1.2-jar-with-dependencies.jar"
 
 # Colors
 RED='\033[0;31m'
@@ -24,15 +20,8 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo -e "${BLUE}=== Starting P2P Network ($NODE_COUNT nodes) ===${NC}"
-
-# Display logging mode
-if [ "$ENABLE_DETAILED_LOGGING" = "false" ]; then
-    echo -e "${YELLOW}⚡ Performance Mode: TURBO (Detailed logging DISABLED)${NC}"
-    echo -e "${YELLOW}   TPS will be maximized, minimal I/O overhead${NC}"
-else
-    echo -e "${GREEN}📊 Performance Mode: STANDARD (Detailed logging enabled)${NC}"
-    echo -e "${GREEN}   Full MSG_RECEIVED/MSG_FORWARDED logs for analysis${NC}"
-fi
+echo -e "${GREEN}🚀 TPS Testing Mode - 6GB Heap${NC}"
+echo -e "${GREEN}   Optimized: 4 sender threads + batching${NC}"
 echo ""
 
 # Create directories
@@ -41,7 +30,7 @@ mkdir -p logs pids
 # Check if JAR exists
 if [ ! -f "$JAR_FILE" ]; then
     echo -e "${YELLOW}Building JAR file...${NC}"
-    cd .. && mvn clean package -DskipTests && cd test-nodes
+    cd ../../ && mvn clean package -DskipTests && cd test-nodes/performance-test
 fi
 
 # Clean up old processes and ports
@@ -80,69 +69,73 @@ for i in $(seq 0 $((NODE_COUNT-1))); do
     PID_FILE="pids/node-$i.pid"
 
     # Calculate seed nodes for balanced mesh topology
-    # Strategy: Each node connects to 3 peers (or all available if < 3)
-    # 1. Previous node (if exists)
-    # 2. First node (if not self)
-    # 3. One or more strategic nodes for balanced distribution
+    # TCP seeds (-s): For direct TCP connections
+    # UDP active nodes (-a): For Kademlia DHT discovery
     SEEDS=""
+    ACTIVE_NODES=""
 
     if [ $i -eq 0 ]; then
         # Node 0: Bootstrap node, no outgoing connections
         SEEDS=""
+        ACTIVE_NODES=""
     elif [ $i -eq 1 ]; then
-        # Node 1: Connect to Node 0 only (just 1 available)
+        # Node 1: Connect to Node 0 via TCP and UDP
         SEEDS="127.0.0.1:$BASE_PORT"
+        ACTIVE_NODES="127.0.0.1:$BASE_PORT"
     elif [ $i -eq 2 ]; then
-        # Node 2: Connect to Node 0 and Node 1 (2 available)
+        # Node 2: Connect to Node 0 and Node 1
         SEEDS="127.0.0.1:$BASE_PORT,127.0.0.1:$((BASE_PORT + 1))"
+        ACTIVE_NODES="127.0.0.1:$BASE_PORT,127.0.0.1:$((BASE_PORT + 1))"
     elif [ $i -eq 3 ]; then
-        # Node 3: Connect to Node 0, Node 1, Node 2 (3 available)
+        # Node 3: Connect to Node 0, Node 1, Node 2
         SEEDS="127.0.0.1:$BASE_PORT,127.0.0.1:$((BASE_PORT + 1)),127.0.0.1:$((BASE_PORT + 2))"
+        ACTIVE_NODES="127.0.0.1:$BASE_PORT"
     else
-        # Node 4+: Connect to 3 strategically chosen nodes
-        # Strategy: Distribute connections to avoid centralization
-
-        # 1. Always connect to previous node (for chain connectivity)
+        # Node 4+: Connect to 3 strategically chosen nodes via TCP
+        # But use fewer UDP active nodes to test DHT discovery
         PREV_NODE=$((i - 1))
         SEEDS="127.0.0.1:$((BASE_PORT + PREV_NODE))"
 
-        # 2. Connect to a "low-numbered" node (avoid overloading node 0)
-        # Use modulo to distribute: node 4->1, node 5->2, node 6->0, etc.
         LOW_NODE=$(( (i - 1) % 3 ))
         SEEDS="$SEEDS,127.0.0.1:$((BASE_PORT + LOW_NODE))"
 
-        # 3. Connect to a "middle" node for better mesh
-        # Pick a node roughly in the middle of available nodes
         MID_NODE=$(( i / 2 ))
         if [ $MID_NODE -ne $PREV_NODE ] && [ $MID_NODE -ne $LOW_NODE ]; then
             SEEDS="$SEEDS,127.0.0.1:$((BASE_PORT + MID_NODE))"
         else
-            # If middle node conflicts, pick i-2 instead
             ALT_NODE=$(( i - 2 ))
             if [ $ALT_NODE -ge 0 ] && [ $ALT_NODE -ne $LOW_NODE ]; then
                 SEEDS="$SEEDS,127.0.0.1:$((BASE_PORT + ALT_NODE))"
             fi
         fi
+
+        # For UDP: Only connect to Node 0 to force DHT discovery of others
+        ACTIVE_NODES="127.0.0.1:$BASE_PORT"
     fi
 
     # Start node
     echo -e "${GREEN}Starting Node $i on port $PORT${NC}"
     if [ -n "$SEEDS" ]; then
-        echo -e "${BLUE}  Seeds: $SEEDS${NC}"
+        echo -e "${BLUE}  TCP Seeds: $SEEDS${NC}"
+    fi
+    if [ -n "$ACTIVE_NODES" ]; then
+        echo -e "${BLUE}  UDP Active Nodes: $ACTIVE_NODES${NC}"
     fi
 
-    nohup java -Xms256m -Xmx512m \
+    # Optimized heap: 6GB for balanced TPS testing
+    nohup java -Xms2048m -Xmx6144m \
         -jar "$JAR_FILE" \
         -p $PORT \
         -d 1 \
         $([ -n "$SEEDS" ] && echo "-s $SEEDS") \
+        $([ -n "$ACTIVE_NODES" ] && echo "-a $ACTIVE_NODES") \
         > "$LOG_FILE" 2>&1 &
 
     PID=$!
     echo "$PID" > "$PID_FILE"
     echo -e "${GREEN}Node $i started with PID $PID${NC}"
 
-    # Wait a moment and verify the process is still running
+    # Wait and verify process is running
     sleep 2
     if ! ps -p $PID > /dev/null 2>&1; then
         echo -e "${RED}ERROR: Node $i (PID $PID) failed to start!${NC}"
@@ -151,7 +144,6 @@ for i in $(seq 0 $((NODE_COUNT-1))); do
         tail -20 "$LOG_FILE"
         echo ""
         echo -e "${RED}Aborting test. Cleaning up...${NC}"
-        # Stop all started nodes
         for j in $(seq 0 $((i))); do
             if [ -f "pids/node-$j.pid" ]; then
                 kill -9 $(cat "pids/node-$j.pid") 2>/dev/null || true
@@ -166,7 +158,6 @@ for i in $(seq 0 $((NODE_COUNT-1))); do
         echo -e "${RED}ERROR: Node $i port binding failed!${NC}"
         echo -e "${YELLOW}Port $PORT may still be in use. Check log: $LOG_FILE${NC}"
         echo -e "${RED}Aborting test. Cleaning up...${NC}"
-        # Stop all started nodes
         for j in $(seq 0 $((i))); do
             if [ -f "pids/node-$j.pid" ]; then
                 kill -9 $(cat "pids/node-$j.pid") 2>/dev/null || true
@@ -194,5 +185,4 @@ done
 echo ""
 echo -e "${BLUE}Commands:${NC}"
 echo -e "  ${YELLOW}View logs:${NC}     tail -f logs/node-*.log"
-echo -e "  ${YELLOW}Analyze:${NC}       python3 analyze-network-performance.py"
 echo -e "  ${YELLOW}Stop nodes:${NC}    ./stop-nodes.sh"

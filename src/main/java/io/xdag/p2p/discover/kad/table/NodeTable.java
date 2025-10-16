@@ -26,9 +26,11 @@ package io.xdag.p2p.discover.kad.table;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.utils.BytesUtils;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import lombok.Getter;
 import org.apache.tuweni.bytes.Bytes;
 
@@ -38,6 +40,7 @@ public class NodeTable {
   private final Node node; // our node
   private transient NodeBucket[] buckets;
   private transient Map<String, NodeEntry> nodes;
+  private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
   public NodeTable(Node n) {
     this.node = n;
@@ -45,49 +48,83 @@ public class NodeTable {
   }
 
   public final void initialize() {
-    nodes = new HashMap<>();
+    nodes = new ConcurrentHashMap<>();
     buckets = new NodeBucket[KademliaOptions.BINS];
     for (int i = 0; i < KademliaOptions.BINS; i++) {
       buckets[i] = new NodeBucket(i);
     }
   }
 
-  public synchronized Node addNode(Node n) {
+  public Node addNode(Node n) {
     if (n.getHostKey().equals(node.getHostKey())) {
       return null;
     }
 
-    NodeEntry entry = nodes.get(n.getHostKey());
-    if (entry != null) {
-      entry.touch();
+    // Fast path: check if node already exists (read lock)
+    lock.readLock().lock();
+    try {
+      NodeEntry entry = nodes.get(n.getHostKey());
+      if (entry != null) {
+        entry.touch();
+        return null;
+      }
+    } finally {
+      lock.readLock().unlock();
+    }
+
+    // Slow path: add new node (write lock)
+    lock.writeLock().lock();
+    try {
+      // Double-check in case another thread added it
+      NodeEntry entry = nodes.get(n.getHostKey());
+      if (entry != null) {
+        entry.touch();
+        return null;
+      }
+
+      NodeEntry e = new NodeEntry(node.getId() != null ? BytesUtils.fromHexString(node.getId()) : Bytes.EMPTY, n);
+      NodeEntry lastSeen = buckets[getBucketId(e)].addNode(e);
+      if (lastSeen != null) {
+        return lastSeen.getNode();
+      }
+      nodes.put(n.getHostKey(), e);
       return null;
-    }
-
-    NodeEntry e = new NodeEntry(node.getId() != null ? BytesUtils.fromHexString(node.getId()) : Bytes.EMPTY, n);
-    NodeEntry lastSeen = buckets[getBucketId(e)].addNode(e);
-    if (lastSeen != null) {
-      return lastSeen.getNode();
-    }
-    nodes.put(n.getHostKey(), e);
-    return null;
-  }
-
-  public synchronized void dropNode(Node n) {
-    NodeEntry entry = nodes.get(n.getHostKey());
-    if (entry != null) {
-      nodes.remove(n.getHostKey());
-      buckets[getBucketId(entry)].dropNode(entry);
+    } finally {
+      lock.writeLock().unlock();
     }
   }
 
-  public synchronized boolean contains(Node n) {
-    return nodes.containsKey(n.getHostKey());
+  public void dropNode(Node n) {
+    lock.writeLock().lock();
+    try {
+      NodeEntry entry = nodes.get(n.getHostKey());
+      if (entry != null) {
+        nodes.remove(n.getHostKey());
+        buckets[getBucketId(entry)].dropNode(entry);
+      }
+    } finally {
+      lock.writeLock().unlock();
+    }
   }
 
-  public synchronized void touchNode(Node n) {
-    NodeEntry entry = nodes.get(n.getHostKey());
-    if (entry != null) {
-      entry.touch();
+  public boolean contains(Node n) {
+    lock.readLock().lock();
+    try {
+      return nodes.containsKey(n.getHostKey());
+    } finally {
+      lock.readLock().unlock();
+    }
+  }
+
+  public void touchNode(Node n) {
+    lock.readLock().lock();
+    try {
+      NodeEntry entry = nodes.get(n.getHostKey());
+      if (entry != null) {
+        entry.touch();
+      }
+    } finally {
+      lock.readLock().unlock();
     }
   }
 
@@ -106,32 +143,52 @@ public class NodeTable {
     return Math.max(id, 0);
   }
 
-  public synchronized int getNodesCount() {
-    return nodes.size();
+  public int getNodesCount() {
+    lock.readLock().lock();
+    try {
+      return nodes.size();
+    } finally {
+      lock.readLock().unlock();
+    }
   }
 
-  public synchronized List<NodeEntry> getAllNodes() {
-    return new ArrayList<>(nodes.values());
+  public List<NodeEntry> getAllNodes() {
+    lock.readLock().lock();
+    try {
+      return new ArrayList<>(nodes.values());
+    } finally {
+      lock.readLock().unlock();
+    }
   }
 
-  public synchronized List<Node> getClosestNodes(Bytes targetId) {
-    List<NodeEntry> closestEntries = getAllNodes();
-    List<Node> closestNodes = new ArrayList<>();
-    for (NodeEntry e : closestEntries) {
-      closestNodes.add((Node) e.getNode().clone());
+  public List<Node> getClosestNodes(Bytes targetId) {
+    lock.readLock().lock();
+    try {
+      List<NodeEntry> closestEntries = new ArrayList<>(nodes.values());
+      List<Node> closestNodes = new ArrayList<>(closestEntries.size());
+      for (NodeEntry e : closestEntries) {
+        closestNodes.add((Node) e.getNode().clone());
+      }
+      closestNodes.sort(new DistanceComparator(targetId));
+      if (closestNodes.size() > KademliaOptions.BUCKET_SIZE) {
+        closestNodes = closestNodes.subList(0, KademliaOptions.BUCKET_SIZE);
+      }
+      return closestNodes;
+    } finally {
+      lock.readLock().unlock();
     }
-    closestNodes.sort(new DistanceComparator(targetId));
-    if (closestNodes.size() > KademliaOptions.BUCKET_SIZE) {
-      closestNodes = closestNodes.subList(0, KademliaOptions.BUCKET_SIZE);
-    }
-    return closestNodes;
   }
 
-  public synchronized List<Node> getTableNodes() {
-    List<Node> nodeList = new ArrayList<>();
-    for (NodeEntry nodeEntry : nodes.values()) {
-      nodeList.add(nodeEntry.getNode());
+  public List<Node> getTableNodes() {
+    lock.readLock().lock();
+    try {
+      List<Node> nodeList = new ArrayList<>(nodes.size());
+      for (NodeEntry nodeEntry : nodes.values()) {
+        nodeList.add(nodeEntry.getNode());
+      }
+      return nodeList;
+    } finally {
+      lock.readLock().unlock();
     }
-    return nodeList;
   }
 }

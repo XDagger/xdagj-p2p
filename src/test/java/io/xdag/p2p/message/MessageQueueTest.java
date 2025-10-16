@@ -25,6 +25,7 @@
 package io.xdag.p2p.message;
 
 import io.netty.channel.ChannelHandlerContext;
+import io.xdag.p2p.channel.Channel;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.message.Message;
 import io.xdag.p2p.message.MessageCode;
@@ -55,6 +56,9 @@ class MessageQueueTest {
     @Mock
     private ChannelHandlerContext ctx;
 
+    @Mock
+    private Channel channel;
+
     private P2pConfig config;
     private MessageQueue queue;
 
@@ -62,7 +66,7 @@ class MessageQueueTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         config = new P2pConfig();
-        queue = new MessageQueue(config);
+        queue = new MessageQueue(config, channel);
     }
 
     @Test
@@ -134,10 +138,11 @@ class MessageQueueTest {
     public static class BenchmarkState {
         MessageQueue queue;
         @Mock ChannelHandlerContext ctx;
+        @Mock Channel channel;
 
         public BenchmarkState() {
             MockitoAnnotations.openMocks(this);
-            queue = new MessageQueue(new P2pConfig());
+            queue = new MessageQueue(new P2pConfig(), channel);
             queue.activate(ctx);
             for (int i = 0; i < 100; i++) {
                 queue.sendMessage(new PingMessage(new byte[0]));

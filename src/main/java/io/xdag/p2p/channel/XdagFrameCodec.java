@@ -26,6 +26,7 @@ package io.xdag.p2p.channel;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageCodec;
+import io.netty.util.AttributeKey;
 import io.xdag.p2p.config.P2pConfig;
 import java.io.IOException;
 import java.util.List;
@@ -35,6 +36,9 @@ import lombok.extern.slf4j.Slf4j;
 public class XdagFrameCodec extends ByteToMessageCodec<XdagFrame> {
 
     private final P2pConfig config;
+
+    // Attribute key to store/retrieve Channel from ChannelHandlerContext
+    public static final AttributeKey<Channel> CHANNEL_ATTRIBUTE = AttributeKey.valueOf("p2p.channel");
 
     public XdagFrameCodec(P2pConfig config) {
         this.config = config;
@@ -126,6 +130,15 @@ public class XdagFrameCodec extends ByteToMessageCodec<XdagFrame> {
         byte[] body = new byte[frame.getBodySize()];
         in.readBytes(body);
         frame.setBody(body);
+
+        // Track network layer receive - record total frame size (header + body)
+        int totalFrameSize = XdagFrame.HEADER_SIZE + frame.getBodySize();
+
+        // Retrieve Channel from context attributes
+        Channel channel = ctx.channel().attr(CHANNEL_ATTRIBUTE).get();
+        if (channel != null && channel.getLayeredStats() != null) {
+            channel.getLayeredStats().getNetwork().recordMessageReceived(totalFrameSize);
+        }
 
         out.add(frame);
     }

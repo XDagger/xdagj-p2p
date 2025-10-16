@@ -185,8 +185,9 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
             pipeline.addLast("xdagMessageHandler", new XdagMessageHandler(config));
             pipeline.addLast("businessHandler", new XdagBusinessHandler(config, channelManager));
             // Register channel to manager to count as active (this triggers app onConnect callbacks)
+            // Pass nodeId for duplicate connection detection
             try {
-                channelManager.markHandshakeSuccess((java.net.InetSocketAddress) ctx.channel().remoteAddress(), ctx);
+                channelManager.markHandshakeSuccess((java.net.InetSocketAddress) ctx.channel().remoteAddress(), ctx, msg.getPeerId());
             } catch (Exception ignored) {}
 
             // Remove this handler from the pipeline
