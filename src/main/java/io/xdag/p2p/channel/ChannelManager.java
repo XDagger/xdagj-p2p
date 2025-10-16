@@ -61,6 +61,9 @@ public class ChannelManager {
 
     @Getter
     private final Map<InetSocketAddress, Channel> channels = new ConcurrentHashMap<>();
+    // Track connected Node IDs to prevent duplicate connections to the same peer
+    // This works in both local testing (same IP, different ports) and production (different IPs)
+    private final Map<String, Channel> connectedNodeIds = new ConcurrentHashMap<>();
     private final List<Channel> activePeers = Collections.synchronizedList(new ArrayList<>());
     private final Cache<InetSocketAddress, Long> recentConnections =
             CacheBuilder.newBuilder().maximumSize(2000).expireAfterWrite(30, TimeUnit.SECONDS).build();
@@ -448,7 +451,32 @@ public class ChannelManager {
     }
 
     public void onChannelActive(Channel channel) {
+        String nodeId = channel.getNodeId();
+
+        // Check if we already have a connection to this Node ID (prevents duplicate connections)
+        // This works in both local testing (same IP) and production (different IPs)
+        if (nodeId != null && !nodeId.isEmpty()) {
+            Channel existingChannel = connectedNodeIds.get(nodeId);
+            if (existingChannel != null) {
+                // Check if the Netty channel is actually active (not the isActive field)
+                boolean nettyChannelActive = existingChannel.getCtx() != null
+                    && existingChannel.getCtx().channel() != null
+                    && existingChannel.getCtx().channel().isActive();
+                if (nettyChannelActive) {
+                    log.warn("Duplicate connection detected to Node ID {}. Existing: {}, New: {}. Closing new connection.",
+                             nodeId, existingChannel.getRemoteAddress(), channel.getRemoteAddress());
+                    channel.closeWithoutBan();
+                    return;
+                }
+            }
+        }
+
+        // Proceed with normal connection logic
         if (channels.putIfAbsent(channel.getRemoteAddress(), channel) == null) {
+            // Track by Node ID (if available)
+            if (nodeId != null && !nodeId.isEmpty()) {
+                connectedNodeIds.put(nodeId, channel);
+            }
             activePeers.add(channel);
             boolean isActive = channel.isActive();
             if (isActive) {
@@ -476,12 +504,18 @@ public class ChannelManager {
 
     /**
      * Helper to record handshake success for a Netty channel that doesn't yet have a wrapped Channel instance.
+     *
+     * @param remote the remote address
+     * @param ctx the channel handler context
+     * @param nodeId the peer's node ID (for duplicate connection detection)
      */
-    public void markHandshakeSuccess(java.net.InetSocketAddress remote, ChannelHandlerContext ctx) {
+    public void markHandshakeSuccess(java.net.InetSocketAddress remote, ChannelHandlerContext ctx, String nodeId) {
         try {
             Channel ch = new Channel(this);
             ch.setP2pConfig(config);
             ch.setChannelHandlerContext(ctx);
+            // Set nodeId BEFORE calling onChannelActive() so duplicate detection works
+            ch.setNodeId(nodeId);
             onChannelActive(ch);
             int nowActive = activePeers.size();
             int min = config.getMinConnections();
@@ -494,6 +528,11 @@ public class ChannelManager {
 
     public void onChannelInactive(Channel channel) {
         if (channels.remove(channel.getRemoteAddress()) != null) {
+            // Also remove from Node ID tracking map
+            String nodeId = channel.getNodeId();
+            if (nodeId != null && !nodeId.isEmpty()) {
+                connectedNodeIds.remove(nodeId);
+            }
             activePeers.remove(channel);
             boolean isActive = channel.isActive();
             if (isActive) {
