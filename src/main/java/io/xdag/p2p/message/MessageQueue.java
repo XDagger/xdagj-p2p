@@ -29,6 +29,7 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.xdag.p2p.message.node.DisconnectMessage;
 import io.xdag.p2p.config.P2pConfig;
+import io.xdag.p2p.channel.Channel;
 import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -38,6 +39,7 @@ import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 @Slf4j
 public class MessageQueue {
     private final P2pConfig config;
+    private final Channel channel;
     //'8192' is a value obtained from testing experience, not a standard value.Looking forward to optimization.
     private final BlockingQueue<Message> queue = new LinkedBlockingQueue<>(8192);
     private final Queue<Message> prioritized = new ConcurrentLinkedQueue<>();
@@ -45,8 +47,9 @@ public class MessageQueue {
     private AtomicBoolean isClosed = new AtomicBoolean(false);
     private Thread timerThread;  // New virtual thread
 
-    public MessageQueue(P2pConfig config) {
+    public MessageQueue(P2pConfig config, Channel channel) {
         this.config = config;
+        this.channel = channel;
     }
 
     public synchronized void activate(ChannelHandlerContext ctx) {
@@ -123,7 +126,17 @@ public class MessageQueue {
             Message msg = !prioritized.isEmpty() ? prioritized.poll() : queue.poll();
 
             log.trace("Wiring message: {}", msg);
-            ctx.write(msg).addListener(ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE);
+
+            // Track network layer send with message size
+            // Calculate message size: 1 byte (type) + body size + XdagFrame header (20 bytes)
+            int messageSize = 1 + (msg.getBody() != null ? msg.getBody().length : 0) + 20;
+
+            ctx.write(msg).addListener(future -> {
+                if (future.isSuccess() && channel != null && channel.getLayeredStats() != null) {
+                    // Record successful network layer send
+                    channel.getLayeredStats().getNetwork().recordMessageSent(messageSize);
+                }
+            });
         }
         ctx.flush();
     }
