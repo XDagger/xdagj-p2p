@@ -41,6 +41,7 @@ import io.xdag.p2p.message.MessageQueue;
 import io.xdag.p2p.message.node.HelloMessage;
 import io.xdag.p2p.handler.node.XdagBusinessHandler;
 import io.xdag.p2p.stats.TrafficStats;
+import io.xdag.p2p.stats.LayeredStats;
 import io.xdag.p2p.utils.BytesUtils;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -127,12 +128,16 @@ public class Channel {
   /** Message queue for batching outgoing messages */
   private MessageQueue messageQueue;
 
+  /** Layered statistics tracker for network and application layer metrics */
+  private LayeredStats layeredStats;
+
   /**
    * Default constructor for Channel. Initializes a new P2P communication channel with default
    * values.
    */
   public Channel( ChannelManager channelManager) {
     this.channelManager = channelManager;
+    this.layeredStats = new LayeredStats();
   }
 
   /**
@@ -148,7 +153,7 @@ public class Channel {
     this.isActive = StringUtils.isNotEmpty(nodeId);
 
     // Initialize message queue
-    this.messageQueue = new MessageQueue(p2pConfig);
+    this.messageQueue = new MessageQueue(p2pConfig, this);
 
     pipeline.addLast("readTimeoutHandler", new ReadTimeoutHandler(60, TimeUnit.SECONDS));
     pipeline.addLast(TrafficStats.getTcp());
@@ -214,6 +219,9 @@ public class Channel {
     this.inetSocketAddress = (InetSocketAddress) ctx.channel().remoteAddress();
     this.inetAddress = inetSocketAddress.getAddress();
     this.isTrustPeer = p2pConfig.getTrustNodes().contains(inetAddress);
+
+    // Store Channel reference in Netty context attributes for XdagFrameCodec to access
+    ctx.channel().attr(XdagFrameCodec.CHANNEL_ATTRIBUTE).set(this);
 
     // Activate message queue after context is set
     if (messageQueue != null) {
