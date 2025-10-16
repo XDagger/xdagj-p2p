@@ -291,7 +291,13 @@ public class ExampleEventHandler extends P2pEventHandler {
             channel -> {
               try {
                     channel.send(networkMsg);
-                log.debug("Sent network test message to {}: {}", 
+
+                    // Track application layer send
+                    if (channel.getLayeredStats() != null) {
+                      channel.getLayeredStats().getApplication().recordMessageSent();
+                    }
+
+                log.debug("Sent network test message to {}: {}",
                          channel.getInetSocketAddress(), messageId);
               } catch (Exception e) {
                 log.error(
@@ -305,6 +311,7 @@ public class ExampleEventHandler extends P2pEventHandler {
   /**
    * Handle received network test message
    * Stage 1.5 Ultra-optimized for 100K+ TPS with Bloom Filter
+   * Stage 2: Enhanced with LayeredStats for Application Layer metrics
    *
    * @param channel the channel that received the message
    * @param message the received network test message
@@ -313,15 +320,26 @@ public class ExampleEventHandler extends P2pEventHandler {
     try {
       String messageId = message.getMessageId();
 
+      // Track application layer receive (before deduplication check)
+      if (channel.getLayeredStats() != null) {
+        channel.getLayeredStats().getApplication().recordMessageReceived();
+      }
+
       // FAST OPERATION 1: Check for duplicate using Bloom Filter
       // Bloom Filter provides O(1) lookup with minimal memory (~120KB for 100K messages)
       BloomFilter<String> filter = messageDeduplicationFilter.get();
 
       if (filter.mightContain(messageId)) {
-        // Likely duplicate - increment counter and return immediately
+        // Likely duplicate - increment counter and track in application layer
         // Note: 1% false positive rate means 1% of unique messages will be incorrectly dropped
         // This is acceptable for high-TPS testing scenarios
         duplicatesReceived.incrementAndGet();
+
+        // Track duplicate in application layer stats
+        if (channel.getLayeredStats() != null) {
+          channel.getLayeredStats().getApplication().recordMessageDuplicated();
+        }
+
         return; // EARLY RETURN - don't block EventLoop
       }
 
@@ -332,9 +350,15 @@ public class ExampleEventHandler extends P2pEventHandler {
       // FAST OPERATION 2: Update statistics (atomic operations are fast)
       totalReceived.incrementAndGet();
 
+      // Track application layer processing (unique message)
+      if (channel.getLayeredStats() != null) {
+        channel.getLayeredStats().getApplication().recordMessageProcessed();
+      }
+
       // FAST OPERATION 3: Track message source (for forwarding exclusion)
-      // This map will be cleaned periodically by maintenance thread
-      messageSourceMap.put(messageId, channel.getInetSocketAddress());
+      // IMPORTANT: Only record the FIRST time we see this message (don't overwrite)
+      // This ensures we remember the original sender, not intermediate forwarders
+      messageSourceMap.asMap().putIfAbsent(messageId, channel.getInetSocketAddress());
 
       // OPTIMIZATION: Check if we need to forward BEFORE submitting async task
       if (message.isExpired() || message.getOriginSender().equals(nodeId)) {
@@ -345,7 +369,7 @@ public class ExampleEventHandler extends P2pEventHandler {
       // EventLoop returns immediately, forwarding happens in background
       forwardExecutor.submit(() -> {
         try {
-          forwardNetworkTestMessage(message);
+          forwardNetworkTestMessage(message, channel);
         } catch (Exception e) {
           // Silent failure in extreme TPS mode
         }
@@ -360,8 +384,9 @@ public class ExampleEventHandler extends P2pEventHandler {
    * Forward a network test message to connected peers using load-balanced strategy
    *
    * @param originalMessage Original message to forward
+   * @param sourceChannel Source channel that received the message (for stats tracking)
    */
-  protected void forwardNetworkTestMessage(TestMessage originalMessage) {
+  protected void forwardNetworkTestMessage(TestMessage originalMessage, Channel sourceChannel) {
     try {
       TestMessage forwardCopy = originalMessage.createForwardCopy(nodeId);
 
@@ -377,6 +402,11 @@ public class ExampleEventHandler extends P2pEventHandler {
 
         if (!targetChannels.isEmpty()) {
           totalForwarded.incrementAndGet();
+
+          // Track application layer forwarding
+          if (sourceChannel != null && sourceChannel.getLayeredStats() != null) {
+            sourceChannel.getLayeredStats().getApplication().recordMessageForwarded();
+          }
 
           log.debug("Forwarding network test message: {} (hops: {}/{}) to {} channels",
                    forwardCopy.getMessageId(), forwardCopy.getHopCount(), forwardCopy.getMaxHops(),
@@ -427,11 +457,12 @@ public class ExampleEventHandler extends P2pEventHandler {
       return candidateChannels;
     }
 
-    // Calculate how many channels to select (50%, at least 1)
-    int selectCount = Math.max(1, candidateChannels.size() / 2);
+    // Calculate how many channels to select (30%, at least 1)
+    // Reduced from 50% to 30% to mitigate message flooding
+    int selectCount = Math.max(1, (candidateChannels.size() * 3) / 10);
 
-    // For small networks, select all
-    if (candidateChannels.size() <= 3) {
+    // For small networks (2 nodes), select all
+    if (candidateChannels.size() <= 2) {
       selectCount = candidateChannels.size();
     }
 

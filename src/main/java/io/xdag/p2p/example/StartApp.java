@@ -37,8 +37,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * P2P TPS testing application
  *
- * Optimized for maximum throughput: 1M TPS achieved
- * - 8 concurrent sender threads for optimal performance
+ * Optimized for balanced throughput with controlled memory usage
+ * - 4 concurrent sender threads to reduce memory pressure
  * - Batch processing with controlled memory usage
  * - Real-time TPS monitoring every 5 seconds
  */
@@ -130,23 +130,23 @@ public class StartApp {
       }
 
       @Override
-      protected void forwardNetworkTestMessage(io.xdag.p2p.example.message.TestMessage originalMessage) {
-        super.forwardNetworkTestMessage(originalMessage);
+      protected void forwardNetworkTestMessage(io.xdag.p2p.example.message.TestMessage originalMessage, io.xdag.p2p.channel.Channel sourceChannel) {
+        super.forwardNetworkTestMessage(originalMessage, sourceChannel);
       }
     };
   }
 
   private void initializeNetworkTesting() {
     log.warn("========================================");
-    log.warn("TPS Testing Mode - Target: 1M TPS");
-    log.warn("Optimized: 8 sender threads + batching");
+    log.warn("TPS Testing Mode - Balanced throughput");
+    log.warn("Optimized: 4 sender threads + batching");
     log.warn("========================================");
 
-    // 8 concurrent sender threads + 1 for monitoring
-    // More threads doesn't always mean better performance due to contention
-    scheduler = Executors.newScheduledThreadPool(9);
+    // 4 concurrent sender threads + 1 for monitoring
+    // Reduced from 8 to lower memory pressure and peak usage
+    scheduler = Executors.newScheduledThreadPool(5);
 
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 4; i++) {
       scheduler.submit(this::tpsSender);
     }
 
@@ -175,7 +175,7 @@ public class StartApp {
           // Batch size: 100 messages
           for (int i = 0; i < 100; i++) {
             eventHandler.sendNetworkTestMessage("tps_test",
-                "T" + Thread.currentThread().getId() + "-" + messagesSent, 3);
+                "T" + Thread.currentThread().getId() + "-" + messagesSent, 2);
             messagesSent++;
           }
           // Small yield to prevent CPU saturation
@@ -208,15 +208,72 @@ public class StartApp {
       long usedMemory = runtime.totalMemory() - runtime.freeMemory();
       double memoryPercent = (usedMemory * 100.0) / runtime.maxMemory();
 
-      log.info("[{}] Uptime: {}s | TPS: {} | Messages: {} | Connections: {} | Memory: {}/{}MB ({}%)",
+      // Aggregate LayeredStats from all channels
+      long netSent = 0;
+      long netSentBytes = 0;
+      long netRecv = 0;
+      long netRecvBytes = 0;
+      long appSent = 0;
+      long appRecv = 0;
+      long appProcessed = 0;
+      long appDuplicates = 0;
+      long appForwarded = 0;
+
+      if (eventHandler != null) {
+        for (io.xdag.p2p.channel.Channel channel : eventHandler.getChannels().values()) {
+          if (channel.getLayeredStats() != null) {
+            netSent += channel.getLayeredStats().getNetwork().getMessagesSent();
+            netSentBytes += channel.getLayeredStats().getNetwork().getBytesSent();
+            netRecv += channel.getLayeredStats().getNetwork().getMessagesReceived();
+            netRecvBytes += channel.getLayeredStats().getNetwork().getBytesReceived();
+            appSent += channel.getLayeredStats().getApplication().getMessagesSent();
+            appRecv += channel.getLayeredStats().getApplication().getMessagesReceived();
+            appProcessed += channel.getLayeredStats().getApplication().getMessagesProcessed();
+            appDuplicates += channel.getLayeredStats().getApplication().getMessagesDuplicated();
+            appForwarded += channel.getLayeredStats().getApplication().getMessagesForwarded();
+          }
+        }
+      }
+
+      // Calculate efficiency percentage
+      double efficiency = netRecv > 0 ? (appProcessed * 100.0) / netRecv : 0.0;
+
+      // Convert bytes to MB for readability
+      double netSentMB = netSentBytes / (1024.0 * 1024.0);
+      double netRecvMB = netRecvBytes / (1024.0 * 1024.0);
+
+      // Calculate TPS for both layers (based on interval)
+      double networkRecvTps = timeDelta > 0 ? ((netRecv - 0) * 1000.0) / timeDelta : 0.0;  // Will improve with delta tracking
+      double appProcessedTps = timeDelta > 0 ? ((appProcessed - 0) * 1000.0) / timeDelta : 0.0;  // Will improve with delta tracking
+
+      // For now, use cumulative average as approximation
+      double networkRecvTpsAvg = elapsedSeconds > 0 ? (netRecv * 1.0) / elapsedSeconds : 0.0;
+      double appProcessedTpsAvg = elapsedSeconds > 0 ? (appProcessed * 1.0) / elapsedSeconds : 0.0;
+
+      log.info("[{}] Uptime: {}s | Net-TPS: {} | App-TPS: {} | Connections: {} | Memory: {}/{}MB ({}%)",
                nodeId,
                elapsedSeconds,
-               String.format("%.0f", intervalTps),
-               String.format("%,d", currentCount),
+               String.format("%.0f", networkRecvTpsAvg),
+               String.format("%.0f", appProcessedTpsAvg),
                connections,
                usedMemory / (1024 * 1024),
                runtime.maxMemory() / (1024 * 1024),
                String.format("%.1f", memoryPercent));
+
+      log.info("[{}] Network Layer - Sent: {} msgs ({} MB) | Received: {} msgs ({} MB)",
+               nodeId,
+               String.format("%,d", netSent),
+               String.format("%.2f", netSentMB),
+               String.format("%,d", netRecv),
+               String.format("%.2f", netRecvMB));
+
+      log.info("[{}] Application Layer - Sent: {} | Processed: {} | Duplicates: {} | Forwarded: {} | Efficiency: {}%",
+               nodeId,
+               String.format("%,d", appSent),
+               String.format("%,d", appProcessed),
+               String.format("%,d", appDuplicates),
+               String.format("%,d", appForwarded),
+               String.format("%.1f", efficiency));
 
       lastCounterSnapshot.set(currentCount);
       lastCounterTime.set(currentTime);
