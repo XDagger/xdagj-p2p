@@ -1,33 +1,33 @@
 #!/bin/bash
-# 节点发现快速验证脚本
-# 分析现有日志，检查发现功能是否正常
+# Node Discovery Quick Verification Script
+# Analyze existing logs to check if discovery is working correctly
 
-echo "=== 节点发现功能验证 ==="
+echo "=== Node Discovery Verification ==="
 echo ""
 
-# 检查是否有日志
+# Check if logs exist
 if [ ! -d "logs" ] || [ -z "$(ls -A logs/*.log 2>/dev/null)" ]; then
-    echo "❌ 没有找到日志文件"
-    echo "请先运行: ./start-nodes.sh 或 ./test-discovery.sh"
+    echo "❌ No log files found"
+    echo "Please run first: ./start-nodes.sh or ./test-discovery.sh"
     exit 1
 fi
 
-echo "📊 1. 检查节点发现功能是否启用"
+echo "📊 1. Check Discovery Feature Status"
 echo "----------------------------------------"
 
 for log in logs/*.log; do
     node_name=$(basename "$log" .log)
 
-    # 检查discovery是否启用
+    # Check if discovery is enabled
     if grep -q "Discovery enabled: true" "$log" 2>/dev/null; then
-        echo "✅ $node_name: Discovery已启用"
+        echo "✅ $node_name: Discovery enabled"
     else
-        echo "❌ $node_name: Discovery未启用或未找到配置日志"
+        echo "❌ $node_name: Discovery not enabled or config log not found"
     fi
 done
 
 echo ""
-echo "📡 2. Kademlia DHT消息统计"
+echo "📡 2. Kademlia DHT Message Statistics"
 echo "----------------------------------------"
 
 for log in logs/*.log; do
@@ -42,93 +42,93 @@ for log in logs/*.log; do
 
     if [ $total -gt 0 ]; then
         echo "$node_name:"
-        echo "  PING发送: $ping_sent | PONG接收: $pong_recv"
+        echo "  PING sent: $ping_sent | PONG received: $pong_recv"
         echo "  FIND_NODE: $find_node | NEIGHBORS: $neighbors"
-        echo "  总计: $total 条消息"
+        echo "  Total: $total messages"
     else
-        echo "⚠️  $node_name: 无Kademlia消息（可能功能未启用或日志级别不足）"
+        echo "⚠️  $node_name: No Kademlia messages (feature may be disabled or insufficient log level)"
     fi
     echo ""
 done
 
-echo "🔍 3. 节点表 (DHT) 统计"
+echo "🔍 3. Node Table (DHT) Statistics"
 echo "----------------------------------------"
 
 for log in logs/*.log; do
     node_name=$(basename "$log" .log)
 
-    # 查找DHT节点数
+    # Find DHT node count
     dht_info=$(grep "DHT nodes\|nodes in table\|table nodes" "$log" 2>/dev/null | tail -1)
 
     if [ -n "$dht_info" ]; then
         dht_count=$(echo "$dht_info" | grep -o "[0-9]\+" | head -1)
-        echo "$node_name: DHT节点数 = $dht_count"
+        echo "$node_name: DHT nodes = $dht_count"
     else
-        echo "⚠️  $node_name: 未找到DHT统计"
+        echo "⚠️  $node_name: DHT statistics not found"
     fi
 done
 
 echo ""
-echo "🌐 4. 节点发现进度"
+echo "🌐 4. Node Discovery Progress"
 echo "----------------------------------------"
 
 for log in logs/*.log; do
     node_name=$(basename "$log" .log)
 
-    # 查找已发现节点数
+    # Find discovered node count
     discovered=$(grep "nodes discovered\|Discovered.*nodes" "$log" 2>/dev/null | tail -1)
 
     if [ -n "$discovered" ]; then
         count=$(echo "$discovered" | grep -o "[0-9]\+" | head -1)
-        echo "$node_name: 已发现 $count 个节点"
+        echo "$node_name: Discovered $count nodes"
     else
-        # 尝试其他模式
+        # Try alternative patterns
         node_added=$(grep -c "Node added\|NodeHandler created" "$log" 2>/dev/null || echo "0")
         if [ $node_added -gt 0 ]; then
-            echo "$node_name: 节点表有 $node_added 条记录"
+            echo "$node_name: Node table has $node_added entries"
         else
-            echo "⚠️  $node_name: 未找到发现统计"
+            echo "⚠️  $node_name: Discovery statistics not found"
         fi
     fi
 done
 
 echo ""
-echo "🔗 5. TCP连接状态"
+echo "🔗 5. TCP Connection Status"
 echo "----------------------------------------"
 
 for log in logs/*.log; do
     node_name=$(basename "$log" .log)
 
-    # 查找连接数
+    # Find connection count
     connections=$(grep "Total channels\|Active channels\|Connected.*total" "$log" 2>/dev/null | tail -1)
 
     if [ -n "$connections" ]; then
         count=$(echo "$connections" | grep -o "[0-9]\+" | tail -1)
-        echo "$node_name: TCP连接数 = $count"
+        echo "$node_name: TCP connections = $count"
     else
-        # 统计handshake成功次数
+        # Count handshake successes
         handshakes=$(grep -c "Handshake successful\|handshake success" "$log" 2>/dev/null || echo "0")
         if [ $handshakes -gt 0 ]; then
-            echo "$node_name: 握手成功 $handshakes 次"
+            echo "$node_name: Handshake successful $handshakes times"
         else
-            echo "⚠️  $node_name: 未找到连接统计"
+            echo "⚠️  $node_name: Connection statistics not found"
         fi
     fi
 done
 
 echo ""
-echo "⚙️  6. DNS Discovery检查"
+echo "⚙️  6. DNS Discovery Check"
 echo "----------------------------------------"
 
 dns_found=false
 for log in logs/*.log; do
     node_name=$(basename "$log" .log)
 
-    # 检查DNS同步
+    # Check DNS sync
     if grep -q "SyncTree\|DNS sync" "$log" 2>/dev/null; then
         dns_found=true
         sync_info=$(grep "SyncTree" "$log" 2>/dev/null | tail -1)
-        echo "✅ $node_name: DNS Discovery已启用"
+        echo "✅ $node_name: DNS Discovery enabled"
         if [ -n "$sync_info" ]; then
             echo "   $sync_info"
         fi
@@ -136,14 +136,14 @@ for log in logs/*.log; do
 done
 
 if ! $dns_found; then
-    echo "ℹ️  未检测到DNS Discovery活动（可能未配置DNS URL）"
+    echo "ℹ️  No DNS Discovery activity detected (DNS URL may not be configured)"
 fi
 
 echo ""
-echo "📋 7. 诊断建议"
+echo "📋 7. Diagnostic Recommendations"
 echo "----------------------------------------"
 
-# 分析问题
+# Analyze issues
 has_kad_messages=false
 for log in logs/*.log; do
     if grep -q "PING\|PONG\|FIND_NODE\|NEIGHBORS" "$log" 2>/dev/null; then
@@ -153,23 +153,23 @@ for log in logs/*.log; do
 done
 
 if ! $has_kad_messages; then
-    echo "❌ 问题: 未检测到Kademlia消息"
+    echo "❌ Issue: No Kademlia messages detected"
     echo ""
-    echo "可能原因："
-    echo "  1. 日志级别过高（DEBUG消息被过滤）"
-    echo "  2. Discovery功能未正确启动"
-    echo "  3. UDP端口被防火墙阻止"
+    echo "Possible causes:"
+    echo "  1. Log level too high (DEBUG messages filtered)"
+    echo "  2. Discovery feature not properly started"
+    echo "  3. UDP ports blocked by firewall"
     echo ""
-    echo "解决方案："
-    echo "  1. 检查日志配置: cat ../src/main/resources/logback.xml"
-    echo "  2. 确认-d参数: grep '\\-d' start-nodes.sh"
-    echo "  3. 检查UDP端口: lsof -i UDP:10000-10009"
+    echo "Solutions:"
+    echo "  1. Check log config: cat ../src/main/resources/logback.xml"
+    echo "  2. Verify -d parameter: grep '\\-d' start-nodes.sh"
+    echo "  3. Check UDP ports: lsof -i UDP:10000-10009"
     echo ""
 else
-    echo "✅ Kademlia消息检测正常"
+    echo "✅ Kademlia messages detected normally"
 fi
 
-# 检查连接
+# Check connections
 connection_count=0
 for log in logs/*.log; do
     conn=$(grep "Total channels" "$log" 2>/dev/null | tail -1 | grep -o "[0-9]\+" | tail -1 || echo "0")
@@ -177,47 +177,47 @@ for log in logs/*.log; do
 done
 
 if [ $connection_count -eq 0 ]; then
-    echo "⚠️  警告: 所有节点TCP连接数为0"
+    echo "⚠️  Warning: All nodes have 0 TCP connections"
     echo ""
-    echo "可能原因："
-    echo "  1. 节点刚启动，还未建立连接"
-    echo "  2. 种子节点配置错误"
-    echo "  3. 端口被占用或防火墙阻止"
+    echo "Possible causes:"
+    echo "  1. Nodes just started, connections not established yet"
+    echo "  2. Seed node configuration error"
+    echo "  3. Ports occupied or blocked by firewall"
     echo ""
-    echo "解决方案："
-    echo "  1. 等待30秒后重新检查"
-    echo "  2. 检查端口: lsof -i TCP:10000-10009"
-    echo "  3. 查看错误日志: grep -i error logs/*.log"
+    echo "Solutions:"
+    echo "  1. Wait 30 seconds and check again"
+    echo "  2. Check ports: lsof -i TCP:10000-10009"
+    echo "  3. View error logs: grep -i error logs/*.log"
 fi
 
 echo ""
-echo "📈 8. 性能指标建议"
+echo "📈 8. Performance Metric Guidelines"
 echo "----------------------------------------"
 echo ""
-echo "节点发现正常指标（10个节点）："
-echo "  ✅ 30秒: 每节点发现 2-3 个节点"
-echo "  ✅ 1分钟: 每节点发现 4-6 个节点"
-echo "  ✅ 2分钟: 每节点发现 7-9 个节点"
-echo "  ✅ 5分钟: 每节点发现 >90% 节点"
+echo "Normal discovery metrics (10 nodes):"
+echo "  ✅ 30 seconds: 2-3 nodes discovered per node"
+echo "  ✅ 1 minute: 4-6 nodes discovered per node"
+echo "  ✅ 2 minutes: 7-9 nodes discovered per node"
+echo "  ✅ 5 minutes: >90% nodes discovered per node"
 echo ""
-echo "Kademlia消息速率："
-echo "  ✅ 正常: <100 msg/sec/node"
-echo "  ⚠️  偏高: 100-500 msg/sec/node"
-echo "  ❌ 异常: >500 msg/sec/node"
+echo "Kademlia message rate:"
+echo "  ✅ Normal: <100 msg/sec/node"
+echo "  ⚠️  High: 100-500 msg/sec/node"
+echo "  ❌ Abnormal: >500 msg/sec/node"
 echo ""
 
-echo "💡 9. 推荐操作"
+echo "💡 9. Recommended Actions"
 echo "----------------------------------------"
 echo ""
-echo "查看详细Kademlia日志:"
+echo "View detailed Kademlia logs:"
 echo "  grep 'KadService\|DiscoverTask\|NodeHandler' logs/node-0.log | head -50"
 echo ""
-echo "监控实时发现:"
+echo "Monitor real-time discovery:"
 echo "  tail -f logs/node-0.log | grep 'discover\|FIND_NODE\|DHT'"
 echo ""
-echo "运行完整发现测试:"
+echo "Run complete discovery test:"
 echo "  ./test-discovery.sh 10 300"
 echo ""
-echo "分析网络拓扑:"
-echo "  grep 'Handshake successful' logs/*.log | wc -l  # 总连接数"
+echo "Analyze network topology:"
+echo "  grep 'Handshake successful' logs/*.log | wc -l  # Total connections"
 echo ""
