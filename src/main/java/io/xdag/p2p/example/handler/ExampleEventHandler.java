@@ -57,6 +57,37 @@ import org.apache.tuweni.bytes.Bytes;
 @Slf4j(topic = "example")
 public class ExampleEventHandler extends P2pEventHandler {
 
+  // Bloom Filter Configuration
+  private static final int EXPECTED_INSERTIONS = 200_000; // Expected message capacity
+  private static final double FALSE_POSITIVE_RATE = 0.01; // 1% false positive rate (acceptable for high-TPS)
+  
+  // Cache Configuration
+  private static final long MESSAGE_SOURCE_CACHE_SIZE = 50_000; // Maximum cache entries
+  private static final long MESSAGE_SOURCE_EXPIRE_MINUTES = 5; // Auto-expire after 5 minutes
+  
+  // Thread Pool Configuration
+  private static final int FORWARD_THREAD_POOL_SIZE = 64; // Async message forwarding threads
+  private static final int MAINTENANCE_THREAD_POOL_SIZE = 1; // Bloom Filter rotation thread
+  
+  // Maintenance Schedule Configuration
+  private static final long BLOOM_FILTER_ROTATION_INITIAL_DELAY_SECONDS = 120; // Initial delay: 2 minutes
+  private static final long BLOOM_FILTER_ROTATION_PERIOD_SECONDS = 120; // Rotation every 2 minutes
+  private static final long STATS_LOG_INITIAL_DELAY_SECONDS = 10; // Initial delay: 10 seconds
+  private static final long STATS_LOG_PERIOD_SECONDS = 10; // Log stats every 10 seconds
+  
+  // Message Forwarding Configuration
+  private static final int FORWARD_PERCENTAGE_NUMERATOR = 3; // Forward to 30% of peers
+  private static final int FORWARD_PERCENTAGE_DENOMINATOR = 10;
+  private static final int SMALL_NETWORK_THRESHOLD = 2; // Forward to all if peers <= 2
+  
+  // Shutdown Configuration
+  private static final long SHUTDOWN_TIMEOUT_SECONDS = 5; // Graceful shutdown timeout
+  
+  // Message Processing Constants
+  private static final int MESSAGE_TYPE_INDEX = 0; // Index of message type in data
+  private static final int MESSAGE_DATA_OFFSET = 1; // Offset to skip message type byte
+  private static final int NODE_ID_UUID_LENGTH = 8; // UUID prefix length for node IDs
+  
   @Getter
   protected final ConcurrentMap<InetSocketAddress, Channel> channels = new ConcurrentHashMap<>();
 
@@ -64,8 +95,6 @@ public class ExampleEventHandler extends P2pEventHandler {
   // Replaces memory-leaking ConcurrentHashMaps with space-efficient probabilistic data structure
   // Memory usage: ~120KB for 100K messages (vs 30MB+ for HashMaps)
   // Trade-off: 1% false positive rate (acceptable for high-TPS testing)
-  private static final int EXPECTED_INSERTIONS = 200_000; // 20万消息容量
-  private static final double FALSE_POSITIVE_RATE = 0.01; // 1%误报率
 
   // Use AtomicReference for thread-safe Bloom Filter replacement
   private final AtomicReference<BloomFilter<String>> messageDeduplicationFilter =
@@ -116,12 +145,12 @@ public class ExampleEventHandler extends P2pEventHandler {
 
     // Initialize Guava Cache for message source tracking (auto-expiring)
     this.messageSourceMap = com.google.common.cache.CacheBuilder.newBuilder()
-        .maximumSize(50_000)  // Limit max entries
-        .expireAfterWrite(5, TimeUnit.MINUTES)  // Auto-remove after 5min
+        .maximumSize(MESSAGE_SOURCE_CACHE_SIZE)
+        .expireAfterWrite(MESSAGE_SOURCE_EXPIRE_MINUTES, TimeUnit.MINUTES)
         .build();
 
-    // Initialize async forwarding thread pool (64 threads for high throughput)
-    this.forwardExecutor = Executors.newFixedThreadPool(64, new ThreadFactory() {
+    // Initialize async forwarding thread pool for high throughput
+    this.forwardExecutor = Executors.newFixedThreadPool(FORWARD_THREAD_POOL_SIZE, new ThreadFactory() {
       private final AtomicInteger threadNumber = new AtomicInteger(1);
       @Override
       public Thread newThread(Runnable r) {
@@ -132,18 +161,26 @@ public class ExampleEventHandler extends P2pEventHandler {
     });
 
     // Initialize maintenance executor for Bloom Filter rotation
-    this.maintenanceExecutor = Executors.newScheduledThreadPool(1, r -> {
+    this.maintenanceExecutor = Executors.newScheduledThreadPool(MAINTENANCE_THREAD_POOL_SIZE, r -> {
       Thread t = new Thread(r, "bloom-maintenance");
       t.setDaemon(true);
       return t;
     });
 
-    // Schedule Bloom Filter rotation every 2 minutes to prevent saturation
+    // Schedule Bloom Filter rotation to prevent saturation
     // This ensures continuous operation for long-running tests
-    maintenanceExecutor.scheduleWithFixedDelay(this::rotateBloomFilter, 120, 120, TimeUnit.SECONDS);
+    maintenanceExecutor.scheduleWithFixedDelay(
+        this::rotateBloomFilter,
+        BLOOM_FILTER_ROTATION_INITIAL_DELAY_SECONDS,
+        BLOOM_FILTER_ROTATION_PERIOD_SECONDS,
+        TimeUnit.SECONDS);
 
-    // Schedule periodic statistics logging (every 10 seconds)
-    maintenanceExecutor.scheduleWithFixedDelay(this::logPeriodicStats, 10, 10, TimeUnit.SECONDS);
+    // Schedule periodic statistics logging
+    maintenanceExecutor.scheduleWithFixedDelay(
+        this::logPeriodicStats,
+        STATS_LOG_INITIAL_DELAY_SECONDS,
+        STATS_LOG_PERIOD_SECONDS,
+        TimeUnit.SECONDS);
   }
 
   public ExampleEventHandler(String nodeId) {
@@ -153,12 +190,12 @@ public class ExampleEventHandler extends P2pEventHandler {
 
     // Initialize Guava Cache for message source tracking (auto-expiring)
     this.messageSourceMap = com.google.common.cache.CacheBuilder.newBuilder()
-        .maximumSize(50_000)  // Limit max entries
-        .expireAfterWrite(5, TimeUnit.MINUTES)  // Auto-remove after 5min
+        .maximumSize(MESSAGE_SOURCE_CACHE_SIZE)
+        .expireAfterWrite(MESSAGE_SOURCE_EXPIRE_MINUTES, TimeUnit.MINUTES)
         .build();
 
-    // Initialize async forwarding thread pool (64 threads for high throughput)
-    this.forwardExecutor = Executors.newFixedThreadPool(64, new ThreadFactory() {
+    // Initialize async forwarding thread pool for high throughput
+    this.forwardExecutor = Executors.newFixedThreadPool(FORWARD_THREAD_POOL_SIZE, new ThreadFactory() {
       private final AtomicInteger threadNumber = new AtomicInteger(1);
       @Override
       public Thread newThread(Runnable r) {
@@ -169,21 +206,29 @@ public class ExampleEventHandler extends P2pEventHandler {
     });
 
     // Initialize maintenance executor for Bloom Filter rotation
-    this.maintenanceExecutor = Executors.newScheduledThreadPool(1, r -> {
+    this.maintenanceExecutor = Executors.newScheduledThreadPool(MAINTENANCE_THREAD_POOL_SIZE, r -> {
       Thread t = new Thread(r, "bloom-maintenance");
       t.setDaemon(true);
       return t;
     });
 
-    // Schedule Bloom Filter rotation every 2 minutes to prevent saturation
-    maintenanceExecutor.scheduleWithFixedDelay(this::rotateBloomFilter, 120, 120, TimeUnit.SECONDS);
+    // Schedule Bloom Filter rotation to prevent saturation
+    maintenanceExecutor.scheduleWithFixedDelay(
+        this::rotateBloomFilter,
+        BLOOM_FILTER_ROTATION_INITIAL_DELAY_SECONDS,
+        BLOOM_FILTER_ROTATION_PERIOD_SECONDS,
+        TimeUnit.SECONDS);
 
-    // Schedule periodic statistics logging (every 10 seconds)
-    maintenanceExecutor.scheduleWithFixedDelay(this::logPeriodicStats, 10, 10, TimeUnit.SECONDS);
+    // Schedule periodic statistics logging
+    maintenanceExecutor.scheduleWithFixedDelay(
+        this::logPeriodicStats,
+        STATS_LOG_INITIAL_DELAY_SECONDS,
+        STATS_LOG_PERIOD_SECONDS,
+        TimeUnit.SECONDS);
   }
 
   private String generateNodeId() {
-    return "node-" + UUID.randomUUID().toString().substring(0, 8);
+    return "node-" + UUID.randomUUID().toString().substring(0, NODE_ID_UUID_LENGTH);
   }
 
   @Override
@@ -205,8 +250,8 @@ public class ExampleEventHandler extends P2pEventHandler {
   @Override
   public void onMessage(Channel channel, Bytes data) {
     try {
-      byte type = data.get(0);
-      byte[] messageData = BytesUtils.skip(data, 1).toArray();
+      byte type = data.get(MESSAGE_TYPE_INDEX);
+      byte[] messageData = BytesUtils.skip(data, MESSAGE_DATA_OFFSET).toArray();
 
       MessageTypes messageType = MessageTypes.fromByte(type);
       if (messageType == null) {
@@ -274,7 +319,7 @@ public class ExampleEventHandler extends P2pEventHandler {
    * @param maxHops Maximum hop count
    */
   public void sendNetworkTestMessage(String testType, String content, int maxHops) {
-    String messageId = UUID.randomUUID().toString().substring(0, 8);
+    String messageId = UUID.randomUUID().toString().substring(0, NODE_ID_UUID_LENGTH);
     TestMessage testMessage = new TestMessage(messageId, nodeId, System.currentTimeMillis(),
                                             0, maxHops, testType, content);
 
@@ -459,10 +504,10 @@ public class ExampleEventHandler extends P2pEventHandler {
 
     // Calculate how many channels to select (30%, at least 1)
     // Reduced from 50% to 30% to mitigate message flooding
-    int selectCount = Math.max(1, (candidateChannels.size() * 3) / 10);
+    int selectCount = Math.max(1, (candidateChannels.size() * FORWARD_PERCENTAGE_NUMERATOR) / FORWARD_PERCENTAGE_DENOMINATOR);
 
-    // For small networks (2 nodes), select all
-    if (candidateChannels.size() <= 2) {
+    // For small networks, select all peers
+    if (candidateChannels.size() <= SMALL_NETWORK_THRESHOLD) {
       selectCount = candidateChannels.size();
     }
 
@@ -611,11 +656,11 @@ public class ExampleEventHandler extends P2pEventHandler {
       maintenanceExecutor.shutdown();
       forwardExecutor.shutdown();
 
-      if (!maintenanceExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+      if (!maintenanceExecutor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
         maintenanceExecutor.shutdownNow();
       }
 
-      if (!forwardExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+      if (!forwardExecutor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
         forwardExecutor.shutdownNow();
       }
 
