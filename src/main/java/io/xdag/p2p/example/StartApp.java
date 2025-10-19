@@ -45,6 +45,28 @@ import java.util.concurrent.TimeUnit;
 @Slf4j(topic = "app")
 public class StartApp {
 
+  // TPS Testing Configuration
+  private static final int SENDER_THREAD_COUNT = 4; // Concurrent sender threads
+  private static final int MONITOR_THREAD_COUNT = 1; // Performance monitoring thread
+  private static final int TOTAL_THREAD_POOL_SIZE = SENDER_THREAD_COUNT + MONITOR_THREAD_COUNT;
+  private static final int MESSAGE_BATCH_SIZE = 100; // Messages per batch
+  private static final int MESSAGE_TTL = 2; // Time-to-live for test messages
+  private static final long BATCH_YIELD_MILLIS = 1; // Yield between batches
+  private static final long NO_CONNECTION_WAIT_MILLIS = 100; // Wait when no connections
+  private static final long ERROR_RETRY_DELAY_MILLIS = 10; // Pause after send error
+  
+  // Monitoring Configuration
+  private static final long TPS_LOG_INITIAL_DELAY_SECONDS = 5; // Initial delay before first log
+  private static final long TPS_LOG_PERIOD_SECONDS = 5; // Logging interval
+  private static final long MAIN_LOOP_SLEEP_MILLIS = 5000; // Main thread sleep interval
+  
+  // Shutdown Configuration
+  private static final long SHUTDOWN_TIMEOUT_SECONDS = 5; // Graceful shutdown timeout
+  
+  // Unit Conversion Constants
+  private static final long BYTES_PER_MB = 1024 * 1024;
+  private static final long MILLIS_PER_SECOND = 1000;
+
   private P2pService p2pService;
   private ExampleEventHandler eventHandler;
   private ScheduledExecutorService scheduler;
@@ -139,26 +161,30 @@ public class StartApp {
   private void initializeNetworkTesting() {
     log.warn("========================================");
     log.warn("TPS Testing Mode - Balanced throughput");
-    log.warn("Optimized: 4 sender threads + batching");
+    log.warn("Optimized: {} sender threads + batching", SENDER_THREAD_COUNT);
     log.warn("========================================");
 
-    // 4 concurrent sender threads + 1 for monitoring
+    // Create thread pool: sender threads + monitoring thread
     // Reduced from 8 to lower memory pressure and peak usage
-    scheduler = Executors.newScheduledThreadPool(5);
+    scheduler = Executors.newScheduledThreadPool(TOTAL_THREAD_POOL_SIZE);
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < SENDER_THREAD_COUNT; i++) {
       scheduler.submit(this::tpsSender);
     }
 
-    // Performance monitoring every 5 seconds (needs dedicated thread)
-    scheduler.scheduleAtFixedRate(this::logTpsCounterStatistics, 5, 5, TimeUnit.SECONDS);
+    // Performance monitoring at fixed intervals (needs dedicated thread)
+    scheduler.scheduleAtFixedRate(
+        this::logTpsCounterStatistics,
+        TPS_LOG_INITIAL_DELAY_SECONDS,
+        TPS_LOG_PERIOD_SECONDS,
+        TimeUnit.SECONDS);
   }
 
   /**
    * Send messages at maximum possible rate with optimized batching
    * Achieves 1M TPS through:
-   * - Batch size: 100 messages
-   * - Small yield (1ms) to prevent CPU saturation
+   * - Batch size: configurable messages
+   * - Small yield to prevent CPU saturation
    * - Controlled memory pressure
    */
   private void tpsSender() {
@@ -167,22 +193,22 @@ public class StartApp {
     try {
       while (!Thread.currentThread().isInterrupted()) {
         if (eventHandler == null || eventHandler.getChannels().isEmpty()) {
-          Thread.sleep(100);
+          Thread.sleep(NO_CONNECTION_WAIT_MILLIS);
           continue;
         }
 
         try {
-          // Batch size: 100 messages
-          for (int i = 0; i < 100; i++) {
+          // Send batch of messages
+          for (int i = 0; i < MESSAGE_BATCH_SIZE; i++) {
             eventHandler.sendNetworkTestMessage("tps_test",
-                "T" + Thread.currentThread().getId() + "-" + messagesSent, 2);
+                "T" + Thread.currentThread().getId() + "-" + messagesSent, MESSAGE_TTL);
             messagesSent++;
           }
           // Small yield to prevent CPU saturation
-          Thread.sleep(1);
+          Thread.sleep(BATCH_YIELD_MILLIS);
         } catch (Exception e) {
           // Brief pause on error
-          Thread.sleep(10);
+          Thread.sleep(ERROR_RETRY_DELAY_MILLIS);
         }
       }
     } catch (InterruptedException e) {
@@ -200,8 +226,8 @@ public class StartApp {
     long timeDelta = currentTime - lastTime;
 
     if (timeDelta > 0) {
-      double intervalTps = (messagesDelta * 1000.0) / timeDelta;
-      long elapsedSeconds = (currentTime - startTime) / 1000;
+      double intervalTps = (messagesDelta * MILLIS_PER_SECOND) / timeDelta;
+      long elapsedSeconds = (currentTime - startTime) / MILLIS_PER_SECOND;
       int connections = eventHandler != null ? eventHandler.getChannels().size() : 0;
 
       Runtime runtime = Runtime.getRuntime();
@@ -239,12 +265,12 @@ public class StartApp {
       double efficiency = netRecv > 0 ? (appProcessed * 100.0) / netRecv : 0.0;
 
       // Convert bytes to MB for readability
-      double netSentMB = netSentBytes / (1024.0 * 1024.0);
-      double netRecvMB = netRecvBytes / (1024.0 * 1024.0);
+      double netSentMB = netSentBytes / (double) BYTES_PER_MB;
+      double netRecvMB = netRecvBytes / (double) BYTES_PER_MB;
 
       // Calculate TPS for both layers (based on interval)
-      double networkRecvTps = timeDelta > 0 ? ((netRecv - 0) * 1000.0) / timeDelta : 0.0;  // Will improve with delta tracking
-      double appProcessedTps = timeDelta > 0 ? ((appProcessed - 0) * 1000.0) / timeDelta : 0.0;  // Will improve with delta tracking
+      double networkRecvTps = timeDelta > 0 ? ((netRecv - 0) * MILLIS_PER_SECOND) / timeDelta : 0.0;  // Will improve with delta tracking
+      double appProcessedTps = timeDelta > 0 ? ((appProcessed - 0) * MILLIS_PER_SECOND) / timeDelta : 0.0;  // Will improve with delta tracking
 
       // For now, use cumulative average as approximation
       double networkRecvTpsAvg = elapsedSeconds > 0 ? (netRecv * 1.0) / elapsedSeconds : 0.0;
@@ -256,8 +282,8 @@ public class StartApp {
                String.format("%.0f", networkRecvTpsAvg),
                String.format("%.0f", appProcessedTpsAvg),
                connections,
-               usedMemory / (1024 * 1024),
-               runtime.maxMemory() / (1024 * 1024),
+               usedMemory / BYTES_PER_MB,
+               runtime.maxMemory() / BYTES_PER_MB,
                String.format("%.1f", memoryPercent));
 
       log.info("[{}] Network Layer - Sent: {} msgs ({} MB) | Received: {} msgs ({} MB)",
@@ -283,7 +309,7 @@ public class StartApp {
   private void runMainLoop() {
     try {
       while (!Thread.currentThread().isInterrupted()) {
-        Thread.sleep(5000);
+        Thread.sleep(MAIN_LOOP_SLEEP_MILLIS);
       }
     } catch (InterruptedException e) {
       log.info("Application interrupted, shutting down...");
@@ -298,7 +324,7 @@ public class StartApp {
     if (scheduler != null) {
       scheduler.shutdown();
       try {
-        if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+        if (!scheduler.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
           scheduler.shutdownNow();
         }
       } catch (InterruptedException e) {
