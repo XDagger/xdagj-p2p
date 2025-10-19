@@ -9,7 +9,7 @@ set -e
 NODE_COUNT=${1:-10}
 TEST_DURATION=${2:-300}  # 默认5分钟
 BASE_PORT=10000
-JAR_FILE="../target/xdagj-p2p-0.1.2-jar-with-dependencies.jar"
+JAR_FILE="../../target/xdagj-p2p-0.1.2-jar-with-dependencies.jar"
 
 # Colors
 RED='\033[0;31m'
