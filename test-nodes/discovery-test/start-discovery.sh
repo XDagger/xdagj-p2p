@@ -1,188 +1,129 @@
 #!/bin/bash
-# P2P Network TPS Testing Script
+# P2P Network Node Discovery Testing Script
 #
-# Usage: ./start-nodes.sh [node_count]
+# Usage: ./start-discovery.sh [node_count]
 #
-# Optimized for maximum TPS: 1M TPS achieved
+# Tests Kademlia DHT + EIP-1459 DNS discovery
 #
 set -e
 
-NODE_COUNT=${1:-6}
-BASE_PORT=10000
-NETWORK_ID=1
-JAR_FILE="../../target/xdagj-p2p-0.1.2-jar-with-dependencies.jar"
+# Source shared library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../lib/common.sh"
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+# Configuration
+NODE_COUNT=${1:-10}
+BASE_PORT=$DEFAULT_BASE_PORT
+TEST_TYPE="discovery"
 
-echo -e "${BLUE}=== Starting P2P Network ($NODE_COUNT nodes) ===${NC}"
-echo -e "${GREEN}🚀 TPS Testing Mode - Target: 1M TPS${NC}"
-echo -e "${GREEN}   Optimized: 8 sender threads + batching${NC}"
-echo ""
-
-# Create directories
-mkdir -p logs pids
-
-# Check if JAR exists
-if [ ! -f "$JAR_FILE" ]; then
-    echo -e "${YELLOW}Building JAR file...${NC}"
-    cd ../../ && mvn clean package -DskipTests && cd test-nodes/discovery-test
+# Validate input (discovery can handle more nodes with reduced heap)
+if ! validate_node_count "$NODE_COUNT" 1 20; then
+    echo "Usage: $0 [node_count]"
+    echo "  node_count: Number of nodes (1-20, default: 10)"
+    exit 1
 fi
 
-# Clean up old processes and ports
-echo -e "${YELLOW}Stopping any existing nodes...${NC}"
-pkill -9 -f "io.xdag.p2p.example.StartApp" 2>/dev/null || true
-rm -f pids/*.pid
+# Display banner
+log_section "Starting P2P Node Discovery Test ($NODE_COUNT nodes)"
+log_info "Test type: Kademlia DHT + DNS Discovery"
+log_info "Heap: 512MB - 1GB (discovery optimized)"
+echo ""
+
+# Initialize
+PROJECT_ROOT=$(get_project_root)
+JAR_FILE=$(ensure_jar_exists "$PROJECT_ROOT")
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+
+mkdir -p logs pids
+log_info "Using JAR: $(basename "$JAR_FILE")"
+
+# Clean up old processes
+log_warning "Stopping any existing nodes..."
+cleanup_all_nodes "pids"
 sleep 2
 
-# Function to check if port is available
-check_port() {
-    local port=$1
-    if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1 ; then
-        return 1  # Port in use
-    else
-        return 0  # Port available
-    fi
-}
-
-# Pre-check all ports
-echo -e "${YELLOW}Checking port availability...${NC}"
-for i in $(seq 0 $((NODE_COUNT-1))); do
-    PORT=$((BASE_PORT + i))
-    if ! check_port $PORT; then
-        echo -e "${RED}ERROR: Port $PORT is already in use!${NC}"
-        echo -e "${YELLOW}Kill the process with: lsof -ti :$PORT | xargs kill -9${NC}"
-        exit 1
-    fi
-done
-echo -e "${GREEN}All ports available${NC}"
+# Check ports
+log_section "Checking port availability"
+if ! check_port_range $BASE_PORT $NODE_COUNT; then
+    exit 1
+fi
+log_info "All $NODE_COUNT ports available ($BASE_PORT-$((BASE_PORT + NODE_COUNT - 1)))"
 echo ""
 
 # Start nodes
+log_section "Starting discovery nodes"
 for i in $(seq 0 $((NODE_COUNT-1))); do
     PORT=$((BASE_PORT + i))
-    LOG_FILE="logs/node-$i.log"
-    PID_FILE="pids/node-$i.pid"
-
-    # Calculate seed nodes for balanced mesh topology
-    # TCP seeds (-s): For direct TCP connections
-    # UDP active nodes (-a): For Kademlia DHT discovery
-    SEEDS=""
-    ACTIVE_NODES=""
-
-    if [ $i -eq 0 ]; then
-        # Node 0: Bootstrap node, no outgoing connections
-        SEEDS=""
-        ACTIVE_NODES=""
-    elif [ $i -eq 1 ]; then
-        # Node 1: Connect to Node 0 via TCP and UDP
-        SEEDS="127.0.0.1:$BASE_PORT"
-        ACTIVE_NODES="127.0.0.1:$BASE_PORT"
-    elif [ $i -eq 2 ]; then
-        # Node 2: Connect to Node 0 and Node 1
-        SEEDS="127.0.0.1:$BASE_PORT,127.0.0.1:$((BASE_PORT + 1))"
-        ACTIVE_NODES="127.0.0.1:$BASE_PORT,127.0.0.1:$((BASE_PORT + 1))"
-    elif [ $i -eq 3 ]; then
-        # Node 3: Connect to Node 0, Node 1, Node 2
-        SEEDS="127.0.0.1:$BASE_PORT,127.0.0.1:$((BASE_PORT + 1)),127.0.0.1:$((BASE_PORT + 2))"
-        ACTIVE_NODES="127.0.0.1:$BASE_PORT"
-    else
-        # Node 4+: Connect to 3 strategically chosen nodes via TCP
-        # But use fewer UDP active nodes to test DHT discovery
-        PREV_NODE=$((i - 1))
-        SEEDS="127.0.0.1:$((BASE_PORT + PREV_NODE))"
-
-        LOW_NODE=$(( (i - 1) % 3 ))
-        SEEDS="$SEEDS,127.0.0.1:$((BASE_PORT + LOW_NODE))"
-
-        MID_NODE=$(( i / 2 ))
-        if [ $MID_NODE -ne $PREV_NODE ] && [ $MID_NODE -ne $LOW_NODE ]; then
-            SEEDS="$SEEDS,127.0.0.1:$((BASE_PORT + MID_NODE))"
-        else
-            ALT_NODE=$(( i - 2 ))
-            if [ $ALT_NODE -ge 0 ] && [ $ALT_NODE -ne $LOW_NODE ]; then
-                SEEDS="$SEEDS,127.0.0.1:$((BASE_PORT + ALT_NODE))"
-            fi
-        fi
-
-        # For UDP: Only connect to Node 0 to force DHT discovery of others
-        ACTIVE_NODES="127.0.0.1:$BASE_PORT"
-    fi
-
-    # Start node
-    echo -e "${GREEN}Starting Node $i on port $PORT${NC}"
-    if [ -n "$SEEDS" ]; then
-        echo -e "${BLUE}  TCP Seeds: $SEEDS${NC}"
-    fi
-    if [ -n "$ACTIVE_NODES" ]; then
-        echo -e "${BLUE}  UDP Active Nodes: $ACTIVE_NODES${NC}"
-    fi
-
-    # Optimized heap: 6GB for 1M TPS
-    nohup java -Xms2048m -Xmx6144m \
+    LOG_FILE="logs/${TEST_TYPE}-node-${i}.log"
+    PID_FILE="pids/${TEST_TYPE}-node-${i}.pid"
+    
+    # Calculate seed nodes using shared library
+    SEEDS=$(calculate_tcp_seeds $i $NODE_COUNT $BASE_PORT)
+    ACTIVE_NODES=$(calculate_udp_active_nodes $i $NODE_COUNT $BASE_PORT)
+    
+    # Display node info
+    log_info "Starting Node $i on port $PORT"
+    [ -n "$SEEDS" ] && log_debug "  TCP Seeds: $SEEDS"
+    [ -n "$ACTIVE_NODES" ] && log_debug "  UDP Active: $ACTIVE_NODES"
+    
+    # Start node with reduced heap for discovery testing
+    nohup java -Xms512m -Xmx1024m \
         -jar "$JAR_FILE" \
         -p $PORT \
         -d 1 \
         $([ -n "$SEEDS" ] && echo "-s $SEEDS") \
         $([ -n "$ACTIVE_NODES" ] && echo "-a $ACTIVE_NODES") \
         > "$LOG_FILE" 2>&1 &
-
+    
     PID=$!
     echo "$PID" > "$PID_FILE"
-    echo -e "${GREEN}Node $i started with PID $PID${NC}"
-
-    # Wait and verify process is running
-    sleep 2
-    if ! ps -p $PID > /dev/null 2>&1; then
-        echo -e "${RED}ERROR: Node $i (PID $PID) failed to start!${NC}"
-        echo -e "${YELLOW}Check log file: $LOG_FILE${NC}"
-        echo -e "${YELLOW}Last 20 lines of log:${NC}"
+    
+    # Verify startup
+    sleep $PROCESS_START_DELAY_SEC
+    if ! wait_for_process_start $PID 5; then
+        log_error "Node $i (PID $PID) failed to start!"
+        log_warning "Last 20 lines of log:"
         tail -20 "$LOG_FILE"
-        echo ""
-        echo -e "${RED}Aborting test. Cleaning up...${NC}"
-        for j in $(seq 0 $((i))); do
-            if [ -f "pids/node-$j.pid" ]; then
-                kill -9 $(cat "pids/node-$j.pid") 2>/dev/null || true
-            fi
-        done
+        cleanup_all_nodes "pids"
         exit 1
     fi
-
-    # Check for bind exceptions in log
-    sleep 1
-    if grep -q "BindException\|Address already in use" "$LOG_FILE" 2>/dev/null; then
-        echo -e "${RED}ERROR: Node $i port binding failed!${NC}"
-        echo -e "${YELLOW}Port $PORT may still be in use. Check log: $LOG_FILE${NC}"
-        echo -e "${RED}Aborting test. Cleaning up...${NC}"
-        for j in $(seq 0 $((i))); do
-            if [ -f "pids/node-$j.pid" ]; then
-                kill -9 $(cat "pids/node-$j.pid") 2>/dev/null || true
-            fi
-        done
+    
+    # Check for errors
+    ERROR=$(check_log_for_errors "$LOG_FILE")
+    if [ $? -ne 0 ]; then
+        log_error "Node $i encountered error: $ERROR"
+        log_warning "Check log file: $LOG_FILE"
+        cleanup_all_nodes "pids"
         exit 1
     fi
+    
+    log_info "Node $i started successfully (PID $PID)"
 done
 
+# Wait for connections to establish
 echo ""
-echo -e "${GREEN}=== All nodes started! ===${NC}"
-echo -e "${YELLOW}Wait 30s for connections to establish...${NC}"
-sleep 30
+log_section "All discovery nodes started"
+log_info "Waiting ${CONNECTION_ESTABLISH_DELAY_SEC}s for initial connections..."
+sleep $CONNECTION_ESTABLISH_DELAY_SEC
 
-# Check connections
-echo -e "${GREEN}=== Initial Connection Check ===${NC}"
+# Check initial connections
+log_section "Initial Connection Check"
 for i in $(seq 0 $((NODE_COUNT-1))); do
-    LOG_FILE="logs/node-$i.log"
+    LOG_FILE="logs/${TEST_TYPE}-node-${i}.log"
     if [ -f "$LOG_FILE" ]; then
         CONN_COUNT=$(grep -c "handshake success" "$LOG_FILE" 2>/dev/null || echo "0")
-        echo -e "${GREEN}Node $i: $CONN_COUNT connections${NC}"
+        log_info "Node $i: $CONN_COUNT connections"
     fi
 done
 
+# Display usage instructions
 echo ""
-echo -e "${BLUE}Commands:${NC}"
-echo -e "  ${YELLOW}View logs:${NC}     tail -f logs/node-*.log"
-echo -e "  ${YELLOW}Stop nodes:${NC}    ./stop-nodes.sh"
+log_section "Discovery Test Running"
+log_info "View logs:     tail -f logs/${TEST_TYPE}-node-*.log"
+log_info "Monitor DHT:   tail -f logs/${TEST_TYPE}-node-*.log | grep 'DHT'"
+log_info "Stop nodes:    ./stop-nodes.sh"
+log_info ""
+log_info "Recommended: Let run for 5-10 minutes for full discovery"
+log_info "Use test-discovery.sh for automated testing with reports"
