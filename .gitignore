@@ -172,3 +172,6 @@ docs/MIGRATION_*.md
 # Optimization docs (internal use only)
 .optimization-docs/
 
+
+# Code review workspace (not committed)
+.review-workspace/
