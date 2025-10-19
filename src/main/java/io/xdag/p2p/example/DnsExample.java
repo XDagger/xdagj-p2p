@@ -113,11 +113,30 @@ public class DnsExample {
 
   /** Create configuration for DNS publishing */
   private ExampleConfig createPublishConfig() {
-    // Example configuration - replace with your actual values
-    String dnsPrivate = "b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291";
-    String domain = "nodes.example.org";
-    String accessKeyId = "your-access-key-id";
-    String accessKeySecret = "your-access-key-secret";
+    // Load credentials from environment variables for security
+    String dnsPrivate = System.getenv("DNS_PRIVATE_KEY");
+    String domain = System.getenv("DNS_DOMAIN");
+    String accessKeyId = System.getenv("AWS_ACCESS_KEY_ID");
+    String accessKeySecret = System.getenv("AWS_SECRET_ACCESS_KEY");
+
+    // Validate required environment variables
+    if (dnsPrivate == null || domain == null || accessKeyId == null || accessKeySecret == null) {
+      log.error("Missing required environment variables for DNS publishing.");
+      log.error("Please set the following environment variables:");
+      log.error("  DNS_PRIVATE_KEY     - Your DNS signing private key (hex format)");
+      log.error("  DNS_DOMAIN          - Your DNS domain (e.g., nodes.xdag.org)");
+      log.error("  AWS_ACCESS_KEY_ID   - AWS IAM access key");
+      log.error("  AWS_SECRET_ACCESS_KEY - AWS IAM secret key");
+      log.error("");
+      log.error("Example:");
+      log.error("  export DNS_PRIVATE_KEY=\"your-private-key-hex\"");
+      log.error("  export DNS_DOMAIN=\"nodes.example.org\"");
+      log.error("  export AWS_ACCESS_KEY_ID=\"AKIAIOSFODNN7EXAMPLE\"");
+      log.error("  export AWS_SECRET_ACCESS_KEY=\"wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\"");
+      log.error("");
+      log.error("See docs/DNS_CONFIGURATION.md for detailed setup instructions.");
+      throw new IllegalStateException("DNS publishing configuration not found");
+    }
 
     return ExampleConfig.dnsPublish(
         dnsPrivate,
