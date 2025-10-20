@@ -192,14 +192,6 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
 
             // Remove this handler from the pipeline
             pipeline.remove(this);
-
-            InetSocketAddress remote = (InetSocketAddress) ctx.channel().remoteAddress();
-            String ip = remote != null ? remote.getAddress().getHostAddress() : null;
-            ctx.fireUserEventTriggered(new HandshakeSuccessEvent(
-                    msg,
-                    ip != null ? msg.getPeer(ip) : null,
-                    remote,
-                    isOutbound));
         }
     }
 
