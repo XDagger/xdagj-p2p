@@ -164,7 +164,6 @@ class ChannelTest {
     channel.setHandshakeMessage(handshakeMessage);
 
     // Then
-    assertEquals(handshakeMessage, channel.getHandshakeMessage());
     assertEquals(node, channel.getNode());
     assertEquals("test-node-id", channel.getNodeId());
     assertEquals(1, channel.getVersion());

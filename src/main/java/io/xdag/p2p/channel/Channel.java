@@ -73,9 +73,6 @@ public class Channel {
   /** Timestamp when the last ping was sent */
   public volatile long pingSent = System.currentTimeMillis();
 
-  /** Handshake message received from peer */
-  private HelloMessage handshakeMessage;
-
   /** Node information for the connected peer */
   private Node node;
 
@@ -201,7 +198,6 @@ public class Channel {
    * @param handshakeMessage the handshake message from the peer
    */
   public void setHandshakeMessage(HelloMessage handshakeMessage) {
-    this.handshakeMessage = handshakeMessage;
     this.node = handshakeMessage.getFrom();
     this.nodeId = node.getId();
     this.version = handshakeMessage.getVersion();
