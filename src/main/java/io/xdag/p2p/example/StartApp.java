@@ -73,9 +73,7 @@ public class StartApp {
   private String nodeId;
   private long startTime;
 
-  // TPS measurement
-  private final java.util.concurrent.atomic.AtomicLong messageCounter = new java.util.concurrent.atomic.AtomicLong(0);
-  private final java.util.concurrent.atomic.AtomicLong lastCounterSnapshot = new java.util.concurrent.atomic.AtomicLong(0);
+  // Performance tracking for interval-based TPS calculation
   private final java.util.concurrent.atomic.AtomicLong lastCounterTime = new java.util.concurrent.atomic.AtomicLong(System.currentTimeMillis());
 
   public static void main(String[] args) {
@@ -144,9 +142,7 @@ public class StartApp {
 
       @Override
       protected void onTestMessage(io.xdag.p2p.channel.Channel channel, io.xdag.p2p.example.message.TestMessage message) {
-        if (message.isNetworkTestMessage()) {
-          messageCounter.incrementAndGet();
-        } else {
+        if (!message.isNetworkTestMessage()) {
           log.info("Node {}: Received: {}", nodeId, message.getActualContent());
         }
       }
@@ -217,16 +213,11 @@ public class StartApp {
   }
 
   private void logTpsCounterStatistics() {
-    long currentCount = messageCounter.get();
     long currentTime = System.currentTimeMillis();
-    long lastCount = lastCounterSnapshot.get();
     long lastTime = lastCounterTime.get();
-
-    long messagesDelta = currentCount - lastCount;
     long timeDelta = currentTime - lastTime;
 
     if (timeDelta > 0) {
-      double intervalTps = (messagesDelta * MILLIS_PER_SECOND) / timeDelta;
       long elapsedSeconds = (currentTime - startTime) / MILLIS_PER_SECOND;
       int connections = eventHandler != null ? eventHandler.getChannels().size() : 0;
 
@@ -301,7 +292,6 @@ public class StartApp {
                String.format("%,d", appForwarded),
                String.format("%.1f", efficiency));
 
-      lastCounterSnapshot.set(currentCount);
       lastCounterTime.set(currentTime);
     }
   }
@@ -343,10 +333,11 @@ public class StartApp {
       }
     }
 
-    // Close connections
+    // Close connections and shutdown thread pools
     if (eventHandler != null) {
       try {
         eventHandler.closeAllConnections();
+        eventHandler.shutdown();  // Shutdown forward and maintenance executors
       } catch (Exception e) {
         log.warn("Error closing connections: {}", e.getMessage());
       }

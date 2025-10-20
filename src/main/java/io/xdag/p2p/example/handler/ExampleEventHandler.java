@@ -106,10 +106,10 @@ public class ExampleEventHandler extends P2pEventHandler {
   protected final com.google.common.cache.Cache<String, InetSocketAddress> messageSourceMap;
 
   // Network test statistics (counters only, no per-message storage)
+  // Note: These provide lightweight periodic logging without channel-level granularity
   protected final AtomicInteger totalReceived = new AtomicInteger(0);
   protected final AtomicInteger totalForwarded = new AtomicInteger(0);
   protected final AtomicInteger duplicatesReceived = new AtomicInteger(0);
-  protected final AtomicLong totalLatency = new AtomicLong(0);
   private final AtomicInteger uniqueMessagesCount = new AtomicInteger(0);
 
   // Stage 1.2 Optimization: Async message forwarding executor
@@ -592,42 +592,7 @@ public class ExampleEventHandler extends P2pEventHandler {
     // Override in subclasses for custom behavior
   }
 
-  /**
-   * Get network test statistics
-   *
-   * @return Statistics summary string
-   */
-  public String getNetworkTestStatistics() {
-    double avgLatency = totalReceived.get() > 0 ?
-        (double) totalLatency.get() / totalReceived.get() : 0.0;
 
-    return String.format(
-        "Node %s - Received: %d, Forwarded: %d, Duplicates: %d, AvgLatency: %.2fms, UniqueMessages: ~%d",
-        nodeId,
-        totalReceived.get(),
-        totalForwarded.get(),
-        duplicatesReceived.get(),
-        avgLatency,
-        uniqueMessagesCount.get()  // Approximate count due to Bloom Filter rotation
-    );
-  }
-
-  /**
-   * Reset network test statistics
-   */
-  public void resetNetworkTestStatistics() {
-    // Replace Bloom Filter with fresh one
-    messageDeduplicationFilter.set(createBloomFilter());
-    messageSourceMap.invalidateAll();
-
-    totalReceived.set(0);
-    totalForwarded.set(0);
-    duplicatesReceived.set(0);
-    totalLatency.set(0);
-    uniqueMessagesCount.set(0);
-
-    log.info("[{}] Stats reset", nodeId);
-  }
 
   /**
    * Shutdown executors gracefully
