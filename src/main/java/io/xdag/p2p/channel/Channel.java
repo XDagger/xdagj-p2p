@@ -59,12 +59,6 @@ public class Channel {
 
   private ChannelManager channelManager;
 
-  /** Flag indicating if a channel is waiting for a pong response */
-  public volatile boolean waitForPong = false;
-
-  /** Timestamp when the last ping was sent */
-  public volatile long pingSent = System.currentTimeMillis();
-
   /** Netty channel handler context */
   private ChannelHandlerContext ctx;
 

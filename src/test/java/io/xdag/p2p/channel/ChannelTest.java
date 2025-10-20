@@ -409,13 +409,6 @@ class ChannelTest {
   @Test
   void testGettersAndSetters() {
     // Test basic getters and setters
-    channel.setWaitForPong(true);
-    assertTrue(channel.isWaitForPong());
-
-    long pingTime = System.currentTimeMillis();
-    channel.setPingSent(pingTime);
-    assertEquals(pingTime, channel.getPingSent());
-
     long disconnectTime = System.currentTimeMillis();
     channel.setDisconnectTime(disconnectTime);
     assertEquals(disconnectTime, channel.getDisconnectTime());
