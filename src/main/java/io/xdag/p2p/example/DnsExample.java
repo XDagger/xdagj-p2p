@@ -24,14 +24,12 @@
 package io.xdag.p2p.example;
 
 import io.xdag.p2p.P2pService;
-import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.discover.dns.update.DnsType;
 import io.xdag.p2p.example.config.ExampleConfig;
 import io.xdag.p2p.example.handler.ExampleEventHandler;
 import io.xdag.p2p.example.message.TestMessage;
 import io.xdag.p2p.stats.P2pStats;
 import java.net.InetSocketAddress;
-import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
 /**

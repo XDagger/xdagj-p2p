@@ -146,11 +146,6 @@ public class StartApp {
           log.info("Node {}: Received: {}", nodeId, message.getActualContent());
         }
       }
-
-      @Override
-      protected void forwardNetworkTestMessage(io.xdag.p2p.example.message.TestMessage originalMessage, io.xdag.p2p.channel.Channel sourceChannel) {
-        super.forwardNetworkTestMessage(originalMessage, sourceChannel);
-      }
     };
   }
 
@@ -259,11 +254,8 @@ public class StartApp {
       double netSentMB = netSentBytes / (double) BYTES_PER_MB;
       double netRecvMB = netRecvBytes / (double) BYTES_PER_MB;
 
-      // Calculate TPS for both layers (based on interval)
-      double networkRecvTps = timeDelta > 0 ? ((netRecv - 0) * MILLIS_PER_SECOND) / timeDelta : 0.0;  // Will improve with delta tracking
-      double appProcessedTps = timeDelta > 0 ? ((appProcessed - 0) * MILLIS_PER_SECOND) / timeDelta : 0.0;  // Will improve with delta tracking
-
-      // For now, use cumulative average as approximation
+      // TODO: Implement interval-based TPS calculation using delta tracking
+      // Currently using cumulative average as approximation
       double networkRecvTpsAvg = elapsedSeconds > 0 ? (netRecv * 1.0) / elapsedSeconds : 0.0;
       double appProcessedTpsAvg = elapsedSeconds > 0 ? (appProcessed * 1.0) / elapsedSeconds : 0.0;
 
