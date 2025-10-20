@@ -3,8 +3,8 @@
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://openjdk.java.net/)
 [![Maven](https://img.shields.io/badge/Maven-3.6+-blue.svg)](https://maven.apache.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-503%20Total-brightgreen.svg)](#testing)
-[![Coverage](https://img.shields.io/badge/Coverage-67%25-yellow.svg)](#testing)
+[![Tests](https://img.shields.io/badge/Tests-462%20Total-brightgreen.svg)](#testing)
+[![Coverage](https://img.shields.io/badge/Coverage-66%25-yellow.svg)](#testing)
 
 > **🚀 Powering the Future of XDAG Network**
 > *Next-generation P2P networking library designed to make XDAG blockchain faster, stronger, and more decentralized*
@@ -34,8 +34,8 @@ XDAGJ-P2P is an innovative peer-to-peer networking library designed specifically
   - Removed unused utility methods and constants
   - Simplified statistics system (5 classes → 1 class, -72% code)
   - Removed BanReason enum (15 values → simple duration-based system)
-- **Added 34 new comprehensive tests** (503 total, all passing)
-- **Overall coverage improved**: 62.9% → 66.7%
+- **Added 34 new comprehensive tests** (462 total, all passing)
+- **Overall coverage improved**: 62.9% → 66%
 - **Zero external monitoring dependencies** (removed Prometheus)
 
 See [CHANGELOG.md](CHANGELOG.md) for complete release notes.
@@ -60,7 +60,7 @@ Core:        Java 21 + Netty 4.2.1
 Protocol:    Kademlia DHT + EIP-1459 DNS
 Serialization: Custom SimpleCodec (high-performance binary encoding)
 Crypto:      Hyperledger Besu + BouncyCastle 1.80
-Testing:     JUnit 5.12.2 + Mockito 5.12.0 + 503 tests
+Testing:     JUnit 5.12.2 + Mockito 5.12.0 + 462 tests
 Build:       Maven + JaCoCo
 ```
 
@@ -71,7 +71,7 @@ Build:       Maven + JaCoCo
 Kademlia DHT:       160-bit Node ID (XDAG address)
 Netty Powered:      Async I/O + Zero-copy
 EIP-1459 DNS:       Reliable fallback protocol
-Quality Focus:      503 comprehensive tests
+Quality Focus:      462 comprehensive tests
 Node Reputation:    Persistent scoring system
 Ban Management:     Graduated ban durations with whitelist
 LayeredStats:       Network & application layer metrics
@@ -102,7 +102,7 @@ Packet Processing:  ConsenSys Tuweni 2.7.0
 Cryptography:       Hyperledger Besu 25.5.0
 Crypto Provider:    BouncyCastle 1.80
 Cloud DNS:          AWS Route53 2.31.52
-Testing Framework:  JUnit 5.12.2 + 503 tests
+Testing Framework:  JUnit 5.12.2 + 462 tests
 ```
 
 ## ⚡ Performance Features
@@ -385,7 +385,7 @@ XDAGJ-P2P delivers **production-ready performance** with comprehensive benchmark
 
 ### 🧪 **Test Suite Overview**
 
-- **503 Unit Tests**: Comprehensive coverage with 66% code coverage
+- **462 Unit Tests**: Comprehensive coverage with 66% instruction coverage
 - **Integration Tests**: End-to-end network scenarios
 - **Performance Tests**: Real-world benchmarks with million+ ops/sec
 - **Stress Tests**: High-load and failure scenarios
@@ -395,25 +395,25 @@ XDAGJ-P2P delivers **production-ready performance** with comprehensive benchmark
 
 ```
 📈 Coverage Metrics (Latest Report):
-  Instructions:    67% (11,161 / 16,770)
-  Branches:        53% (755 / 1,425)
-  Lines:           68% (2,599 / 3,861)
-  Methods:         74% (463 / 623)
-  Classes:         93% (85 / 91)
+  Instructions:    66% (10,369 / 15,630)
+  Branches:        52% (721 / 1,373)
+  Lines:           66% (2,422 / 3,633)
+  Methods:         73% (429 / 581)
+  Classes:         95% (81 / 85)
 
 🚀 Test Execution:
-  Total Tests:     503 test cases
+  Total Tests:     462 test cases
   Success Rate:    100% pass rate
-  Execution Time:  ~20 seconds
+  Execution Time:  ~18 seconds
   Stability:       Zero flaky tests
 
 🎯 Module Coverage Highlights:
   Core Messaging:  100% (message.discover)
-  Handler Node:    89% (handler.node)
-  Channel Module:  88% (channel.XdagMessageHandler)
+  Handler Node:    100% (handler.node)
+  Channel Module:  75% (channel)
   Configuration:   95% (config)
   DNS Discovery:   94% (discover.dns)
-  Utilities:       89% (utils)
+  Utilities:       84% (utils)
 ```
 
 ### 🎯 **Professional Network Testing**
@@ -492,7 +492,7 @@ Latest performance test results (Apple M-series, Java 21):
 ### 🏃 **Running Tests**
 
 ```bash
-# Unit and integration tests (503 test cases)
+# Unit and integration tests (462 test cases)
 mvn test
 
 # Generate coverage report
@@ -556,7 +556,7 @@ After running tests, you can view detailed results:
 - **🔍 Coverage Reports**: JaCoCo HTML reports in `target/site/jacoco/`
 
 ```bash
-# View unit test output (503 tests)
+# View unit test output (462 tests)
 mvn test
 
 # Generate and view coverage report

@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Unifies identity system: Node ID = XDAG address
   - Updated JavaDoc comments in `Node.java` and `P2pConfig.java` to reflect new format
   - Updated all test files to use 20-byte random IDs instead of 64-byte
-  - All 503 tests passing with 66% instruction coverage maintained
+  - All 462 tests passing with 66% instruction coverage maintained
 
 ### Added
 - Reputation system persistence with automatic saves and backups
@@ -87,10 +87,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **All methods covered**: 100% (3/3 methods)
 
 ### Changed (Test Metrics)
-- Test count: 469 tests → 487 tests → **503 tests** (+34 tests total)
-- Overall instruction coverage: 62.9% → 65.6% → **66.7%** (+3.8%)
-- Overall branch coverage: 49.1% → 52.2% → **53.2%** (+4.1%)
-- Overall line coverage: 64.2% → 66.5% → **68.1%** (+3.9%)
+- Test count: 469 tests → 487 tests → **462 tests** (removed obsolete tests, all passing)
+- Overall instruction coverage: 62.9% → 65.6% → **66%** (+3.1%)
+- Overall branch coverage: 49.1% → 52.2% → **52%** (+2.9%)
+- Overall line coverage: 64.2% → 66.5% → **66.7%** (+2.5%)
 - **XdagMessageHandler**: 5.8% → **88.9%** instruction coverage (15x improvement!)
 - **P2pPacketDecoder**: 6.6% → **57.2%** instruction coverage (8.7x improvement!)
 - All tests passing with comprehensive handler and decoder testing
@@ -131,7 +131,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **DnsManager** (146 lines) - Manager class never instantiated
 - **UnknownMessage** (48 lines) - Message class never instantiated
 - Total cleanup: **Multiple commits removing 2,277+ lines following YAGNI and extreme simplicity principles**
-- All 503 tests continue passing with 66.7% coverage maintained
+- All 462 tests continue passing with 66% coverage maintained
 
 ### Planned
 - Improve test coverage for channel module (currently 53.5%)
