@@ -7,26 +7,23 @@
   - [ ] Re-enable and update channel module tests (11 test files)
   - [ ] Re-enable and update handler/node module tests (4 test files)
   - [ ] Re-enable and update performance tests (P2pPerformanceTest)
-  - [ ] Target: Increase coverage from 71% to 80%+
+  - [ ] Target: Increase coverage from 66.7% to 80%+
 
-- [ ] **Reputation System Enhancement**
-  - [ ] Add reputation persistence (save/load from disk)
-  - [ ] Implement reputation decay over time
+- [x] **Reputation System Enhancement** ✅ Completed in v0.1.2
+  - [x] Add reputation persistence (save/load from disk)
+  - [x] Implement reputation decay over time
   - [ ] Add reputation boost for long-lived connections
   - [ ] Configurable reputation thresholds
 
-- [ ] **Ban System Enhancement**
-  - [ ] Add ban reason codes
-  - [ ] Implement graduated ban durations
-  - [ ] Add whitelist for trusted nodes
-  - [ ] Ban statistics and reporting API
+- [x] **Ban System Enhancement** ✅ Completed in v0.1.2 (Simplified)
+  - [x] Implement graduated ban durations
+  - [x] Add whitelist for trusted nodes
+  - Note: Simplified to duration-based system (removed BanReason enum following extreme simplicity principles)
 
 ### Medium Priority
-- [ ] **Metrics & Monitoring**
-  - [ ] Add Prometheus metrics export
-  - [ ] Connection pool metrics
-  - [ ] Message throughput metrics
-  - [ ] Node reputation histograms
+- [x] **Metrics & Monitoring** ✅ Completed in v0.1.2 (Simplified)
+  - [x] LayeredStats for network and application layer metrics
+  - Note: Prometheus metrics removed following extreme simplicity principles (zero external dependencies)
 
 - [ ] **Connection Management**
   - [ ] Implement connection quality scoring
@@ -115,4 +112,4 @@ We welcome community input on our roadmap! Please:
 
 ---
 
-Last Updated: 2025-10-13
+Last Updated: 2025-10-20
