@@ -105,12 +105,23 @@ public class ExampleEventHandler extends P2pEventHandler {
   // Much better than manual cleanup which causes message loops
   protected final com.google.common.cache.Cache<String, InetSocketAddress> messageSourceMap;
 
-  // Network test statistics (counters only, no per-message storage)
-  // Note: These provide lightweight periodic logging without channel-level granularity
-  protected final AtomicInteger totalReceived = new AtomicInteger(0);
-  protected final AtomicInteger totalForwarded = new AtomicInteger(0);
-  protected final AtomicInteger duplicatesReceived = new AtomicInteger(0);
-  private final AtomicInteger uniqueMessagesCount = new AtomicInteger(0);
+  /**
+   * Handler-level statistics for internal monitoring
+   *
+   * IMPORTANT: These are global counters at the handler level, NOT per-channel.
+   * They track messages AFTER Bloom Filter deduplication.
+   * For detailed per-channel network statistics, use channel.getLayeredStats().
+   *
+   * Semantics:
+   * - handlerUniqueReceived: Total unique messages after Bloom Filter deduplication (cumulative)
+   * - handlerDuplicates: Total duplicate messages caught by Bloom Filter (cumulative)
+   * - handlerForwarded: Total messages forwarded to peers (cumulative)
+   * - handlerUniqueSinceRotation: Unique messages since last Bloom Filter rotation (reset every 2min)
+   */
+  protected final AtomicInteger handlerUniqueReceived = new AtomicInteger(0);
+  protected final AtomicInteger handlerForwarded = new AtomicInteger(0);
+  protected final AtomicInteger handlerDuplicates = new AtomicInteger(0);
+  private final AtomicInteger handlerUniqueSinceRotation = new AtomicInteger(0);
 
   // Stage 1.2 Optimization: Async message forwarding executor
   // Dedicated thread pool for message forwarding to avoid blocking EventLoop
@@ -361,7 +372,7 @@ public class ExampleEventHandler extends P2pEventHandler {
         // Likely duplicate - increment counter and track in application layer
         // Note: 1% false positive rate means 1% of unique messages will be incorrectly dropped
         // This is acceptable for high-TPS testing scenarios
-        duplicatesReceived.incrementAndGet();
+        handlerDuplicates.incrementAndGet();
 
         // Track duplicate in application layer stats
         if (channel.getLayeredStats() != null) {
@@ -373,10 +384,10 @@ public class ExampleEventHandler extends P2pEventHandler {
 
       // New unique message - add to Bloom Filter
       filter.put(messageId);
-      uniqueMessagesCount.incrementAndGet();
+      handlerUniqueSinceRotation.incrementAndGet();
 
       // FAST OPERATION 2: Update statistics (atomic operations are fast)
-      totalReceived.incrementAndGet();
+      handlerUniqueReceived.incrementAndGet();
 
       // Track application layer processing (unique message)
       if (channel.getLayeredStats() != null) {
@@ -429,7 +440,7 @@ public class ExampleEventHandler extends P2pEventHandler {
         List<Channel> targetChannels = selectForwardTargets(sourceAddress);
 
         if (!targetChannels.isEmpty()) {
-          totalForwarded.incrementAndGet();
+          handlerForwarded.incrementAndGet();
 
           // Track application layer forwarding
           if (sourceChannel != null && sourceChannel.getLayeredStats() != null) {
@@ -531,9 +542,9 @@ public class ExampleEventHandler extends P2pEventHandler {
       BloomFilter<String> newFilter = createBloomFilter();
       BloomFilter<String> oldFilter = messageDeduplicationFilter.getAndSet(newFilter);
 
-      int oldUniqueCount = uniqueMessagesCount.getAndSet(0);
+      int oldUniqueCount = handlerUniqueSinceRotation.getAndSet(0);
 
-      log.info("[{}] Bloom Filter rotated: ~{} unique messages, Cache: {} entries",
+      log.info("[{}] Bloom Filter rotated: ~{} unique messages since last rotation, Cache: {} entries",
                nodeId, oldUniqueCount, messageSourceMap.size());
 
       // Help GC by explicitly nullifying old filter reference
@@ -552,12 +563,12 @@ public class ExampleEventHandler extends P2pEventHandler {
       long cacheSize = messageSourceMap.size();
       com.google.common.cache.CacheStats stats = messageSourceMap.stats();
 
-      log.info("[{}] Unique: {} | Duplicates: {} | Total: {} | Forwarded: {} | Cache: {}",
+      log.info("[{}] Handler Stats - Unique: {} | Duplicates: {} | Total: {} | Forwarded: {} | Cache: {}",
                nodeId,
-               uniqueMessagesCount.get(),
-               duplicatesReceived.get(),
-               totalReceived.get(),
-               totalForwarded.get(),
+               handlerUniqueSinceRotation.get(),
+               handlerDuplicates.get(),
+               handlerUniqueReceived.get(),
+               handlerForwarded.get(),
                cacheSize);
     } catch (Exception e) {
       log.error("Error logging periodic stats: {}", e.getMessage());
