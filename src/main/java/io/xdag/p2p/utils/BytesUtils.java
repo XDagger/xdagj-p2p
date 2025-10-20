@@ -23,7 +23,6 @@
  */
 package io.xdag.p2p.utils;
 
-import io.netty.buffer.ByteBuf;
 import java.nio.charset.StandardCharsets;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.tuweni.bytes.Bytes;
@@ -41,16 +40,6 @@ public class BytesUtils {
   }
 
   /**
-   * Wrap the byte array into the Tuweni Bytes object.
-   *
-   * @param bytes the byte array to wrap
-   * @return Tuweni Bytes object
-   */
-  public static Bytes wrap(byte[] bytes) {
-    return bytes == null ? Bytes.EMPTY : Bytes.wrap(bytes);
-  }
-
-  /**
    * Convert string to Tuweni Bytes using UTF-8 encoding
    *
    * @param str the string to convert
@@ -58,22 +47,6 @@ public class BytesUtils {
    */
   public static Bytes fromString(String str) {
     return str == null ? Bytes.EMPTY : Bytes.wrap(str.getBytes(StandardCharsets.UTF_8));
-  }
-
-  /**
-   * Slice bytes from start to end (exclusive)
-   *
-   * @param bytes the source Bytes to slice from
-   * @param start starting index (inclusive)
-   * @param end ending index (exclusive)
-   * @return sliced Bytes object
-   */
-  public static Bytes slice(Bytes bytes, int start, int end) {
-    if (bytes == null || start < 0 || end <= start || start >= bytes.size()) {
-      return Bytes.EMPTY;
-    }
-    int actualEnd = Math.min(end, bytes.size());
-    return bytes.slice(start, actualEnd - start);
   }
 
   /**
@@ -95,7 +68,7 @@ public class BytesUtils {
    *
    * @param bytes the source Bytes object
    * @param n number of bytes to skip from the beginning
-   * @return Bytes' object containing the remaining bytes after skipping
+   * @return Bytes object containing the remaining bytes after skipping
    */
   public static Bytes skip(Bytes bytes, int n) {
     if (bytes == null || n <= 0) {
@@ -105,19 +78,6 @@ public class BytesUtils {
       return Bytes.EMPTY;
     }
     return bytes.slice(n);
-  }
-
-  /**
-   * Check if two Bytes are equal
-   *
-   * @param a first Bytes object to compare
-   * @param b second Bytes object to compare
-   * @return true if both Bytes objects are equal, false otherwise
-   */
-  public static boolean equals(Bytes a, Bytes b) {
-    if (a == null && b == null) return true;
-    if (a == null || b == null) return false;
-    return a.equals(b);
   }
 
   /**
@@ -194,37 +154,6 @@ public class BytesUtils {
       }
     }
     return leadingZeros;
-  }
-
-  /** Efficiently extract bytes from ByteBuf using Tuweni Bytes */
-  public static Bytes extractBytesFromByteBuf(ByteBuf buffer) {
-    int readableBytes = buffer.readableBytes();
-    if (readableBytes == 0) {
-      return Bytes.EMPTY;
-    }
-
-    if (buffer.hasArray()) {
-      // If ByteBuf has a backing array, wrap it efficiently without copying
-      byte[] array = buffer.array();
-      int offset = buffer.arrayOffset() + buffer.readerIndex();
-      buffer.readerIndex(buffer.readerIndex() + readableBytes); // Update reader index
-      return Bytes.wrap(array, offset, readableBytes);
-    } else {
-      // Fallback: copy data if no backing array
-      byte[] data = new byte[readableBytes];
-      buffer.readBytes(data);
-      return Bytes.wrap(data);
-    }
-  }
-
-  /**
-   * Get string data from bytes data using Tuweni.
-   *
-   * @param b the byte array to convert
-   * @return string representation or null if bytes are empty
-   */
-  public static String toStr(byte[] b) {
-    return (b == null || b.length == 0) ? null : new String(b);
   }
 
   /**

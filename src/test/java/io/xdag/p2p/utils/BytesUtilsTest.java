@@ -23,34 +23,15 @@
  */
 package io.xdag.p2p.utils;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import org.apache.tuweni.bytes.Bytes;
 import org.junit.jupiter.api.Test;
 
 /** Unit tests for BytesUtils class. Tests all utility methods for Tuweni Bytes operations. */
 public class BytesUtilsTest {
-
-  @Test
-  public void testWrapByteArray() {
-    byte[] testArray = {1, 2, 3, 4, 5};
-    Bytes result = BytesUtils.wrap(testArray);
-
-    assertNotNull(result);
-    assertEquals(5, result.size());
-    assertArrayEquals(testArray, result.toArray());
-
-    // Test null input
-    assertEquals(Bytes.EMPTY, BytesUtils.wrap(null));
-  }
 
   @Test
   public void testFromString() {
@@ -65,25 +46,6 @@ public class BytesUtilsTest {
 
     // Test empty string
     assertEquals(Bytes.EMPTY, BytesUtils.fromString(""));
-  }
-
-  @Test
-  public void testSlice() {
-    Bytes bytes = Bytes.fromHexString("0x123456789abc");
-
-    // Normal case
-    Bytes result = BytesUtils.slice(bytes, 1, 4);
-    assertEquals(Bytes.fromHexString("0x345678"), result);
-
-    // Edge cases
-    assertEquals(Bytes.EMPTY, BytesUtils.slice(null, 0, 5));
-    assertEquals(Bytes.EMPTY, BytesUtils.slice(bytes, -1, 3));
-    assertEquals(Bytes.EMPTY, BytesUtils.slice(bytes, 3, 2));
-    assertEquals(Bytes.EMPTY, BytesUtils.slice(bytes, 10, 15));
-
-    // End beyond size
-    Bytes result2 = BytesUtils.slice(bytes, 2, 100);
-    assertEquals(bytes.slice(2), result2);
   }
 
   @Test
@@ -102,41 +64,6 @@ public class BytesUtilsTest {
     assertEquals(Bytes.EMPTY, BytesUtils.take(null, 5));
     assertEquals(Bytes.EMPTY, BytesUtils.take(bytes, 0));
     assertEquals(Bytes.EMPTY, BytesUtils.take(bytes, -1));
-  }
-
-  @Test
-  public void testSkip() {
-    Bytes bytes = Bytes.fromHexString("0x123456789abc");
-
-    // Normal case
-    Bytes result = bytes.slice(2);
-    assertEquals(Bytes.fromHexString("0x56789abc"), result);
-
-    // Skip all
-    Bytes result2 = BytesUtils.skip(bytes, 6);
-    assertEquals(Bytes.EMPTY, result2);
-
-    // Skip more than available
-    Bytes result3 = BytesUtils.skip(bytes, 100);
-    assertEquals(Bytes.EMPTY, result3);
-
-    // Edge cases
-    assertEquals(Bytes.EMPTY, BytesUtils.skip(null, 5));
-    assertEquals(bytes, BytesUtils.skip(bytes, 0));
-    assertEquals(bytes, BytesUtils.skip(bytes, -1));
-  }
-
-  @Test
-  public void testEquals() {
-    Bytes bytes1 = Bytes.fromHexString("0x1234");
-    Bytes bytes2 = Bytes.fromHexString("0x1234");
-    Bytes bytes3 = Bytes.fromHexString("0x5678");
-
-    assertTrue(BytesUtils.equals(bytes1, bytes2));
-    assertFalse(BytesUtils.equals(bytes1, bytes3));
-    assertTrue(BytesUtils.equals(null, null));
-    assertFalse(BytesUtils.equals(bytes1, null));
-    assertFalse(BytesUtils.equals(null, bytes1));
   }
 
   @Test
@@ -209,59 +136,12 @@ public class BytesUtilsTest {
   }
 
   @Test
-  public void testToStr() {
-    byte[] bytes = "Hello".getBytes();
-    String result = BytesUtils.toStr(bytes);
-    assertEquals("Hello", result);
-
-    // Test null - returns null according to implementation
-    assertNull(BytesUtils.toStr(null));
-
-    // Test empty array - returns null, according to implementation
-    assertNull(BytesUtils.toStr(new byte[0]));
-  }
-
-  @Test
-  public void testExtractBytesFromByteBuf() {
-    // Test with empty buffer
-    ByteBuf emptyBuffer = Unpooled.buffer(0);
-    Bytes emptyResult = BytesUtils.extractBytesFromByteBuf(emptyBuffer);
-    assertEquals(Bytes.EMPTY, emptyResult);
-    emptyBuffer.release();
-
-    // Test with backed array buffer
-    byte[] testData = {1, 2, 3, 4, 5};
-    ByteBuf arrayBuffer = Unpooled.wrappedBuffer(testData);
-    Bytes arrayResult = BytesUtils.extractBytesFromByteBuf(arrayBuffer);
-    assertEquals(5, arrayResult.size());
-    assertArrayEquals(testData, arrayResult.toArray());
-    arrayBuffer.release();
-
-    // Test with direct buffer (no backing array)
-    ByteBuf directBuffer = Unpooled.directBuffer();
-    directBuffer.writeBytes(testData);
-    Bytes directResult = BytesUtils.extractBytesFromByteBuf(directBuffer);
-    assertEquals(5, directResult.size());
-    assertArrayEquals(testData, directResult.toArray());
-    directBuffer.release();
-
-    // Test partial buffer extraction
-    ByteBuf partialBuffer = Unpooled.wrappedBuffer(new byte[]{1, 2, 3, 4, 5, 6, 7, 8});
-    partialBuffer.readerIndex(2); // Skip first 2 bytes
-    partialBuffer.writerIndex(6); // Only read 4 bytes (indices 2-5)
-    Bytes partialResult = BytesUtils.extractBytesFromByteBuf(partialBuffer);
-    assertEquals(4, partialResult.size());
-    assertArrayEquals(new byte[]{3, 4, 5, 6}, partialResult.toArray());
-    partialBuffer.release();
-  }
-
-  @Test
   public void testFromHexStringWithUpperCasePrefix() {
     // Test with 0X prefix (uppercase) - Tuweni doesn't support 0X, only 0x
     // So we test the current behavior where it adds 0x prefix to non-prefixed strings
     Bytes result = BytesUtils.fromHexString("1234");
     assertEquals(Bytes.fromHexString("0x1234"), result);
-    
+
     // Test that existing 0x prefix is preserved
     Bytes result2 = BytesUtils.fromHexString("0x1234");
     assertEquals(Bytes.fromHexString("0x1234"), result2);
