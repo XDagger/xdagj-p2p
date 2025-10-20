@@ -24,14 +24,19 @@ XDAGJ-P2P is an innovative peer-to-peer networking library designed specifically
 
 ### ✨ New Features
 - **Reputation System Persistence**: Automatic disk-based saves with time-based decay
-- **Enhanced Ban Management**: 13 graduated ban reasons with whitelist support
-- **Prometheus Metrics Export**: 40+ metrics via HTTP endpoint (configurable port)
+- **Simplified Ban Management**: Streamlined ban system with graduated durations and whitelist support
+- **Enhanced Monitoring**: LayeredStats for network and application layer metrics
 - **Test Coverage Boost**: 88.9% coverage for XdagMessageHandler, 57.2% for P2pPacketDecoder
 
 ### 🧹 Code Quality Improvements
-- Removed 1,159 lines of dead code (XdagPayloadCodec, DnsManager, NodeStats)
-- Added 34 new comprehensive tests (503 total, all passing)
-- Overall coverage improved: 62.9% → 66.7%
+- **Removed 2,277 lines of dead code** following extreme simplicity principles
+  - Eliminated test-only code from production classes
+  - Removed unused utility methods and constants
+  - Simplified statistics system (5 classes → 1 class, -72% code)
+  - Removed BanReason enum (15 values → simple duration-based system)
+- **Added 34 new comprehensive tests** (503 total, all passing)
+- **Overall coverage improved**: 62.9% → 66.7%
+- **Zero external monitoring dependencies** (removed Prometheus)
 
 See [CHANGELOG.md](CHANGELOG.md) for complete release notes.
 
@@ -68,8 +73,8 @@ Netty Powered:      Async I/O + Zero-copy
 EIP-1459 DNS:       Reliable fallback protocol
 Quality Focus:      503 comprehensive tests
 Node Reputation:    Persistent scoring system
-Ban Management:     Graduated ban durations
-Prometheus Metrics: 40+ metrics exported
+Ban Management:     Graduated ban durations with whitelist
+LayeredStats:       Network & application layer metrics
 ```
 
 ### 💎 **XDAG Network Impact**

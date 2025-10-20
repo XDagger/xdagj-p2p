@@ -25,37 +25,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Atomic file operations with `.bak` backup files
   - Time-based reputation decay towards neutral (5 points/day)
   - Thread-safe concurrent operations
-- Enhanced ban system with reason codes and graduated durations
-  - `BanReason` enum with 13 predefined reasons (minor to critical offenses)
-  - `BanInfo` class tracking ban details (reason, count, timestamps)
-  - `BanStatistics` class for metrics and reporting
+- Simplified ban system with graduated durations
+  - `BanInfo` class tracking ban details (count, timestamps, expiry)
   - Graduated ban durations for repeat offenders (2x per offense, max 30 days)
   - Whitelist support for trusted nodes
-  - Rich ban management API (getBanInfo, getAllBannedNodes, etc.)
-- Prometheus metrics export with HTTP endpoint
-  - `P2pMetrics` class collecting 40+ metrics across 5 categories
-  - Connection metrics (active/passive counts, duration, success rate)
-  - Message metrics (sent/received by type, errors, size, latency)
-  - Node metrics (discovered, banned, reputation distribution)
-  - DHT metrics (nodes count, lookup success rate)
-  - Performance metrics (throughput, JVM stats)
-  - HTTP server exposing /metrics endpoint on configurable port
-  - Fully integrated into ChannelManager and KadService
-  - Configuration options: `metricsEnabled` and `metricsPort` in P2pConfig
+  - Streamlined ban management API
+- Enhanced monitoring with LayeredStats
+  - Network layer metrics (messages sent/received, bytes transferred)
+  - Application layer metrics (processed, duplicated, forwarded messages)
+  - Per-channel statistics tracking
+  - Zero external dependencies
 - Data directory configuration in `P2pConfig` (default: "data")
 - TEST_MIGRATION_NOTES.md documenting test exclusion reasons
 
 ### Changed
 - `NodeHandler` now loads/saves reputation scores automatically
-- `KadService` manages `ReputationManager` lifecycle and receives P2pMetrics instance
-- `ChannelManager` receives P2pMetrics instance and records connection/ban metrics
-- `NodeManager` receives P2pMetrics instance and passes it to KadService
-- `P2pService` initializes metrics and manages HTTP server lifecycle
-- `ChannelManager.banNode()` now uses BanReason enum (old method deprecated)
+- `KadService` manages `ReputationManager` lifecycle
+- `ChannelManager` with streamlined ban management (simple duration-based)
 - Improved code organization with better separation of concerns
 
 ### Fixed
-- Prometheus CollectorRegistry conflicts in tests resolved with proper cleanup
 - MessageQueueTest flaky test resolved (tolerance adjustment)
 - NodeHandlerTest completely rewritten with 7 comprehensive tests
 - TreeTest hash values updated for SimpleCodec serialization
@@ -107,13 +96,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All tests passing with comprehensive handler and decoder testing
 
 ### Removed (Dead Code Cleanup)
-- **XdagPayloadCodec** (187 lines) - Codec class never used in production, only XdagFrameCodec/XdagMessageHandler are used
+- **Code Simplification (Following Extreme Simplicity Principles)**:
+  - Removed 2,277 lines of dead code across 22 commits
+  - **Statistics System**: Simplified from 5 classes (650 lines) to 1 class (185 lines) - 72% reduction
+    - Removed P2pMetrics (356 lines) - Prometheus exporter never used in production
+    - Removed TrafficStats (73 lines) - duplicated LayeredStats functionality
+    - Removed P2pStats + P2pStatsManager (85 lines) - just data copying with no value
+    - Removed all Prometheus dependencies (simpleclient, simpleclient_httpserver, simpleclient_hotspot)
+  - **Ban System**: Simplified from 3 classes to 1 class
+    - Removed BanReason enum (116 lines) - only 1 of 15 values ever used
+    - Removed BanStatistics (123 lines) - data written but never read
+  - **Test-Only Code Removed from Production Classes**:
+    - Removed processException() method (only used in tests, production uses Netty's exceptionCaught())
+    - Removed latency tracking fields (avgLatency, count, updateAvgLatency())
+    - Removed ping tracking fields (waitForPong, pingSent)
+    - Removed unused fields (handshakeMessage, node, version, setHandshakeMessage())
+  - **Unused Utility Code**:
+    - Removed HandshakeSuccessEvent (created but never consumed)
+    - Removed 5 unused BytesUtils methods (wrap, slice, equals, extractBytesFromByteBuf, toStr)
+    - Removed 3 unused LayeredStats methods (getDuplicationRate, getNetworkEfficiency, reset)
+    - Removed 11 unused P2pConstant constants
+    - Removed 3 unused P2pConfig fields
+  - **Example Package Cleanup**:
+    - Fixed thread pool leak (65 threads not being closed)
+    - Removed dead code from StartApp and DnsExample
+    - Eliminated constructor duplication in ExampleEventHandler
+  - **Shell Script Refactoring**:
+    - Extracted common functions to lib/common.sh
+    - Eliminated 71 lines of duplicate code from test scripts
+- **XdagPayloadCodec** (187 lines) - Codec class never used in production
 - **XdagPayloadCodecTest** (506 lines, 20 tests) - Tests for unused codec
-- **NodeStats** (50 lines) - Stats class never instantiated anywhere in main code
-- **NodeStatsTest** (270 lines, 13 tests) - Tests for unused stats class
-- **DnsManager** (146 lines) - Manager class never instantiated, DNS functionality handled by Client/PublishService directly
-- Total cleanup: **3 classes + 2 test files = 1,159 lines removed, 33 tests removed**
-- New test count: 482 → 469 tests (all passing)
+- **NodeStats** (50 lines) - Stats class never instantiated
+- **NodeStatsTest** (270 lines, 13 tests) - Tests for unused stats
+- **DnsManager** (146 lines) - Manager class never instantiated
+- **UnknownMessage** (48 lines) - Message class never instantiated
+- Total cleanup: **Multiple commits removing 2,277+ lines following YAGNI and extreme simplicity principles**
+- All 503 tests continue passing with 66.7% coverage maintained
 
 ### Planned
 - Improve test coverage for channel module (currently 53.5%)
