@@ -91,14 +91,13 @@ public class ChannelManagerTest {
     assertNull(channelManager.getBanInfo(address));
 
     // Ban the node
-    channelManager.banNode(address, BanReason.PROTOCOL_VIOLATION);
+    channelManager.banNode(address, 10000L);
 
     // Now should be banned
     assertTrue(channelManager.isBanned(address));
     assertNotNull(channelManager.getBanInfo(address));
 
     BanInfo banInfo = channelManager.getBanInfo(address);
-    assertEquals(BanReason.PROTOCOL_VIOLATION, banInfo.reason());
     assertEquals(1, banInfo.banCount());
   }
 
@@ -107,12 +106,11 @@ public class ChannelManagerTest {
     InetAddress address = a1.getAddress();
     long customDuration = 5000; // 5 seconds
 
-    channelManager.banNode(address, BanReason.MALICIOUS_BEHAVIOR, customDuration);
+    channelManager.banNode(address, customDuration);
 
     assertTrue(channelManager.isBanned(address));
     BanInfo banInfo = channelManager.getBanInfo(address);
     assertNotNull(banInfo);
-    assertEquals(BanReason.MALICIOUS_BEHAVIOR, banInfo.reason());
   }
 
   @Test
@@ -120,7 +118,7 @@ public class ChannelManagerTest {
     InetAddress address = a1.getAddress();
 
     // Ban the node
-    channelManager.banNode(address, BanReason.PROTOCOL_VIOLATION);
+    channelManager.banNode(address, 10000L);
     assertTrue(channelManager.isBanned(address));
 
     // Unban the node
@@ -138,7 +136,7 @@ public class ChannelManagerTest {
     assertTrue(channelManager.isWhitelisted(address));
 
     // Try to ban whitelisted node - should be ignored
-    channelManager.banNode(address, BanReason.PROTOCOL_VIOLATION);
+    channelManager.banNode(address, 10000L);
     assertFalse(channelManager.isBanned(address));
 
     // Remove from whitelist
@@ -146,7 +144,7 @@ public class ChannelManagerTest {
     assertFalse(channelManager.isWhitelisted(address));
 
     // Now ban should work
-    channelManager.banNode(address, BanReason.PROTOCOL_VIOLATION);
+    channelManager.banNode(address, 10000L);
     assertTrue(channelManager.isBanned(address));
   }
 
@@ -155,13 +153,13 @@ public class ChannelManagerTest {
     InetAddress address = a1.getAddress();
 
     // First ban
-    channelManager.banNode(address, BanReason.PROTOCOL_VIOLATION);
+    channelManager.banNode(address, 10000L);
     BanInfo banInfo1 = channelManager.getBanInfo(address);
     assertEquals(1, banInfo1.banCount());
 
     // Unban and ban again - count should increase
     channelManager.unbanNode(address);
-    channelManager.banNode(address, BanReason.PROTOCOL_VIOLATION);
+    channelManager.banNode(address, 10000L);
     BanInfo banInfo2 = channelManager.getBanInfo(address);
     assertEquals(2, banInfo2.banCount());
   }
@@ -173,8 +171,8 @@ public class ChannelManagerTest {
 
     assertEquals(0, channelManager.getAllBannedNodes().size());
 
-    channelManager.banNode(address1, BanReason.PROTOCOL_VIOLATION);
-    channelManager.banNode(address2, BanReason.MALICIOUS_BEHAVIOR);
+    channelManager.banNode(address1, 10000L);
+    channelManager.banNode(address2, 10000L);
 
     assertEquals(2, channelManager.getAllBannedNodes().size());
     assertEquals(2, channelManager.getBannedNodeCount());
@@ -278,7 +276,7 @@ public class ChannelManagerTest {
     InetAddress address = a1.getAddress();
 
     // Ban with very short duration (100ms)
-    channelManager.banNode(address, BanReason.PROTOCOL_VIOLATION, 100);
+    channelManager.banNode(address, 100);
     assertTrue(channelManager.isBanned(address));
 
     // Wait for ban to expire
@@ -293,7 +291,7 @@ public class ChannelManagerTest {
     InetAddress address = a1.getAddress();
 
     // Ban first, then whitelist
-    channelManager.banNode(address, BanReason.PROTOCOL_VIOLATION);
+    channelManager.banNode(address, 10000L);
     assertTrue(channelManager.isBanned(address));
 
     // Adding to whitelist should unban
@@ -365,7 +363,7 @@ public class ChannelManagerTest {
   @Test
   public void testBanNodeWithNullAddress() {
     // Should not throw exception
-    channelManager.banNode(null, BanReason.PROTOCOL_VIOLATION);
+    channelManager.banNode(null, 10000L);
     assertEquals(0, channelManager.getBannedNodeCount());
   }
 
@@ -374,7 +372,7 @@ public class ChannelManagerTest {
     InetAddress address = a1.getAddress();
 
     // Ban with zero duration should be ignored
-    channelManager.banNode(address, BanReason.PROTOCOL_VIOLATION, 0);
+    channelManager.banNode(address, 0);
     assertFalse(channelManager.isBanned(address));
     assertEquals(0, channelManager.getBannedNodeCount());
   }
@@ -384,7 +382,7 @@ public class ChannelManagerTest {
     InetAddress address = a1.getAddress();
 
     // Ban with negative duration should be ignored
-    channelManager.banNode(address, BanReason.PROTOCOL_VIOLATION, -1000);
+    channelManager.banNode(address, -1000);
     assertFalse(channelManager.isBanned(address));
     assertEquals(0, channelManager.getBannedNodeCount());
   }
@@ -442,7 +440,7 @@ public class ChannelManagerTest {
     assertEquals(1, channelManager.getChannels().size());
 
     // Ban the node
-    channelManager.banNode(address, BanReason.MALICIOUS_BEHAVIOR);
+    channelManager.banNode(address, 10000L);
 
     // Wait a bit for async close
     Thread.sleep(50);
@@ -458,13 +456,12 @@ public class ChannelManagerTest {
 
     // Use method with custom duration
     long customDuration = 5000;
-    channelManager.banNode(address, BanReason.MANUAL_BAN, customDuration);
+    channelManager.banNode(address, customDuration);
 
     // Should work with custom duration
     assertTrue(channelManager.isBanned(address));
     BanInfo banInfo = channelManager.getBanInfo(address);
     assertNotNull(banInfo);
-    assertEquals(BanReason.MANUAL_BAN, banInfo.reason());
   }
 
   @Test

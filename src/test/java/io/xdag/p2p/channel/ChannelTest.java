@@ -222,7 +222,7 @@ class ChannelTest {
     // Then
     assertTrue(channel.isDisconnect());
     assertTrue(channel.getDisconnectTime() > 0);
-    verify(channelManager).banNode(any(InetAddress.class), any(BanReason.class), anyLong());
+    verify(channelManager).banNode(any(InetAddress.class), anyLong());
     verify(ctx).close();
   }
 
@@ -233,11 +233,11 @@ class ChannelTest {
     long customBanTime = 5000L;
 
     // When
-    channel.close(BanReason.HANDSHAKE_TIMEOUT, customBanTime);
+    channel.close(customBanTime);
 
     // Then
     assertTrue(channel.isDisconnect());
-    verify(channelManager).banNode(any(InetAddress.class), eq(BanReason.HANDSHAKE_TIMEOUT), eq(customBanTime));
+    verify(channelManager).banNode(any(InetAddress.class), eq(customBanTime));
     verify(ctx).close();
   }
 

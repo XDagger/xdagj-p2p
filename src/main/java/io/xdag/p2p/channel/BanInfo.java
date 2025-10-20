@@ -26,19 +26,14 @@ package io.xdag.p2p.channel;
 import java.net.InetAddress;
 
 /**
- * Information about a banned node. Java record for immutable ban data with automatic getters,
- * equals, hashCode, and toString.
+ * Information about a banned node. Java record for immutable ban data.
  *
  * @param address the banned IP address
- * @param reason the reason for the ban
- * @param banTimestamp the timestamp when the ban was applied
  * @param banExpiryTimestamp the timestamp when the ban expires
  * @param banCount the number of times this node has been banned
  */
 public record BanInfo(
     InetAddress address,
-    BanReason reason,
-    long banTimestamp,
     long banExpiryTimestamp,
     int banCount) {
 
@@ -49,30 +44,5 @@ public record BanInfo(
      */
     public boolean isActive() {
         return System.currentTimeMillis() < banExpiryTimestamp;
-    }
-
-    /**
-     * Get remaining ban duration in milliseconds.
-     *
-     * @return remaining time or 0 if expired
-     */
-    public long getRemainingTime() {
-        long remaining = banExpiryTimestamp - System.currentTimeMillis();
-        return Math.max(0, remaining);
-    }
-
-    /**
-     * Get ban duration in milliseconds.
-     *
-     * @return total ban duration
-     */
-    public long getBanDuration() {
-        return banExpiryTimestamp - banTimestamp;
-    }
-
-    @Override
-    public String toString() {
-        return String.format("BanInfo{address=%s, reason=%s, count=%d, remaining=%dms}",
-                             address, reason.getDescription(), banCount, getRemainingTime());
     }
 }

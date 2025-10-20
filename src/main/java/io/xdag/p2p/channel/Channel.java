@@ -230,10 +230,9 @@ public class Channel {
   /**
    * Close the channel and ban the peer for specified time.
    *
-   * @param reason the reason for banning the peer
    * @param banTime time in milliseconds to ban the peer
    */
-  public void close(BanReason reason, long banTime) {
+  public void close(long banTime) {
     this.isDisconnect = true;
     this.disconnectTime = System.currentTimeMillis();
 
@@ -242,15 +241,15 @@ public class Channel {
       messageQueue.deactivate();
     }
 
-    channelManager.banNode(this.inetAddress, reason, banTime);
+    channelManager.banNode(this.inetAddress, banTime);
     ctx.close();
   }
 
   /**
-   * Close the channel with default ban reason and time.
+   * Close the channel with default ban time.
    */
   public void close() {
-    close(BanReason.PROTOCOL_VIOLATION, P2pConstant.DEFAULT_BAN_TIME);
+    close(P2pConstant.DEFAULT_BAN_TIME);
   }
 
   /**

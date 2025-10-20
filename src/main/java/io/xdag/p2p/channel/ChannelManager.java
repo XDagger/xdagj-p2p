@@ -66,7 +66,7 @@ public class ChannelManager {
     private final Cache<InetSocketAddress, Long> recentConnections =
             CacheBuilder.newBuilder().maximumSize(2000).expireAfterWrite(30, TimeUnit.SECONDS).build();
 
-    // Enhanced ban system with reason codes
+    // Ban system with graduated durations
     private final Map<InetAddress, BanInfo> bannedNodes = new ConcurrentHashMap<>();
     private final Map<InetAddress, AtomicInteger> banCounts = new ConcurrentHashMap<>();
     private final Set<InetAddress> whitelist = ConcurrentHashMap.newKeySet();
@@ -122,23 +122,12 @@ public class ChannelManager {
     }
 
     /**
-     * Ban a node's IP address with a specific reason.
-     *
-     * @param inetAddress the IP address to ban
-     * @param reason the ban reason (determines duration)
-     */
-    public void banNode(InetAddress inetAddress, BanReason reason) {
-        banNode(inetAddress, reason, reason.getDefaultDurationMs());
-    }
-
-    /**
      * Ban a node's IP address with custom duration.
      *
      * @param inetAddress the IP address to ban
-     * @param reason the ban reason
-     * @param banTimeMs the ban duration in milliseconds (overrides default)
+     * @param banTimeMs the ban duration in milliseconds
      */
-    public void banNode(InetAddress inetAddress, BanReason reason, long banTimeMs) {
+    public void banNode(InetAddress inetAddress, long banTimeMs) {
         if (inetAddress == null || banTimeMs <= 0) {
             return;
         }
@@ -167,12 +156,11 @@ public class ChannelManager {
                      inetAddress, currentCount, adjustedBanTime);
         }
 
-        BanInfo banInfo = new BanInfo(inetAddress, reason, now, banExpiry, currentCount);
+        BanInfo banInfo = new BanInfo(inetAddress, banExpiry, currentCount);
         bannedNodes.put(inetAddress, banInfo);
 
-        log.info("Banned node {} for {} ({}) - count: {}, expires: {}",
-                 inetAddress, reason.getDescription(), formatDuration(adjustedBanTime),
-                 currentCount, banExpiry);
+        log.info("Banned node {} - count: {}, duration: {}, expires: {}",
+                 inetAddress, currentCount, formatDuration(adjustedBanTime), banExpiry);
 
         // Close any existing connections from this IP - optimized to avoid stream
         for (Channel ch : channels.values()) {
