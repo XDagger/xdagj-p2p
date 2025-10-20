@@ -30,7 +30,6 @@ import io.xdag.p2p.channel.ChannelManager;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.message.Message;
 import io.xdag.p2p.message.MessageCode;
-import io.xdag.p2p.message.UnknownMessage;
 import java.net.InetSocketAddress;
 import lombok.extern.slf4j.Slf4j;
 
