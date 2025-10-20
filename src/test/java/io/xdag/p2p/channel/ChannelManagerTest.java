@@ -181,20 +181,6 @@ public class ChannelManagerTest {
   }
 
   @Test
-  public void testBanStatistics() {
-    InetAddress address = a1.getAddress();
-
-    BanStatistics stats = channelManager.getBanStatistics();
-    assertNotNull(stats);
-
-    int initialBans = stats.getTotalBans().get();
-
-    channelManager.banNode(address, BanReason.PROTOCOL_VIOLATION);
-
-    assertEquals(initialBans + 1, stats.getTotalBans().get());
-  }
-
-  @Test
   public void testIsConnected() {
     assertFalse(channelManager.isConnected(a1));
 

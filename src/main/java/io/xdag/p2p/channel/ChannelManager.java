@@ -66,12 +66,9 @@ public class ChannelManager {
     private final Cache<InetSocketAddress, Long> recentConnections =
             CacheBuilder.newBuilder().maximumSize(2000).expireAfterWrite(30, TimeUnit.SECONDS).build();
 
-    // Enhanced ban system with reason codes and statistics
+    // Enhanced ban system with reason codes
     private final Map<InetAddress, BanInfo> bannedNodes = new ConcurrentHashMap<>();
     private final Map<InetAddress, AtomicInteger> banCounts = new ConcurrentHashMap<>();
-
-    @Getter
-    private final BanStatistics banStatistics = new BanStatistics();
     private final Set<InetAddress> whitelist = ConcurrentHashMap.newKeySet();
 
     private final AtomicInteger passivePeersCount = new AtomicInteger(0);
@@ -172,7 +169,6 @@ public class ChannelManager {
 
         BanInfo banInfo = new BanInfo(inetAddress, reason, now, banExpiry, currentCount);
         bannedNodes.put(inetAddress, banInfo);
-        banStatistics.recordBan(reason, adjustedBanTime);
 
         log.info("Banned node {} for {} ({}) - count: {}, expires: {}",
                  inetAddress, reason.getDescription(), formatDuration(adjustedBanTime),
@@ -211,8 +207,6 @@ public class ChannelManager {
         // Check if ban has expired
         if (!banInfo.isActive()) {
             bannedNodes.remove(inetAddress);
-            banStatistics.recordUnban();
-
             log.debug("Ban expired for {}", inetAddress);
             return false;
         }
@@ -243,8 +237,6 @@ public class ChannelManager {
         if (inetAddress != null) {
             BanInfo removed = bannedNodes.remove(inetAddress);
             if (removed != null) {
-                banStatistics.recordUnban();
-
                 log.info("Unbanned node {}", inetAddress);
             }
         }
