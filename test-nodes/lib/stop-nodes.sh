@@ -6,27 +6,9 @@
 
 set -e
 
-# Try to find common.sh for nice logging
+# Source common library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "$SCRIPT_DIR/common.sh" ]; then
-    source "$SCRIPT_DIR/common.sh"
-else
-    # Fallback logging if common.sh not available
-    log_info() { echo "[INFO] $*"; }
-    log_warning() { echo "[WARN] $*"; }
-    cleanup_all_nodes() {
-        local pids_dir="${1:-pids}"
-        if [ -d "$pids_dir" ]; then
-            for pid_file in "$pids_dir"/*.pid; do
-                [ -f "$pid_file" ] || continue
-                local pid=$(cat "$pid_file" 2>/dev/null || echo "")
-                [ -n "$pid" ] && kill $pid 2>/dev/null && log_info "Stopped PID $pid" || true
-                rm -f "$pid_file"
-            done
-        fi
-        pkill -f "io.xdag.p2p.example" 2>/dev/null && log_info "Killed remaining processes" || true
-    }
-fi
+source "$SCRIPT_DIR/common.sh"
 
 # Determine PID directory
 # If run from test dir, use local pids/, otherwise look for ../pids/
