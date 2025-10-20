@@ -50,12 +50,10 @@ public class CliConfigParser {
   private static final String OPT_TRUST_IPS = "t";
   private static final String OPT_MAX_CONNECTIONS = "M";
   private static final String OPT_MIN_CONNECTIONS = "m";
-  private static final String OPT_MIN_ACTIVE_CONNECTIONS = "ma";
   private static final String OPT_DISCOVER = "d";
   private static final String OPT_PORT = "p";
   private static final String OPT_VERSION = "v";
   private static final String OPT_URL_SCHEMES = "u";
-  private static final String OPT_MAX_CONNECTIONS_SAME_IP = "msi";
 
   // DNS publish options
   private static final String OPT_PUBLISH = "publish";
@@ -130,15 +128,6 @@ public class CliConfigParser {
 
     if (cli.hasOption(OPT_MIN_CONNECTIONS)) {
       config.setMinConnections(parseIntOption(cli, OPT_MIN_CONNECTIONS));
-    }
-
-    if (cli.hasOption(OPT_MIN_ACTIVE_CONNECTIONS)) {
-      config.setMinActiveConnections(parseIntOption(cli, OPT_MIN_ACTIVE_CONNECTIONS));
-    }
-
-    // Max connections with same IP
-    if (cli.hasOption(OPT_MAX_CONNECTIONS_SAME_IP)) {
-      config.setMaxConnectionsWithSameIp(parseIntOption(cli, OPT_MAX_CONNECTIONS_SAME_IP));
     }
 
     // Validate connection limits
@@ -322,20 +311,6 @@ public class CliConfigParser {
             .longOpt("min-connection")
             .hasArg()
             .desc("min connection number, int, default 8")
-            .build());
-
-    options.addOption(
-        Option.builder(OPT_MIN_ACTIVE_CONNECTIONS)
-            .longOpt("min-active-connection")
-            .hasArg()
-            .desc("min active connection number, int, default 2")
-            .build());
-
-    options.addOption(
-        Option.builder(OPT_MAX_CONNECTIONS_SAME_IP)
-            .longOpt("max-connections-same-ip")
-            .hasArg()
-            .desc("max connections from same IP, int, default 2")
             .build());
 
     // Port

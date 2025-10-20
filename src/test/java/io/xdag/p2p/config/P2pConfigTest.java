@@ -66,19 +66,12 @@ public class P2pConfigTest {
     // Test default connection settings
     assertEquals(8, p2pConfig.getMinConnections(), "Default min connections should be 8");
     assertEquals(50, p2pConfig.getMaxConnections(), "Default max connections should be 50");
-    assertEquals(
-        2, p2pConfig.getMinActiveConnections(), "Default min active connections should be 2");
-    assertEquals(
-        2,
-        p2pConfig.getMaxConnectionsWithSameIp(),
-        "Default max connections with same IP should be 2");
 
     // Test default feature flags
     assertTrue(p2pConfig.isDiscoverEnable(), "Discovery should be enabled by default");
     assertFalse(
         p2pConfig.isDisconnectionPolicyEnable(),
         "Disconnection policy should be disabled by default");
-    assertFalse(p2pConfig.isNodeDetectEnable(), "Node detection should be disabled by default");
 
     // Test default collections
     assertNotNull(p2pConfig.getSeedNodes(), "Seed nodes list should not be null");
@@ -120,26 +113,16 @@ public class P2pConfigTest {
     // Test connection settings
     p2pConfig.setMinConnections(10);
     p2pConfig.setMaxConnections(100);
-    p2pConfig.setMinActiveConnections(5);
-    p2pConfig.setMaxConnectionsWithSameIp(3);
 
     assertEquals(10, p2pConfig.getMinConnections(), "Min connections should be updated");
     assertEquals(100, p2pConfig.getMaxConnections(), "Max connections should be updated");
-    assertEquals(
-        5, p2pConfig.getMinActiveConnections(), "Min active connections should be updated");
-    assertEquals(
-        3,
-        p2pConfig.getMaxConnectionsWithSameIp(),
-        "Max connections with same IP should be updated");
 
     // Test feature flags
     p2pConfig.setDiscoverEnable(false);
     p2pConfig.setDisconnectionPolicyEnable(true);
-    p2pConfig.setNodeDetectEnable(true);
 
     assertFalse(p2pConfig.isDiscoverEnable(), "Discovery should be disabled");
     assertTrue(p2pConfig.isDisconnectionPolicyEnable(), "Disconnection policy should be enabled");
-    assertTrue(p2pConfig.isNodeDetectEnable(), "Node detection should be enabled");
 
     // Test IP settings
     p2pConfig.setIpV4("192.168.1.100");

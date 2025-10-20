@@ -61,11 +61,8 @@ public class P2pConfig {
 
   private int minConnections = 8;
   private int maxConnections = 50;
-  private int minActiveConnections = 2;
-  private int maxConnectionsWithSameIp = 2;
   private boolean discoverEnable = true;
   private boolean disconnectionPolicyEnable = false;
-  private boolean nodeDetectEnable = false;
 
   // data directory for persistent storage (reputation, bans, etc.)
   private String dataDir = "data";
