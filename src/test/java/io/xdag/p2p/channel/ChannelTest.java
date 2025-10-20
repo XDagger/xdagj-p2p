@@ -40,9 +40,7 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 import io.xdag.p2p.config.P2pConfig;
-import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.message.Message;
-import io.xdag.p2p.message.node.HelloMessage;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
@@ -75,10 +73,6 @@ class ChannelTest {
   @Mock private ChannelFuture channelFuture;
 
   @Mock private ChannelPipeline pipeline;
-
-  @Mock private Node node;
-
-  @Mock private HelloMessage handshakeMessage;
 
   @Mock private Message message;
 
@@ -149,22 +143,6 @@ class ChannelTest {
 
     // Then
     assertTrue(channel.isTrustPeer());
-  }
-
-  @Test
-  void testSetHandshakeMessage() {
-    // Given
-    when(handshakeMessage.getFrom()).thenReturn(node);
-    when(handshakeMessage.getVersion()).thenReturn(1);
-    when(node.getId()).thenReturn("test-node-id");
-
-    // When
-    channel.setHandshakeMessage(handshakeMessage);
-
-    // Then
-    assertEquals(node, channel.getNode());
-    assertEquals("test-node-id", channel.getNodeId());
-    assertEquals(1, channel.getVersion());
   }
 
   @Test
@@ -342,21 +320,6 @@ class ChannelTest {
     assertFalse(channel.isActive());
   }
 
-  @Test
-  void testSendWithFinishedHandshakeAndVersionUpgrade() {
-    // Given
-    channel.setChannelHandlerContext(ctx);
-    channel.setFinishHandshake(true);
-    channel.setVersion(2);
-    Bytes testData = Bytes.wrap(new byte[]{1, 2, 3, 4});
-
-    // When
-    channel.send(testData);
-
-    // Then
-    verify(nettyChannel).writeAndFlush(any());
-    assertTrue(channel.getLastSendTime() > 0);
-  }
 
   @Test
   void testSendMessageWithLogging() {
@@ -452,9 +415,6 @@ class ChannelTest {
     long pingTime = System.currentTimeMillis();
     channel.setPingSent(pingTime);
     assertEquals(pingTime, channel.getPingSent());
-
-    channel.setVersion(5);
-    assertEquals(5, channel.getVersion());
 
     long disconnectTime = System.currentTimeMillis();
     channel.setDisconnectTime(disconnectTime);

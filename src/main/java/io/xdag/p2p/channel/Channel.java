@@ -31,10 +31,8 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.config.P2pConstant;
-import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.message.Message;
 import io.xdag.p2p.message.MessageQueue;
-import io.xdag.p2p.message.node.HelloMessage;
 import io.xdag.p2p.handler.node.XdagBusinessHandler;
 import io.xdag.p2p.stats.LayeredStats;
 import io.xdag.p2p.utils.BytesUtils;
@@ -66,12 +64,6 @@ public class Channel {
 
   /** Timestamp when the last ping was sent */
   public volatile long pingSent = System.currentTimeMillis();
-
-  /** Node information for the connected peer */
-  private Node node;
-
-  /** Protocol version used by this channel */
-  private int version;
 
   /** Netty channel handler context */
   private ChannelHandlerContext ctx;
@@ -142,17 +134,6 @@ public class Channel {
     pipeline.addLast("readTimeoutHandler", new ReadTimeoutHandler(60, TimeUnit.SECONDS));
     // Do not add protobuf length prepender; XDAG frames are raw (header + body)
     pipeline.addLast("frameCodec", new XdagFrameCodec(p2pConfig));
-  }
-
-  /**
-   * Set the handshake message and update related node information.
-   *
-   * @param handshakeMessage the handshake message from the peer
-   */
-  public void setHandshakeMessage(HelloMessage handshakeMessage) {
-    this.node = handshakeMessage.getFrom();
-    this.nodeId = node.getId();
-    this.version = handshakeMessage.getVersion();
   }
 
   /**
