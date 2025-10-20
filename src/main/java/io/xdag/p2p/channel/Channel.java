@@ -40,7 +40,6 @@ import io.xdag.p2p.message.Message;
 import io.xdag.p2p.message.MessageQueue;
 import io.xdag.p2p.message.node.HelloMessage;
 import io.xdag.p2p.handler.node.XdagBusinessHandler;
-import io.xdag.p2p.stats.TrafficStats;
 import io.xdag.p2p.stats.LayeredStats;
 import io.xdag.p2p.utils.BytesUtils;
 import java.io.IOException;
@@ -156,7 +155,6 @@ public class Channel {
     this.messageQueue = new MessageQueue(p2pConfig, this);
 
     pipeline.addLast("readTimeoutHandler", new ReadTimeoutHandler(60, TimeUnit.SECONDS));
-    pipeline.addLast(TrafficStats.getTcp());
     // Do not add protobuf length prepender; XDAG frames are raw (header + body)
     pipeline.addLast("frameCodec", new XdagFrameCodec(p2pConfig));
   }

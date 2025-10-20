@@ -26,8 +26,6 @@ package io.xdag.p2p;
 import static org.junit.jupiter.api.Assertions.*;
 
 import io.xdag.p2p.config.P2pConfig;
-import io.xdag.p2p.config.P2pConstant;
-import io.xdag.p2p.stats.P2pStats;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,9 +46,6 @@ public class P2pServiceTest {
 
   @BeforeEach
   void setUp() {
-    // Clear Prometheus default registry before each test to avoid duplicate registration
-    io.prometheus.client.CollectorRegistry.defaultRegistry.clear();
-
     p2pConfig = new P2pConfig();
     p2pConfig.setPort(16783);
     p2pConfig.setDiscoverEnable(false); // Disable discovery for unit tests
@@ -62,8 +57,6 @@ public class P2pServiceTest {
     if (p2pService != null && !p2pService.isShutdown()) {
       p2pService.stop();
     }
-    // Clear registry after test
-    io.prometheus.client.CollectorRegistry.defaultRegistry.clear();
   }
 
   /** Test P2P service initialization and basic getters. */
@@ -72,8 +65,6 @@ public class P2pServiceTest {
     assertNotNull(p2pService.getConfig(), "P2P config should not be null");
     assertNotNull(p2pService.getNodeManager(), "Node manager should not be null");
     assertNotNull(p2pService.getChannelManager(), "Channel manager should not be null");
-    assertNotNull(p2pService.getP2pStatsManager(), "Stats manager should not be null");
-    assertNotNull(p2pService.getMetrics(), "Metrics should not be null");
 
     // Service is not shutdown initially, it's just not started
     assertFalse(p2pService.isShutdown(), "Service should not be shutdown initially");
@@ -87,24 +78,11 @@ public class P2pServiceTest {
     assertFalse(p2pService.getConfig().isDiscoverEnable(), "Discovery should be disabled");
   }
 
-  /** Test P2P statistics functionality. */
-  @Test
-  void testP2pStats() {
-    P2pStats stats = p2pService.getP2pStats();
-    assertNotNull(stats, "P2P stats should not be null");
-
-    // Stats should be accessible even before service start
-    assertNotNull(stats.toString(), "Stats toString should not be null");
-  }
-
   /** Test node management functionality without starting service. */
   @Test
   void testNodeManagementWithoutStart() {
     // Some methods may not work without initialization, so test basic structure
     assertNotNull(p2pService.getNodeManager(), "Node manager should not be null");
-
-    // Test that we can get stats without starting
-    assertNotNull(p2pService.getP2pStats(), "P2P stats should be accessible");
   }
 
   /** Test service shutdown state. */
@@ -127,8 +105,6 @@ public class P2pServiceTest {
     // Test that all components are properly created
     assertNotNull(p2pService.getNodeManager(), "NodeManager should be created");
     assertNotNull(p2pService.getChannelManager(), "ChannelManager should be created");
-    assertNotNull(p2pService.getP2pStatsManager(), "P2pStatsManager should be created");
-    assertNotNull(p2pService.getMetrics(), "Metrics should be created");
 
     // Test that components have proper configuration
     assertEquals(p2pConfig, p2pService.getConfig(), "All components should use same config");

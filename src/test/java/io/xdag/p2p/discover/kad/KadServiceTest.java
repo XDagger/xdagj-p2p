@@ -36,13 +36,11 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.prometheus.client.CollectorRegistry;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.handler.discover.UdpEvent;
 import io.xdag.p2p.message.discover.KadPingMessage;
 import io.xdag.p2p.discover.kad.table.KademliaOptions;
-import io.xdag.p2p.metrics.P2pMetrics;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
@@ -72,8 +70,7 @@ public class KadServiceTest {
         // Generate nodeKey for testing - required for node ID generation
         p2pConfig.generateNodeKey();
 
-        P2pMetrics metrics = new P2pMetrics();
-        kadService = new KadService(p2pConfig, metrics);
+        kadService = new KadService(p2pConfig);
         kadService.init();
 
         homeNode = kadService.getPublicHomeNode();
@@ -85,8 +82,6 @@ public class KadServiceTest {
 
     @AfterEach
     public void tearDown() {
-        // Clear the Prometheus registry to avoid conflicts between tests
-        CollectorRegistry.defaultRegistry.clear();
         if (kadService != null) {
             kadService.close();
         }
@@ -182,12 +177,8 @@ public class KadServiceTest {
         bootnodeAddresses.add(new InetSocketAddress("127.0.0.1", 30302));
         p2pConfig.setSeedNodes(bootnodeAddresses);
 
-        // Clear registry before creating new metrics instance
-        CollectorRegistry.defaultRegistry.clear();
-
         // Re-initialize KadService to pick up the new config
-        P2pMetrics metrics = new P2pMetrics();
-        kadService = new KadService(p2pConfig, metrics);
+        kadService = new KadService(p2pConfig);
         kadService.init();
 
         assertEquals(2, kadService.getBootNodes().size());

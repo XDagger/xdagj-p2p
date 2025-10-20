@@ -28,7 +28,6 @@ import io.xdag.p2p.discover.dns.update.DnsType;
 import io.xdag.p2p.example.config.ExampleConfig;
 import io.xdag.p2p.example.handler.ExampleEventHandler;
 import io.xdag.p2p.example.message.TestMessage;
-import io.xdag.p2p.stats.P2pStats;
 import java.net.InetSocketAddress;
 import lombok.extern.slf4j.Slf4j;
 
@@ -205,11 +204,6 @@ public class DnsExample {
     log.info("Connected peers: {}", eventHandler.getChannels().size());
     log.info("Connectable nodes: {}", p2pService.getConnectableNodes().size());
     log.info("=============================");
-  }
-
-  /** Get P2P statistics */
-  public P2pStats getStatistics() {
-    return p2pService != null ? p2pService.getP2pStats() : null;
   }
 
   /** Connect to a specific peer */

@@ -31,11 +31,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import io.prometheus.client.CollectorRegistry;
 import io.xdag.p2p.PeerClient;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.NodeManager;
-import io.xdag.p2p.metrics.P2pMetrics;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import org.junit.jupiter.api.AfterEach;
@@ -60,16 +58,13 @@ public class ChannelManagerTest {
     p2pConfig = new P2pConfig();
     // Generate nodeKey for testing - required for node ID generation
     p2pConfig.generateNodeKey();
-    P2pMetrics metrics = new P2pMetrics();
-    nodeManager = new NodeManager(p2pConfig, metrics);
+    nodeManager = new NodeManager(p2pConfig);
     nodeManager.init();
-    channelManager = new ChannelManager(p2pConfig, nodeManager, metrics);
+    channelManager = new ChannelManager(p2pConfig, nodeManager);
   }
 
   @AfterEach
   public void tearDown() {
-    // Clear the Prometheus registry to avoid conflicts between tests
-    CollectorRegistry.defaultRegistry.clear();
     if (nodeManager != null) {
       nodeManager.close();
     }

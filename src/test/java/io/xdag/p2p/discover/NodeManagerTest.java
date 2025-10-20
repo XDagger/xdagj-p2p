@@ -26,9 +26,7 @@ package io.xdag.p2p.discover;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.prometheus.client.CollectorRegistry;
 import io.xdag.p2p.config.P2pConfig;
-import io.xdag.p2p.metrics.P2pMetrics;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,15 +46,12 @@ public class NodeManagerTest {
     config = new P2pConfig();
     // Generate nodeKey for testing - required for node ID generation
     config.generateNodeKey();
-    P2pMetrics metrics = new P2pMetrics();
-    nodeManager = new NodeManager(config, metrics);
+    nodeManager = new NodeManager(config);
     nodeManager.init(); // Initialize the discovery service
   }
 
   @AfterEach
   public void tearDown() {
-    // Clear the Prometheus registry to avoid conflicts between tests
-    CollectorRegistry.defaultRegistry.clear();
     if (nodeManager != null) {
       nodeManager.close();
     }
@@ -103,10 +98,7 @@ public class NodeManagerTest {
   @Test
   public void testNodeManagerLifecycle() {
     // Test that we can initialize and close without errors
-    // Clear registry before creating new metrics instance
-    CollectorRegistry.defaultRegistry.clear();
-    P2pMetrics metrics = new P2pMetrics();
-    NodeManager testManager = new NodeManager(config, metrics);
+    NodeManager testManager = new NodeManager(config);
     testManager.init();
 
     assertNotNull(testManager.getHomeNode());
@@ -132,10 +124,7 @@ public class NodeManagerTest {
     // Generate nodeKey for testing - required for node ID generation
     customConfig.generateNodeKey();
 
-    // Clear registry before creating new metrics instance
-    CollectorRegistry.defaultRegistry.clear();
-    P2pMetrics metrics = new P2pMetrics();
-    NodeManager customManager = new NodeManager(customConfig, metrics);
+    NodeManager customManager = new NodeManager(customConfig);
     customManager.init();
 
     assertNotNull(customManager.getHomeNode());

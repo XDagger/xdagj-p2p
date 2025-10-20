@@ -70,10 +70,6 @@ public class P2pConfig {
   // data directory for persistent storage (reputation, bans, etc.)
   private String dataDir = "data";
 
-  // metrics configuration
-  private boolean metricsEnabled = false;
-  private int metricsPort = 9090;
-
   // dns read config
   private List<String> treeUrls = new ArrayList<>();
 

@@ -27,7 +27,6 @@ import io.xdag.crypto.keys.ECKeyPair;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.discover.kad.KadService;
-import io.xdag.p2p.metrics.P2pMetrics;
 import org.apache.tuweni.bytes.Bytes;
 
 /**
@@ -83,8 +82,7 @@ public class NodeIdVerification {
         config.generateNodeKey();
         config.setDiscoverEnable(false);
 
-        P2pMetrics metrics = new P2pMetrics();
-        KadService kadService = new KadService(config, metrics);
+        KadService kadService = new KadService(config);
         kadService.init();
 
         Node homeNode = kadService.getPublicHomeNode();
@@ -116,8 +114,7 @@ public class NodeIdVerification {
             config.generateNodeKey();
             config.setDiscoverEnable(false);
 
-            P2pMetrics metrics = new P2pMetrics();
-            KadService kadService = new KadService(config, metrics);
+            KadService kadService = new KadService(config);
             kadService.init();
 
             Node homeNode = kadService.getPublicHomeNode();
@@ -135,8 +132,7 @@ public class NodeIdVerification {
         config.generateNodeKey();
         config.setDiscoverEnable(false);
 
-        P2pMetrics metrics = new P2pMetrics();
-        KadService kadService = new KadService(config, metrics);
+        KadService kadService = new KadService(config);
         kadService.init();
 
         Node homeNode = kadService.getPublicHomeNode();
@@ -178,16 +174,13 @@ public class NodeIdVerification {
         config3.generateNodeKey();
         config3.setDiscoverEnable(false);
 
-        P2pMetrics metrics1 = new P2pMetrics();
-        KadService kadService1 = new KadService(config1, metrics1);
+        KadService kadService1 = new KadService(config1);
         kadService1.init();
 
-        P2pMetrics metrics2 = new P2pMetrics();
-        KadService kadService2 = new KadService(config2, metrics2);
+        KadService kadService2 = new KadService(config2);
         kadService2.init();
 
-        P2pMetrics metrics3 = new P2pMetrics();
-        KadService kadService3 = new KadService(config3, metrics3);
+        KadService kadService3 = new KadService(config3);
         kadService3.init();
 
         String id1 = kadService1.getPublicHomeNode().getId();

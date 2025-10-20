@@ -34,7 +34,6 @@ import io.xdag.p2p.config.P2pConstant;
 import io.xdag.p2p.handler.discover.EventHandler;
 import io.xdag.p2p.handler.discover.MessageHandler;
 import io.xdag.p2p.handler.discover.P2pPacketDecoder;
-import io.xdag.p2p.stats.TrafficStats;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
@@ -97,7 +96,6 @@ public class DiscoverServer {
                 new ChannelInitializer<NioDatagramChannel>() {
                   @Override
                   public void initChannel(NioDatagramChannel ch) {
-                    ch.pipeline().addLast(TrafficStats.getUdp());
                     // Use custom UDP message codec only; no protobuf length framing for discovery
                     ch.pipeline().addLast(new P2pPacketDecoder(p2pConfig));
                     MessageHandler messageHandler = new MessageHandler(ch, eventHandler);

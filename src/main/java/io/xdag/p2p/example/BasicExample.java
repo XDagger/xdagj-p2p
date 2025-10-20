@@ -28,7 +28,6 @@ import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.example.config.ExampleConfig;
 import io.xdag.p2p.example.handler.ExampleEventHandler;
 import io.xdag.p2p.example.message.TestMessage;
-import io.xdag.p2p.stats.P2pStats;
 import java.net.InetSocketAddress;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -142,15 +141,6 @@ public class BasicExample {
       p2pService.connect(address);
       log.info("Attempting to connect to peer: {}", address);
     }
-  }
-
-  /**
-   * Get P2P statistics
-   *
-   * @return P2P statistics
-   */
-  public P2pStats getStatistics() {
-    return p2pService != null ? p2pService.getP2pStats() : null;
   }
 
   /**

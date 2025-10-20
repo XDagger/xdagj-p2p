@@ -39,9 +39,6 @@
         <!-- log -->
         <slf4j.version>2.0.17</slf4j.version>
 
-        <!-- metrics -->
-        <prometheus.version>0.16.0</prometheus.version>
-
         <!-- test -->
         <junit.version>5.12.2</junit.version>
         <mockito.version>5.14.2</mockito.version>
@@ -467,25 +464,6 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
             <version>${slf4j.version}</version>
-        </dependency>
-
-        <!-- Prometheus metrics -->
-        <dependency>
-            <groupId>io.prometheus</groupId>
-            <artifactId>simpleclient</artifactId>
-            <version>${prometheus.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>io.prometheus</groupId>
-            <artifactId>simpleclient_httpserver</artifactId>
-            <version>${prometheus.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>io.prometheus</groupId>
-            <artifactId>simpleclient_hotspot</artifactId>
-            <version>${prometheus.version}</version>
         </dependency>
 
         <!-- Development Dependencies -->

@@ -30,7 +30,6 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.xdag.crypto.keys.ECKeyPair;
 import io.xdag.p2p.config.P2pConfig;
-import io.xdag.p2p.stats.TrafficStats;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 
@@ -64,7 +63,6 @@ public class P2pChannelInitializer extends ChannelInitializer<NioSocketChannel> 
 
             // Add basic handlers
             ch.pipeline().addLast("readTimeoutHandler", new ReadTimeoutHandler(60, TimeUnit.SECONDS));
-            ch.pipeline().addLast(TrafficStats.getTcp());
 
             // Add frame codec and handshake handler first; message handler will be added after handshake
             ch.pipeline().addLast("xdagFrameCodec", new XdagFrameCodec(config));
