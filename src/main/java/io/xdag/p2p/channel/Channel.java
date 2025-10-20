@@ -23,16 +23,12 @@
  */
 package io.xdag.p2p.channel;
 
-import com.google.common.base.Throwables;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
-import io.netty.handler.codec.CorruptedFrameException;
-import io.netty.handler.timeout.ReadTimeoutException;
 import io.netty.handler.timeout.ReadTimeoutHandler;
-import io.xdag.p2p.P2pException;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.config.P2pConstant;
 import io.xdag.p2p.discover.Node;
@@ -42,10 +38,8 @@ import io.xdag.p2p.message.node.HelloMessage;
 import io.xdag.p2p.handler.node.XdagBusinessHandler;
 import io.xdag.p2p.stats.LayeredStats;
 import io.xdag.p2p.utils.BytesUtils;
-import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import lombok.Getter;
@@ -148,42 +142,6 @@ public class Channel {
     pipeline.addLast("readTimeoutHandler", new ReadTimeoutHandler(60, TimeUnit.SECONDS));
     // Do not add protobuf length prepender; XDAG frames are raw (header + body)
     pipeline.addLast("frameCodec", new XdagFrameCodec(p2pConfig));
-  }
-
-  /**
-   * Process and handle exceptions that occur in this channel.
-   *
-   * @param throwable the exception to process
-   */
-  public void processException(Throwable throwable) {
-    Throwable baseThrowable = throwable;
-    try {
-      baseThrowable = Throwables.getRootCause(baseThrowable);
-    } catch (IllegalArgumentException e) {
-      baseThrowable = e.getCause();
-      log.warn("Loop in causal chain detected");
-    }
-    SocketAddress address = ctx.channel().remoteAddress();
-    if (throwable instanceof ReadTimeoutException
-        || throwable instanceof IOException
-        || throwable instanceof CorruptedFrameException) {
-      log.warn("Close peer {}, reason: {}", address, throwable.getMessage());
-    } else if (baseThrowable instanceof P2pException) {
-      log.warn(
-          "Close peer {}, type: ({}), info: {}",
-          address,
-          ((P2pException) baseThrowable).getType(),
-          baseThrowable.getMessage());
-    } else {
-      log.error("Close peer {}, exception caught", address, throwable);
-    }
-
-    // During shutdown, don't ban nodes - just close gracefully
-    if (channelManager != null && channelManager.isShutdown()) {
-      closeWithoutBan();
-    } else {
-      close();
-    }
   }
 
   /**

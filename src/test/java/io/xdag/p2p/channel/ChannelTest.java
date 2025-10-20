@@ -39,12 +39,10 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
-import io.xdag.p2p.P2pException;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.message.Message;
 import io.xdag.p2p.message.node.HelloMessage;
-import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
@@ -241,48 +239,6 @@ class ChannelTest {
   }
 
   @Test
-  void testProcessExceptionWithIOException() {
-    // Given
-    channel.setChannelHandlerContext(ctx);
-    IOException exception = new IOException("Connection lost");
-
-    // When
-    channel.processException(exception);
-
-    // Then
-    assertTrue(channel.isDisconnect());
-    verify(ctx).close();
-  }
-
-  @Test
-  void testProcessExceptionWithP2pException() {
-    // Given
-    channel.setChannelHandlerContext(ctx);
-    P2pException exception = new P2pException(P2pException.TypeEnum.BAD_MESSAGE, "Bad message");
-
-    // When
-    channel.processException(exception);
-
-    // Then
-    assertTrue(channel.isDisconnect());
-    verify(ctx).close();
-  }
-
-  @Test
-  void testProcessExceptionWithGenericException() {
-    // Given
-    channel.setChannelHandlerContext(ctx);
-    RuntimeException exception = new RuntimeException("Generic error");
-
-    // When
-    channel.processException(exception);
-
-    // Then
-    assertTrue(channel.isDisconnect());
-    verify(ctx).close();
-  }
-
-  @Test
   void testEqualsAndHashCode() {
     // Given
     Channel channel1 = new Channel(channelManager);
@@ -384,54 +340,6 @@ class ChannelTest {
     assertFalse(channel.isDiscoveryMode());
     assertEquals(nodeId, channel.getNodeId());
     assertFalse(channel.isActive());
-  }
-
-  @Test
-  void testProcessExceptionWithReadTimeoutException() {
-    // Given
-    channel.setChannelHandlerContext(ctx);
-    when(ctx.close()).thenReturn(channelFuture);
-    io.netty.handler.timeout.ReadTimeoutException timeoutException = 
-        io.netty.handler.timeout.ReadTimeoutException.INSTANCE;
-
-    // When
-    channel.processException(timeoutException);
-
-    // Then
-    verify(ctx).close();
-    assertTrue(channel.isDisconnect());
-  }
-
-  @Test
-  void testProcessExceptionWithCorruptedFrameException() {
-    // Given
-    channel.setChannelHandlerContext(ctx);
-    when(ctx.close()).thenReturn(channelFuture);
-    io.netty.handler.codec.CorruptedFrameException frameException = 
-        new io.netty.handler.codec.CorruptedFrameException("Corrupted frame");
-
-    // When
-    channel.processException(frameException);
-
-    // Then
-    verify(ctx).close();
-    assertTrue(channel.isDisconnect());
-  }
-
-  @Test
-  void testProcessExceptionWithIllegalArgumentInCausalChain() {
-    // Given
-    channel.setChannelHandlerContext(ctx);
-    when(ctx.close()).thenReturn(channelFuture);
-    RuntimeException cause = new RuntimeException("Root cause");
-    IllegalArgumentException wrapper = new IllegalArgumentException("Loop detected", cause);
-
-    // When
-    channel.processException(wrapper);
-
-    // Then
-    verify(ctx).close();
-    assertTrue(channel.isDisconnect());
   }
 
   @Test
