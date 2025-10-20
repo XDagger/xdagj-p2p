@@ -24,6 +24,8 @@
 package io.xdag.p2p.channel;
 
 import io.netty.buffer.ByteBuf;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * Represents a network packet frame in the XDAG network protocol. Numbers are signed and in big-endian format.
@@ -35,6 +37,7 @@ import io.netty.buffer.ByteBuf;
  * <li><code>BODY := BINARY_DATA</code></li>
  * </ul>
  */
+@Getter
 public class XdagFrame {
 
     /**
@@ -64,6 +67,7 @@ public class XdagFrame {
     protected final int packetSize;    /* Total packet size, 4 bytes */
     protected final int bodySize;      /* Size of body data, 4 bytes */
 
+    @Setter
     protected byte[] body;
 
     /**
@@ -88,39 +92,7 @@ public class XdagFrame {
         this.body = body;
     }
 
-    public short getVersion() {
-        return version;
-    }
-
-    public byte getCompressType() {
-        return compressType;
-    }
-
-    public byte getPacketType() {
-        return packetType;
-    }
-
-    public int getPacketId() {
-        return packetId;
-    }
-
-    public int getPacketSize() {
-        return packetSize;
-    }
-
-    public int getBodySize() {
-        return bodySize;
-    }
-
-    public byte[] getBody() {
-        return body;
-    }
-
-    public void setBody(byte[] body) {
-        this.body = body;
-    }
-
-    /**
+  /**
      * Checks if the packet is chunked by comparing body size with packet size
      *
      * @return true if packet is chunked, false otherwise
