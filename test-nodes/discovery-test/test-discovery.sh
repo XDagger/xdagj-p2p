@@ -6,65 +6,67 @@
 
 set -e
 
+# Source shared library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../lib/common.sh"
+
+# Convenience aliases for report output colors
+GREEN=$COLOR_GREEN
+YELLOW=$COLOR_YELLOW
+RED=$COLOR_RED
+BLUE=$COLOR_BLUE
+NC=$COLOR_NC
+
+# Configuration
 NODE_COUNT=${1:-10}
 TEST_DURATION=${2:-300}  # Default: 5 minutes
-BASE_PORT=10000
-JAR_FILE="../../target/xdagj-p2p-0.1.2-jar-with-dependencies.jar"
+BASE_PORT=$DEFAULT_BASE_PORT
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+# Validate input
+if ! validate_node_count "$NODE_COUNT" 1 20; then
+    echo "Usage: $0 [node_count] [duration_seconds]"
+    echo "  node_count: Number of nodes (1-20, default: 10)"
+    echo "  duration: Test duration in seconds (default: 300)"
+    exit 1
+fi
 
-echo -e "${BLUE}=== Kademlia DHT Node Discovery Test ===${NC}"
-echo -e "${GREEN}Node count: $NODE_COUNT${NC}"
-echo -e "${GREEN}Test duration: ${TEST_DURATION} seconds${NC}"
+log_section "Kademlia DHT Node Discovery Test"
+log_info "Node count: $NODE_COUNT"
+log_info "Test duration: ${TEST_DURATION} seconds"
 echo ""
+
+# Initialize
+PROJECT_ROOT=$(get_project_root)
+JAR_FILE=$(ensure_jar_exists "$PROJECT_ROOT")
+if [ $? -ne 0 ]; then
+    exit 1
+fi
 
 # Create directories
 mkdir -p logs pids discovery-results
-
-# Check JAR file
-if [ ! -f "$JAR_FILE" ]; then
-    echo -e "${YELLOW}Building JAR file...${NC}"
-    cd .. && mvn clean package -DskipTests && cd test-nodes
-fi
+log_info "Using JAR: $(basename "$JAR_FILE")"
 
 # Clean up old processes
-echo -e "${YELLOW}Stopping old nodes...${NC}"
-pkill -9 -f "io.xdag.p2p.example.StartApp" 2>/dev/null || true
-rm -f pids/*.pid logs/discovery-*.log
+log_warning "Stopping old nodes..."
+cleanup_all_nodes "pids"
+rm -f logs/discovery-*.log
 sleep 2
 
 # Start nodes
-echo -e "${BLUE}=== Starting Nodes ===${NC}"
+log_section "Starting discovery nodes"
 for i in $(seq 0 $((NODE_COUNT-1))); do
     PORT=$((BASE_PORT + i))
     LOG_FILE="logs/discovery-$i.log"
     PID_FILE="pids/discovery-$i.pid"
 
-    # Calculate seed nodes
-    SEEDS=""
-    if [ $i -eq 0 ]; then
-        # Node 0: Bootstrap node, no seeds
-        SEEDS=""
-    elif [ $i -eq 1 ]; then
-        # Node 1: Connect to Node 0
-        SEEDS="127.0.0.1:$BASE_PORT"
-    else
-        # Other nodes: Connect to Node 0 and previous node
-        PREV_PORT=$((BASE_PORT + i - 1))
-        SEEDS="127.0.0.1:$BASE_PORT,127.0.0.1:$PREV_PORT"
-    fi
+    # Calculate seed nodes using shared library functions
+    SEEDS=$(calculate_tcp_seeds $i $NODE_COUNT $BASE_PORT)
+    ACTIVE_NODES=$(calculate_udp_active_nodes $i $NODE_COUNT $BASE_PORT)
 
-    echo -e "${GREEN}Starting Node $i (port $PORT)${NC}"
-    if [ -n "$SEEDS" ]; then
-        echo -e "${BLUE}  Seed nodes: $SEEDS${NC}"
-    else
-        echo -e "${BLUE}  Bootstrap node (no seeds)${NC}"
-    fi
+    # Display node info
+    log_info "Starting Node $i on port $PORT"
+    [ -n "$SEEDS" ] && log_debug "  TCP Seeds: $SEEDS"
+    [ -n "$ACTIVE_NODES" ] && log_debug "  UDP Active: $ACTIVE_NODES"
 
     # Start node (-d 1 enables discovery)
     nohup java -Xms512m -Xmx1024m \
@@ -72,30 +74,43 @@ for i in $(seq 0 $((NODE_COUNT-1))); do
         -p $PORT \
         -d 1 \
         $([ -n "$SEEDS" ] && echo "-s $SEEDS") \
+        $([ -n "$ACTIVE_NODES" ] && echo "-a $ACTIVE_NODES") \
         > "$LOG_FILE" 2>&1 &
 
     PID=$!
     echo "$PID" > "$PID_FILE"
 
-    # Verify process started
-    sleep 2
-    if ! ps -p $PID > /dev/null 2>&1; then
-        echo -e "${RED}Error: Node $i failed to start!${NC}"
+    # Verify startup
+    sleep $PROCESS_START_DELAY_SEC
+    if ! wait_for_process_start $PID 5; then
+        log_error "Node $i (PID $PID) failed to start!"
+        log_warning "Last 20 lines of log:"
         tail -20 "$LOG_FILE"
+        cleanup_all_nodes "pids"
         exit 1
     fi
 
-    echo -e "${GREEN}Node $i started (PID $PID)${NC}"
-    echo ""
+    # Check for errors
+    ERROR=$(check_log_for_errors "$LOG_FILE")
+    if [ $? -ne 0 ]; then
+        log_error "Node $i encountered error: $ERROR"
+        log_warning "Check log file: $LOG_FILE"
+        cleanup_all_nodes "pids"
+        exit 1
+    fi
+
+    log_info "Node $i started successfully (PID $PID)"
 done
 
-echo -e "${GREEN}=== All Nodes Started ===${NC}"
-echo -e "${YELLOW}Waiting 30 seconds for node initialization...${NC}"
-sleep 30
+# Wait for connections to establish
+echo ""
+log_section "All discovery nodes started"
+log_info "Waiting ${CONNECTION_ESTABLISH_DELAY_SEC}s for node initialization..."
+sleep $CONNECTION_ESTABLISH_DELAY_SEC
 
 # Monitor node discovery
 echo ""
-echo -e "${BLUE}=== Begin Monitoring Node Discovery ===${NC}"
+log_section "Begin Monitoring Node Discovery"
 echo ""
 
 START_TIME=$(date +%s)
