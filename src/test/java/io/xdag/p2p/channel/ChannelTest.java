@@ -283,21 +283,6 @@ class ChannelTest {
   }
 
   @Test
-  void testUpdateAvgLatency() {
-    // Given
-    long latency1 = 100L;
-    long latency2 = 200L;
-
-    // When
-    channel.updateAvgLatency(latency1);
-    channel.updateAvgLatency(latency2);
-
-    // Then
-    assertEquals(150L, channel.getAvgLatency()); // (100 + 200) / 2
-    assertEquals(2L, channel.getCount());
-  }
-
-  @Test
   void testEqualsAndHashCode() {
     // Given
     Channel channel1 = new Channel(channelManager);
@@ -492,18 +477,6 @@ class ChannelTest {
 
     // Then
     verify(nettyChannel).close();
-  }
-
-  @Test
-  void testMultipleLatencyUpdates() {
-    // When
-    channel.updateAvgLatency(100);
-    channel.updateAvgLatency(200);
-    channel.updateAvgLatency(300);
-
-    // Then
-    assertEquals(200, channel.getAvgLatency()); // (100 + 200 + 300) / 3
-    assertEquals(3, channel.getCount());
   }
 
   @Test

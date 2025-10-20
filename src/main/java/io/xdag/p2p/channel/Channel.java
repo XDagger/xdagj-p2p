@@ -115,12 +115,6 @@ public class Channel {
   /** Flag indicating if this channel is in discovery mode */
   private boolean discoveryMode;
 
-  /** Average latency for this channel in milliseconds */
-  private long avgLatency;
-
-  /** Count of ping messages for latency calculation */
-  private long count;
-
   /** Message queue for batching outgoing messages */
   private MessageQueue messageQueue;
 
@@ -324,17 +318,6 @@ public class Channel {
       log.warn("Send message to {} failed, {}", inetSocketAddress, e.getMessage());
       ctx.channel().close();
     }
-  }
-
-  /**
-   * Update the average latency for this channel.
-   *
-   * @param latency the new latency measurement in milliseconds
-   */
-  public void updateAvgLatency(long latency) {
-    long total = this.avgLatency * this.count;
-    this.count++;
-    this.avgLatency = (total + latency) / this.count;
   }
 
   @Override
