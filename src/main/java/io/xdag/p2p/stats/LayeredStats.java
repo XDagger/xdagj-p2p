@@ -73,13 +73,6 @@ public class LayeredStats {
         public long getBytesReceived() {
             return bytesReceived.get();
         }
-
-        public void reset() {
-            messagesSent.set(0);
-            bytesSent.set(0);
-            messagesReceived.set(0);
-            bytesReceived.set(0);
-        }
     }
 
     /**
@@ -135,14 +128,6 @@ public class LayeredStats {
         public long getMessagesForwarded() {
             return messagesForwarded.get();
         }
-
-        public void reset() {
-            messagesSent.set(0);
-            messagesReceived.set(0);
-            messagesProcessed.set(0);
-            messagesDuplicated.set(0);
-            messagesForwarded.set(0);
-        }
     }
 
     private final NetworkLayer network = new NetworkLayer();
@@ -154,31 +139,5 @@ public class LayeredStats {
 
     public ApplicationLayer getApplication() {
         return application;
-    }
-
-    /**
-     * Calculate deduplication efficiency
-     * @return percentage of duplicated messages (0-100)
-     */
-    public double getDuplicationRate() {
-        long received = network.getMessagesReceived();
-        if (received == 0) {
-            return 0.0;
-        }
-        long duplicated = application.getMessagesDuplicated();
-        return (duplicated * 100.0) / received;
-    }
-
-    /**
-     * Calculate network efficiency (how many network messages result in processed messages)
-     * @return percentage (0-100)
-     */
-    public double getNetworkEfficiency() {
-        long networkReceived = network.getMessagesReceived();
-        if (networkReceived == 0) {
-            return 0.0;
-        }
-        long appProcessed = application.getMessagesProcessed();
-        return (appProcessed * 100.0) / networkReceived;
     }
 }
