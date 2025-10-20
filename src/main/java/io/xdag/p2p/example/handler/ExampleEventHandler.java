@@ -139,52 +139,13 @@ public class ExampleEventHandler extends P2pEventHandler {
   }
 
   public ExampleEventHandler() {
-    this.nodeId = generateNodeId();
-    this.messageTypes = new HashSet<>();
-    this.messageTypes.add(MessageTypes.TEST.getType());
-
-    // Initialize Guava Cache for message source tracking (auto-expiring)
-    this.messageSourceMap = com.google.common.cache.CacheBuilder.newBuilder()
-        .maximumSize(MESSAGE_SOURCE_CACHE_SIZE)
-        .expireAfterWrite(MESSAGE_SOURCE_EXPIRE_MINUTES, TimeUnit.MINUTES)
-        .build();
-
-    // Initialize async forwarding thread pool for high throughput
-    this.forwardExecutor = Executors.newFixedThreadPool(FORWARD_THREAD_POOL_SIZE, new ThreadFactory() {
-      private final AtomicInteger threadNumber = new AtomicInteger(1);
-      @Override
-      public Thread newThread(Runnable r) {
-        Thread t = new Thread(r, "msg-forward-" + threadNumber.getAndIncrement());
-        t.setDaemon(true); // Daemon thread for graceful shutdown
-        return t;
-      }
-    });
-
-    // Initialize maintenance executor for Bloom Filter rotation
-    this.maintenanceExecutor = Executors.newScheduledThreadPool(MAINTENANCE_THREAD_POOL_SIZE, r -> {
-      Thread t = new Thread(r, "bloom-maintenance");
-      t.setDaemon(true);
-      return t;
-    });
-
-    // Schedule Bloom Filter rotation to prevent saturation
-    // This ensures continuous operation for long-running tests
-    maintenanceExecutor.scheduleWithFixedDelay(
-        this::rotateBloomFilter,
-        BLOOM_FILTER_ROTATION_INITIAL_DELAY_SECONDS,
-        BLOOM_FILTER_ROTATION_PERIOD_SECONDS,
-        TimeUnit.SECONDS);
-
-    // Schedule periodic statistics logging
-    maintenanceExecutor.scheduleWithFixedDelay(
-        this::logPeriodicStats,
-        STATS_LOG_INITIAL_DELAY_SECONDS,
-        STATS_LOG_PERIOD_SECONDS,
-        TimeUnit.SECONDS);
+    this(null);
   }
 
   public ExampleEventHandler(String nodeId) {
     this.nodeId = nodeId != null ? nodeId : generateNodeId();
+
+    // Initialize message types
     this.messageTypes = new HashSet<>();
     this.messageTypes.add(MessageTypes.TEST.getType());
 
@@ -195,23 +156,45 @@ public class ExampleEventHandler extends P2pEventHandler {
         .build();
 
     // Initialize async forwarding thread pool for high throughput
-    this.forwardExecutor = Executors.newFixedThreadPool(FORWARD_THREAD_POOL_SIZE, new ThreadFactory() {
+    this.forwardExecutor = createForwardExecutor();
+
+    // Initialize maintenance executor for Bloom Filter rotation
+    this.maintenanceExecutor = createMaintenanceExecutor();
+
+    // Schedule periodic tasks
+    schedulePeriodicTasks();
+  }
+
+  /**
+   * Create forward executor with daemon thread factory
+   */
+  private static ExecutorService createForwardExecutor() {
+    return Executors.newFixedThreadPool(FORWARD_THREAD_POOL_SIZE, new ThreadFactory() {
       private final AtomicInteger threadNumber = new AtomicInteger(1);
       @Override
       public Thread newThread(Runnable r) {
         Thread t = new Thread(r, "msg-forward-" + threadNumber.getAndIncrement());
-        t.setDaemon(true); // Daemon thread for graceful shutdown
+        t.setDaemon(true);
         return t;
       }
     });
+  }
 
-    // Initialize maintenance executor for Bloom Filter rotation
-    this.maintenanceExecutor = Executors.newScheduledThreadPool(MAINTENANCE_THREAD_POOL_SIZE, r -> {
+  /**
+   * Create maintenance executor with daemon thread factory
+   */
+  private static ScheduledExecutorService createMaintenanceExecutor() {
+    return Executors.newScheduledThreadPool(MAINTENANCE_THREAD_POOL_SIZE, r -> {
       Thread t = new Thread(r, "bloom-maintenance");
       t.setDaemon(true);
       return t;
     });
+  }
 
+  /**
+   * Schedule periodic maintenance tasks
+   */
+  private void schedulePeriodicTasks() {
     // Schedule Bloom Filter rotation to prevent saturation
     maintenanceExecutor.scheduleWithFixedDelay(
         this::rotateBloomFilter,
