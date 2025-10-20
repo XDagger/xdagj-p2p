@@ -28,7 +28,6 @@ import java.util.List;
 
 public class P2pConstant {
 
-  public static final int NODE_ID_LEN = 20;
   public static final List<String> ipV4Urls =
       Arrays.asList("http://checkip.amazonaws.com", "https://ifconfig.me/", "https://4.ipw.cn/");
   public static final List<String> ipV6Urls =
@@ -49,21 +48,9 @@ public class P2pConstant {
   public static final int TCP_NETTY_WORK_THREAD_NUM = 0;
   public static final int UDP_NETTY_WORK_THREAD_NUM = 1;
   public static final int NODE_CONNECTION_TIMEOUT = 2000;
-  public static final int KEEP_ALIVE_TIMEOUT = 20_000;
   public static final int PING_TIMEOUT = 20_000;
-  public static final int NETWORK_TIME_DIFF = 1000;
   public static final long DEFAULT_BAN_TIME = 60_000;
   public static final int MAX_MESSAGE_LENGTH = 5 * 1024 * 1024;
-
-  public static final long NODE_DETECT_THRESHOLD = 5 * 60 * 1000;
-  public static final long NODE_DETECT_MIN_THRESHOLD = 30 * 1000;
-  public static final long NODE_DETECT_TIMEOUT = 2 * 1000;
-  public static final int MAX_NODE_SLOW_DETECT = 3;
-  public static final int MAX_NODE_NORMAL_DETECT = 10;
-  public static final int MAX_NODE_FAST_DETECT = 100;
-  public static final int MAX_NODES = 300;
-  public static final int MIN_NODES = 200;
-
 
   public static final Long MESSAGE_QUEUE_SEND_PERIOD = 10L;
 }
