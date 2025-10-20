@@ -186,16 +186,16 @@ public class DnsExample {
 
   /** Log publishing information */
   private void logPublishInfo() {
-    if (p2pService != null && configForLog() != null) {
-      var publishConfig = configForLog();
-      log.info("=== DNS Publishing Configuration ===");
-      log.info("Domain: {}", publishConfig.getDnsDomain());
-      log.info("DNS Type: {}", publishConfig.getDnsType());
-      log.info("Publishing enabled: {}", publishConfig.isDnsPublishEnable());
-      log.info("After publishing, your tree URL will be:");
-      log.info("tree://[PUBLIC_KEY]@{}", publishConfig.getDnsDomain());
-      log.info("===================================");
-    }
+    // Configuration details are not exposed in the current API
+    // DNS publishing will happen automatically if configured via environment variables
+    log.info("=== DNS Publishing Mode ===");
+    log.info("Publishing is configured via environment variables:");
+    log.info("  - DNS_PRIVATE_KEY");
+    log.info("  - DNS_DOMAIN");
+    log.info("  - AWS_ACCESS_KEY_ID");
+    log.info("  - AWS_SECRET_ACCESS_KEY");
+    log.info("See docs/DNS_CONFIGURATION.md for details.");
+    log.info("===========================");
   }
 
   /** Log current statistics */
@@ -214,22 +214,12 @@ public class DnsExample {
     return p2pService != null ? p2pService.getP2pStats() : null;
   }
 
-  /** Get all nodes */
-  public List<Node> getAllNodes() {
-    return List.of();
-  }
-
   /** Connect to a specific peer */
   public void connectToPeer(InetSocketAddress address) {
     if (p2pService != null) {
       p2pService.connect(address);
       log.info("Attempting to connect to peer: {}", address);
     }
-  }
-
-  private io.xdag.p2p.discover.dns.update.PublishConfig configForLog() {
-    // This example doesn't expose direct config anymore; return null by default
-    return null;
   }
 
   /** Main method for standalone execution */
