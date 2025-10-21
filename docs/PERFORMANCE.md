@@ -164,11 +164,11 @@ Network:        Local (127.0.0.1) or LAN
 
 ```
 📈 Coverage Metrics:
-  Instructions:    66% (10,369 / 15,630)
-  Branches:        52% (721 / 1,373)
-  Lines:           66% (2,422 / 3,633)
-  Methods:         73% (429 / 581)
-  Classes:         95% (81 / 85)
+  Instructions:    67% (10,646 / 15,810)
+  Branches:        52% (745 / 1,409)
+  Lines:           67% (2,483 / 3,669)
+  Methods:         80% (460 / 574)
+  Classes:         96% (82 / 85)
 
 🚀 Test Execution:
   Total Tests:     491 test cases
@@ -218,19 +218,20 @@ double opsPerSec = (iterations * 1_000_000_000.0) / duration;
 
 **Test Framework:**
 ```bash
-# Start multi-node cluster
-./test-nodes/start-p2p-network.sh <node_count>
+# Performance Testing (TPS测试)
+cd test-nodes/performance-test
+./start-nodes.sh [node_count]    # Start N nodes for performance testing
+./stop-nodes.sh                   # Stop all nodes
 
-# Run specific test types
-./test-nodes/send-test-message.sh <type> <node_index>
-
-# Test types:
-# - latency_test: Round-trip latency measurement
-# - throughput_test: Message throughput test
-# - burst_test: Burst traffic handling
-# - stability_test: Long-running stability test
-# - topology_scan: Network topology analysis
+# Discovery Testing (节点发现测试)
+cd test-nodes/discovery-test
+./test.sh                         # Run discovery tests
+./verify.sh                       # Verify discovery results
 ```
+
+**Available Tests:**
+- **Performance Test**: Network throughput and TPS testing (2-6 nodes recommended)
+- **Discovery Test**: Node discovery and DHT functionality testing
 
 **Measurement Points:**
 1. **Message Creation**: Timestamp when message created
@@ -253,72 +254,64 @@ Throughput (MB/sec) = (Total Messages × Avg Message Size) / Duration
 
 ### Professional Testing Tools
 
-**Available Scripts:**
+**Available Test Suites:**
 ```bash
 test-nodes/
-├── start-p2p-network.sh         # Launch N nodes
-├── stop-nodes.sh                 # Stop all nodes
-├── monitor-nodes.sh              # Real-time monitoring
-├── status.sh                     # Quick status check
-├── send-test-message.sh          # Send test messages
-├── analyze-network-performance.py # Python analysis
-└── lib/common.sh                 # Shared utilities
+├── performance-test/         # TPS and throughput testing
+│   ├── start-nodes.sh       # Launch N nodes
+│   ├── stop-nodes.sh        # Stop all nodes
+│   └── README.md            # Detailed testing guide
+├── discovery-test/          # Node discovery testing
+│   ├── test.sh              # Run discovery tests
+│   ├── verify.sh            # Verify results
+│   └── README.md            # Discovery test guide
+└── lib/
+    ├── common.sh            # Shared utilities
+    └── stop-nodes.sh        # Common stop script
 ```
 
-**Test Message Types:**
-```
-Basic Tests:        latency_test, throughput_test, coverage_test
-Pressure Tests:     burst_test, pressure_test, size_test
-Stability Tests:    stability_test, reliability_test, resilience_test
-Analysis Tests:     topology_scan, benchmark_test, route_efficiency
-Advanced Tests:     route_discovery, congestion_test, endurance_test
-```
-
-**See [test-nodes/README.md](../test-nodes/README.md) for detailed testing guide.**
+**See [test-nodes/performance-test/README.md](../test-nodes/performance-test/README.md) and [test-nodes/discovery-test/README.md](../test-nodes/discovery-test/README.md) for detailed testing guides.**
 
 ---
 
 ## Network Testing
 
-### Quick Functional Test (6 Nodes)
+### Quick Performance Test (2 Nodes)
 
 ```bash
-cd test-nodes
+cd test-nodes/performance-test
+
+# Start 2 nodes
+./start-nodes.sh 2
+
+# Watch TPS statistics in real-time
+tail -f logs/node-*.log | grep "TPS:"
+
+# Stop all nodes
+./stop-nodes.sh
+```
+
+**Expected Results:**
+```
+Peak TPS:         500K - 1M msg/sec
+Memory Usage:     60-70% (of 6GB heap)
+CPU Usage:        Moderate (depends on thread count)
+```
+
+### Multi-Node Performance Test (6 Nodes)
+
+```bash
+cd test-nodes/performance-test
 
 # Start 6 nodes
-./start-p2p-network.sh 6
+./start-nodes.sh 6
 
-# Monitor in real-time
-./monitor-nodes.sh
+# Watch all nodes' TPS
+tail -f logs/node-*.log | grep "TPS:"
 
-# Check status
-./status.sh
-
-# Stop all nodes
-./stop-nodes.sh
-```
-
-**Expected Results:**
-```
-Connections per node: 3-5
-Network diameter:     3-4 hops
-Average latency:      <5ms (local)
-Throughput:           15,000+ msg/sec
-```
-
-### Stress Test (20 Nodes)
-
-```bash
-cd test-nodes
-
-# Start 20 nodes
-./start-p2p-network.sh 20
-
-# Run for 5 minutes
-sleep 300
-
-# Analyze performance
-python3 analyze-network-performance.py --logs-dir logs
+# Check memory after 2 minutes
+sleep 120
+grep "Memory:" logs/node-*.log | tail -6
 
 # Stop all nodes
 ./stop-nodes.sh
@@ -326,39 +319,31 @@ python3 analyze-network-performance.py --logs-dir logs
 
 **Expected Results:**
 ```
-Connections per node: 8-12
-Network diameter:     5-6 hops
-Average latency:      <10ms (local)
-Throughput:           17,000+ msg/sec
-Total connections:    100-120
+TPS:              500K-800K msg/sec (slightly lower than 2 nodes)
+Memory Usage:     Increased (more connections)
+Stability:        All nodes should run stably
 ```
 
-### Python Analysis Tools
+### Node Discovery Test
 
 ```bash
-# Install dependencies
-pip3 install matplotlib pandas networkx
+cd test-nodes/discovery-test
 
-# Run analysis (generates reports and charts)
-python3 analyze-network-performance.py --logs-dir logs
+# Run comprehensive discovery tests
+./test.sh
 
-# Outputs:
-# - Network topology graphs
-# - Performance reports (Markdown)
-# - CSV data export
-# - Latency distribution charts
+# Verify results
+./verify.sh
+
+# Check detailed results
+cat results/*.md
 ```
 
-**Generated Artifacts:**
-```
-analysis_results_<timestamp>/
-├── network_topology.png
-├── node_performance.png
-├── connection_statistics.png
-├── latency_distribution.png
-├── network_analysis_report.md
-└── raw_data.csv
-```
+**Test Coverage:**
+- Node discovery via Kademlia DHT
+- PING/PONG message exchange
+- FIND_NODE/NEIGHBORS routing
+- Routing table management
 
 ---
 
@@ -558,7 +543,8 @@ Bitcoin Core:   ~5K msg/sec
 - [JMH Benchmarking](https://github.com/openjdk/jmh) - Java Microbenchmark Harness
 - [Netty Performance](https://netty.io/wiki/native-transports.html) - Netty optimization guide
 - [G1GC Tuning](https://docs.oracle.com/en/java/javase/21/gctuning/) - Java GC tuning
-- [Testing Guide](../test-nodes/README.md) - Professional network testing
+- [Testing Guide](../test-nodes/performance-test/README.md) - Performance testing guide
+- [Discovery Testing](../test-nodes/discovery-test/README.md) - Discovery testing guide
 
 ---
 
