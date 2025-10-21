@@ -20,7 +20,7 @@ XDAGJ-P2P delivers production-ready performance with comprehensive benchmarking 
 **Key Highlights:**
 - **Message Processing**: 1.3M - 8M ops/sec
 - **Network Throughput**: 17,000+ msg/sec (real network)
-- **Test Coverage**: 471 tests, 66% instruction coverage
+- **Test Coverage**: 491 tests, 66% instruction coverage
 - **Network Latency**: 1-8ms (95% under 8ms)
 - **Error Rate**: 0% (7M+ messages tested)
 
@@ -171,7 +171,7 @@ Network:        Local (127.0.0.1) or LAN
   Classes:         95% (81 / 85)
 
 🚀 Test Execution:
-  Total Tests:     471 test cases
+  Total Tests:     491 test cases
   Success Rate:    100% pass rate
   Execution Time:  ~18 seconds
   Stability:       Zero flaky tests
