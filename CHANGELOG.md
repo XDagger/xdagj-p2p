@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Enhanced UDP Discovery Logging**: Upgraded Kademlia DHT protocol logging from DEBUG to INFO level
+  - `NodeHandler.handlePing()`, `handlePong()`, `handleNeighbours()`, `handleFindNode()`, `sendFindNode()` now use INFO level
+  - `KadService` boot node initialization now uses INFO level logging
+  - `DiscoverTask` initialization now uses INFO level logging
+  - Significantly improved visibility of UDP discovery protocol activity
+  - Makes node discovery completely transparent in production logs
+
+### Fixed
+- **Discovery Test Script Accuracy**: Fixed log parsing in test.sh and verify.sh
+  - Updated grep patterns to match new log format (`"Sending PING to node:"` instead of `"Send PING"`)
+  - Fixed sed extraction pattern to correctly parse discovered node counts (was incorrectly matching year "2025" from timestamps)
+  - All discovery metrics now report accurately
+
+### Removed
+- **Obsolete Logging Configuration**: Removed unused `test-nodes/discovery-test/logback-discovery.xml`
+  - Project uses slf4j-simple, not logback (no logback dependency in pom.xml)
+  - Configuration file was completely ineffective
+  - Removed `-Dlogback.configurationFile` references from test scripts
+
+### Changed
 - **Node ID Implementation**: Migrated from 520-bit uncompressed public key to 160-bit XDAG address
   - Node ID now uses XDAG address format (20 bytes / 40 hex chars) for perfect Kademlia DHT compliance
   - Complies with standard Kademlia 160-bit node ID length (same as BitTorrent DHT)

@@ -31,7 +31,6 @@ import io.xdag.p2p.message.discover.KadFindNodeMessage;
 import io.xdag.p2p.message.discover.KadNeighborsMessage;
 import io.xdag.p2p.message.discover.KadPingMessage;
 import io.xdag.p2p.message.discover.KadPongMessage;
-import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -63,19 +62,22 @@ public class NodeHandler {
     this.p2pConfig = kadService.getP2pConfig();
     this.node = node;
     this.kadService = kadService;
-    log.debug("Creating NodeHandler for node: {}", node.getPreferInetSocketAddress());
+    log.info("Creating NodeHandler for node: {}", node.getPreferInetSocketAddress());
 
     // Load existing reputation from persistence if available
     String nodeId = node.getId();
     if (nodeId != null && kadService.getReputationManager() != null) {
       int savedReputation = kadService.getReputationManager().getReputation(nodeId);
       reputation.set(savedReputation);
-      log.debug("Loaded reputation {} for node {}", savedReputation, node.getPreferInetSocketAddress());
+      log.info("Loaded reputation {} for node {}", savedReputation, node.getPreferInetSocketAddress());
     }
 
     // send ping only if IP stack is compatible
     if (node.getPreferInetSocketAddress() != null) {
+      log.info("Node {} has valid address, transitioning to DISCOVERED state (will send PING)", node.getPreferInetSocketAddress());
       changeState(State.DISCOVERED);
+    } else {
+      log.warn("Node has no valid address, cannot send PING");
     }
   }
 
@@ -135,8 +137,9 @@ public class NodeHandler {
   }
 
   public void handlePing(KadPingMessage msg) {
-    log.debug("handlePing from {}", node.getPreferInetSocketAddress());
+    log.info("Received PING from node: {}", node.getPreferInetSocketAddress());
     if (!kadService.getTable().getNode().equals(node)) {
+      log.info("Sending PONG to node: {}", node.getPreferInetSocketAddress());
       sendPong();
     }
     node.setNetworkId(msg.getNetworkId());
@@ -150,7 +153,7 @@ public class NodeHandler {
   }
 
   public void handlePong(KadPongMessage msg) {
-    log.debug("handlePong from {}", node.getPreferInetSocketAddress());
+    log.info("Received PONG from node: {}", node.getPreferInetSocketAddress());
     if (waitForPong) {
       waitForPong = false;
       node.setNetworkId(msg.getNetworkId());
@@ -172,6 +175,8 @@ public class NodeHandler {
       log.warn("Receive neighbors without send find nodes");
       return;
     }
+    log.info("Received NEIGHBORS from node: {} ({} neighbors)",
+             node.getPreferInetSocketAddress(), msg.getNeighbors().size());
     waitForNeighbors = false;
     for (Node n : msg.getNeighbors()) {
       if (kadService.getPublicHomeNode().getId() == null || n.getId() == null ||
@@ -183,6 +188,8 @@ public class NodeHandler {
 
   public void handleFindNode(KadFindNodeMessage msg) {
     List<Node> closest = kadService.getTable().getClosestNodes(msg.getTarget());
+    log.info("Received FIND_NODE from node: {}, sending {} neighbors",
+             node.getPreferInetSocketAddress(), closest.size());
     sendNeighbours(closest, msg.getTimestamp());
   }
 
@@ -240,7 +247,7 @@ public class NodeHandler {
   }
 
   public void sendPing() {
-    log.debug("Sending PING to node: {}", node.getPreferInetSocketAddress());
+    log.info("Sending PING to node: {}", node.getPreferInetSocketAddress());
     KadPingMessage msg = new KadPingMessage(kadService.getPublicHomeNode(), getNode());
     waitForPong = true;
     sendMessage(msg);
@@ -271,6 +278,7 @@ public class NodeHandler {
   }
 
   public void sendFindNode(byte[] target) {
+    log.info("Sending FIND_NODE to node: {}", node.getPreferInetSocketAddress());
     waitForNeighbors = true;
     KadFindNodeMessage msg =
         new KadFindNodeMessage(kadService.getPublicHomeNode(), Bytes.wrap(target));

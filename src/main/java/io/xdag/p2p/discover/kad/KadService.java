@@ -42,7 +42,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -79,13 +78,16 @@ public class KadService implements DiscoverService {
             seed.setNetworkId(p2pConfig.getNetworkId());
             seed.setNetworkVersion(p2pConfig.getNetworkVersion());
             bootNodes.add(seed);
+            log.info("Added TCP seed to boot nodes: {}", address);
         }
         for (InetSocketAddress address : p2pConfig.getActiveNodes()) {
             Node active = new Node(null, address);
             active.setNetworkId(p2pConfig.getNetworkId());
             active.setNetworkVersion(p2pConfig.getNetworkVersion());
             bootNodes.add(active);
+            log.info("Added UDP active node to boot nodes: {}", address);
         }
+        log.info("Total boot nodes: {}", bootNodes.size());
         this.pongTimer =
                 Executors.newSingleThreadScheduledExecutor(
                         BasicThreadFactory.builder().namingPattern("pongTimer").build());
@@ -195,17 +197,16 @@ public class KadService implements DiscoverService {
 
     @Override
     public void channelActivated() {
-        log.debug(
-                "KadService channelActivated called, inited: {}, bootNodes size: {}",
-                inited,
-                bootNodes.size());
+        log.info("KadService.channelActivated() called - inited: {}, bootNodes: {}", inited, bootNodes.size());
         if (!inited) {
             inited = true;
 
             for (Node node : bootNodes) {
-                log.debug("Creating NodeHandler for boot node: {}", node.getPreferInetSocketAddress());
+                log.info("Creating NodeHandler for boot node: {}", node.getPreferInetSocketAddress());
                 getNodeHandler(node);
             }
+        } else {
+            log.info("channelActivated() called but already inited - skipping NodeHandler creation");
         }
     }
 
@@ -320,7 +321,7 @@ public class KadService implements DiscoverService {
             List<InetSocketAddress> staleKeys = nodeHandlerMap.entrySet().stream()
                     .filter(entry -> !entry.getValue().getNode().isConnectible(p2pConfig.getNetworkId()))
                     .map(Map.Entry::getKey)
-                    .collect(Collectors.toList());
+                    .toList();
             staleKeys.forEach(nodeHandlerMap::remove);
         }
 

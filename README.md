@@ -231,6 +231,163 @@ Backward Compatible: Schema evolution support
 - **🏗️ Distributed Systems**: Service discovery and data replication at scale
 - **🌐 IoT Networks**: Self-organizing mesh networks for IoT devices
 
+## 🌐 Node Discovery Mechanisms
+
+XDAGJ-P2P provides **Kademlia DHT-based node discovery** for fully decentralized peer-to-peer networking.
+
+### 🎯 Current Discovery Method (v0.1.2)
+
+#### ✅ Kademlia DHT Discovery (Production-Ready)
+
+**Pure peer-to-peer discovery via UDP protocol - fully decentralized and self-organizing**
+
+```bash
+# Start node with IP seeds (current recommended method)
+java -jar xdagj-p2p-0.1.2.jar \
+  -p 16783 \
+  -s bootstrap1.xdag.io:16783,bootstrap2.xdag.io:16783
+```
+
+**How it works:**
+1. Connect to seed nodes via TCP
+2. Send UDP PING/PONG messages for liveness detection
+3. Recursively discover peers via FIND_NODE/NEIGHBORS
+4. Build complete network topology via Kademlia DHT (160-bit Node ID)
+5. Continuously maintain routing table with active nodes
+
+**Advantages:**
+- ✅ **Fully decentralized** - No central authority required
+- ✅ **Self-organizing network** - Automatic topology optimization
+- ✅ **No single point of failure** - Resilient to node failures
+- ✅ **Real-time node discovery** - Live network updates
+- ✅ **Production-ready** - Battle-tested in XDAG network
+
+**Best for:** All production nodes, full nodes, network resilience
+
+**Performance:**
+- Discovery latency: 30-60s for initial bootstrap
+- Network overhead: Medium (UDP heartbeat + routing table maintenance)
+- Scalability: Tested with 30+ node networks
+
+### 🔮 Future Enhancements (Planned)
+
+#### 🚧 DNS Discovery (Mid-term Roadmap)
+
+**Quick node discovery via DNS TXT records (EIP-1459 compliant)**
+
+> **Status:** ⏳ Code implementation complete, integration planned for mid-term release
+
+**Planned features:**
+- Ultra-fast cold start (2-5 seconds)
+- EIP-1459 standard compliance
+- DNS TXT record-based node lists
+- Automatic DNS publishing for authority nodes
+
+**Why not now?**
+- Current Kademlia DHT works excellently for all use cases
+- DNS integration requires production DNS infrastructure setup
+- Mid-term deployment allows for proper testing and gradual rollout
+
+**Planned timeline:**
+- **Q2 2025**: DNS Client integration into NodeManager
+- **Q3 2025**: Production DNS infrastructure deployment
+- **Q4 2025**: Hybrid mode (DNS + DHT) general availability
+
+### 📊 Discovery Method Comparison
+
+| Feature | Kademlia DHT (Current) | DNS Discovery (Planned) | Hybrid Mode (Future) |
+|---------|------------------------|-------------------------|----------------------|
+| **Status** | ✅ Production | 🚧 Mid-term | 🔮 Long-term |
+| **Startup Speed** | Medium (30-60s) | Fast (2-5s) | Fast (2-5s) |
+| **Decentralization** | ✅ Fully | ⚠️ Semi | ✅ Fully |
+| **Infrastructure** | ✅ None required | ⚠️ DNS service needed | ⚠️ DNS service needed |
+| **Network Overhead** | Medium | Low | Medium |
+| **Single Point Failure** | ✅ No | ⚠️ Yes (DNS) | ✅ No (DHT backup) |
+| **Auto IP Updates** | ✅ Real-time | ⏱️ Hourly | ✅ Real-time |
+| **Cold Start** | Requires seeds | Fast | Fastest |
+| **Long-term Operation** | ✅ Excellent | ⚠️ Depends on DNS | ✅ Excellent |
+
+### 🎯 Current Recommended Configurations
+
+#### For Full Nodes (24/7 Operation)
+```bash
+# Production configuration with multiple seed nodes
+java -jar xdagj-p2p-0.1.2.jar \
+  -p 16783 \
+  -s bootstrap1.xdag.io:16783,bootstrap2.xdag.io:16783,bootstrap3.xdag.io:16783
+```
+
+#### For Development/Testing
+```bash
+# Local development with direct IP connections
+java -jar xdagj-p2p-0.1.2.jar \
+  -p 16783 \
+  -s 127.0.0.1:10000,192.168.1.100:16783
+```
+
+#### For Private Networks
+```bash
+# Enterprise deployment with private seed nodes
+java -jar xdagj-p2p-0.1.2.jar \
+  -p 16783 \
+  -s 10.0.1.10:16783,10.0.1.11:16783
+```
+
+### 💡 Current Best Practices
+
+1. **Multiple Seed Nodes**: Configure 3-5 seed nodes for redundancy
+2. **Stable Seeds**: Use nodes with static IPs and high uptime
+3. **Network ID**: Ensure all nodes use the same network ID (default: 0x01)
+4. **Port Consistency**: Use standard port 16783 for XDAG network
+5. **Firewall Rules**: Allow UDP and TCP traffic on configured port
+6. **Monitoring**: Track node discovery metrics and routing table size
+
+### 🔍 Kademlia DHT Technical Details
+
+**Node ID Format:**
+- **160-bit XDAG address** (20 bytes) derived from node's public key
+- Same standard as BitTorrent DHT (BEP-0005)
+- Perfect for XOR-based distance calculation
+
+**Routing Table:**
+- **K-bucket structure** (k=16, 160 buckets)
+- Stores up to 16 nodes per bucket
+- LRU replacement policy
+- Automatic stale node detection
+
+**Discovery Protocol:**
+- **PING/PONG**: Node liveness check (every 30 seconds)
+- **FIND_NODE**: Recursive node discovery
+- **NEIGHBORS**: Response with closest nodes
+- **UDP-based**: Low latency, connectionless
+
+**Network Topology:**
+- **Small-world network**: Logarithmic lookup (O(log N))
+- **Self-healing**: Automatic recovery from node failures
+- **Load balancing**: Even distribution across routing table
+
+### 📚 Related Documentation
+
+- [Node ID Migration Guide](NODE_ID_MIGRATION_PLAN.md) - 520-bit to 160-bit migration details
+- [Testing Guide](test-nodes/README.md) - Professional network testing suite
+- [Change Log](CHANGELOG.md) - Version history and release notes
+
+### 🚀 Upcoming Features
+
+**Mid-term (Q2-Q3 2025):**
+- DNS Discovery integration
+- DNS PublishService for authority nodes
+- Multi-source bootstrap (DNS + DHT)
+
+**Long-term (Q4 2025):**
+- Hybrid discovery mode (DNS + DHT)
+- Intelligent bootstrap strategy
+- Enhanced network monitoring
+
+---
+
+**Current Recommendation:** Use **Kademlia DHT with multiple IP seeds** for all production deployments. This provides excellent decentralization, reliability, and performance without requiring additional infrastructure.
+
 ## 🚀 Quick Start
 
 ### Prerequisites

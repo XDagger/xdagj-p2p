@@ -1,551 +1,451 @@
-# Node Discovery Testing
+# Node Discovery Testing Framework
 
-Testing Kademlia DHT + EIP-1459 DNS Discovery functionality
+Universal testing framework for both **Kademlia DHT** and **EIP-1459 DNS** node discovery mechanisms.
 
----
-
-## 🎯 Test Objectives
-
-Verify P2P network node discovery functionality:
-- **Kademlia DHT**: Recursive node discovery via UDP
-- **EIP-1459 DNS**: Retrieve initial node list from DNS
-- **Network Topology**: Can nodes self-organize into a complete network
-- **DHT Health**: K-bucket fill rate, node liveness rate
-
-**Note**: This is a **node discovery functionality test**, focusing on network topology rather than message throughput.
-
----
-
-## 📊 Performance Metrics
-
-### Current Targets
-
-```
-Test Configuration: 10 nodes, local environment
-Discovery Coverage: > 70% (within 5 minutes)
-DHT Fill Rate: > 60%
-UDP Message Rate: < 100 msg/sec/node
-```
-
-### Real Blockchain Standards
-
-| Metric | Bitcoin | Ethereum | XDAG Target |
-|------|---------|----------|----------|
-| Block Propagation (50% nodes) | 6.5s | 2-5s | < 5s |
-| Block Propagation (95% nodes) | 12.6s | < 10s | < 10s |
-| Typical Connections | 8-125 | 25-50 | 8-50 |
-| DHT Nodes | Thousands | Thousands | Scalable |
-
----
-
-## 🚀 Quick Start
-
-### 1. Basic Discovery Test (Quick Start)
+## Quick Start
 
 ```bash
-# Run discovery test with 10 nodes for 5 minutes
-./test-discovery.sh 10 300
+# Kademlia DHT mode (10 nodes, 5 minutes)
+./test.sh dht 10 300
 
-# Monitor progress in real-time
-tail -f logs/discovery-*.log | grep "Discovery Status"
+# DNS discovery mode (5 nodes, 3 minutes)
+./test.sh dns 5 180
 
-# Expected output:
-# [node-10001] Discovery Status at 30s  | DHT: 1/2 | ...
-# [node-10001] Discovery Status at 60s  | DHT: 3/5 | ...
-# [node-10001] Discovery Status at 120s | DHT: 7/9 | ...
+# Verify test results
+./verify.sh dht    # or ./verify.sh dns
+
+# Stop all nodes
+./stop-nodes.sh
 ```
 
-**DHT Metrics Interpretation**:
+## Features
+
+### Kademlia DHT Discovery
+- ✅ UDP-based peer discovery (PING/PONG)
+- ✅ Recursive node lookup (FIND_NODE/NEIGHBORS)
+- ✅ Self-organizing routing table
+- ✅ Automatic peer connection
+
+### DNS Discovery (EIP-1459)
+- ✅ DNS TXT record-based discovery
+- ✅ Mock DNS for local testing (no external DNS needed)
+- ✅ Auto-generated DNS tree structure
+- ✅ EIP-1459 compliant format
+
+## Test Scripts
+
+### 1. test.sh - Universal Test Script
+
+Supports both DHT and DNS modes with a single script.
+
+**Usage**:
+```bash
+./test.sh [mode] [node_count] [duration_seconds]
+
+Modes:
+  dht  - Kademlia DHT discovery (default)
+  dns  - DNS discovery with Mock DNS
+
+Examples:
+  ./test.sh dht 10 300      # DHT: 10 nodes, 5 minutes
+  ./test.sh dns 5 180       # DNS: 5 nodes, 3 minutes
+  ./test.sh 10 300          # Default to DHT mode
 ```
-DHT: 5/8
-     ↑ ↑
-     │ └─ Total known nodes
-     └─── Verified nodes in K-bucket
+
+**How it works**:
+- Automatically starts nodes with appropriate configuration
+- DHT mode: Configures TCP seeds + UDP active nodes
+- DNS mode: Enables Mock DNS + configures DNS tree URL
+- Monitors discovery progress at intervals
+- Generates comprehensive test report in `results/`
+
+### 2. verify.sh - Universal Verification Script
+
+Verifies discovery functionality for both modes.
+
+**Usage**:
+```bash
+./verify.sh [mode]
+
+Modes:
+  dht  - Verify Kademlia DHT discovery (default)
+  dns  - Verify DNS discovery
+
+Examples:
+  ./verify.sh dht    # Verify DHT discovery
+  ./verify.sh dns    # Verify DNS discovery
+  ./verify.sh        # Default to DHT mode
 ```
 
-**Runtime**: The script will run for the specified duration (300s = 5 minutes)
+**Checks performed**:
+- DHT mode: UDP discovery, DHT active, node discovery
+- DNS mode: Mock DNS enabled, DNS Tree URL, DNS sync, node discovery
+- Common: No critical errors, proper monitoring
 
----
+### 3. stop-nodes.sh - Stop All Nodes
 
-### 2. Complete Discovery Test (Recommended)
+**Usage**:
+```bash
+./stop-nodes.sh
+```
+
+Gracefully stops all running discovery test nodes.
+
+## Directory Structure
+
+```
+discovery-test/
+├── test.sh                  # Universal test script (DHT + DNS)
+├── verify.sh                # Universal verification script
+├── stop-nodes.sh           # Stop all nodes
+├── README.md                # This file
+├── logs/                    # Node logs (dht-*.log, dns-*.log)
+├── pids/                    # Process IDs
+└── results/                 # Test reports
+```
+
+## Discovery Modes
+
+### Mode 1: Kademlia DHT
+
+**Pure UDP-based distributed hash table discovery**
 
 ```bash
-# Run complete test (10 nodes, 5 minutes)
-./test-discovery.sh 10 300
-
-# Auto-generate report
-cat discovery-results/report-*.txt
-
-# Example report:
-# ========================================
-# Time: 300 seconds
-# ========================================
-# Average DHT nodes: 7
-# Average discovered: 8
-# Discovery coverage: 89%
-# ✅ Excellent: Discovery coverage 89% >= 70%
+./test.sh dht 10 300
 ```
 
----
+**How it works**:
+1. Each node starts with UDP discovery enabled
+2. Nodes PING each other to establish connectivity
+3. FIND_NODE queries recursively discover all peers
+4. TCP connections established based on discovery
+5. Self-organizing routing table maintained
 
-### 3. Quick Verification
+**Best for**:
+- Peer-to-peer networks
+- Decentralized systems
+- Dynamic node membership
+
+### Mode 2: DNS Discovery (Mock DNS)
+
+**EIP-1459 DNS-based discovery with local Mock DNS**
 
 ```bash
-# Run diagnostic script
-./verify-discovery.sh
-
-# Output:
-# ✅ Discovery enabled
-# ✅ Kademlia messages detected normally
-# ⚠️  DHT statistics not found (may be log level issue)
+./test.sh dns 5 180
 ```
 
----
+**How it works**:
+1. Mock DNS resolver created in-memory
+2. DNS tree structure auto-generated (root + branch + nodes)
+3. Nodes query Mock DNS for peer list
+4. Nodes connect to discovered peers
+5. No external DNS infrastructure needed
 
-## 📁 File Description
+**Best for**:
+- Fast bootstrap
+- Testing without real DNS
+- CI/CD pipelines
+- Offline development
 
-### Script Files
+**DNS Tree Structure** (auto-generated):
+```
+mainnet.nodes.xdag.io (Root)
+  → enrtree-root:v1 e=MOCKBRANCH001 ...
+      │
+      └─→ MOCKBRANCH001.mainnet.nodes.xdag.io (Branch)
+          → enrtree-branch:MOCKLEAF001,MOCKLEAF002
+              │
+              ├─→ MOCKLEAF001.mainnet.nodes.xdag.io (3 nodes)
+              └─→ MOCKLEAF002.mainnet.nodes.xdag.io (3 nodes)
+```
 
-| File | Function | Usage |
-|------|------|------|
-| `test-discovery.sh` | Complete discovery test | `./test-discovery.sh [node_count] [seconds]` |
-| `verify-discovery.sh` | Quick verification script | `./verify-discovery.sh` |
-| `stop-nodes.sh` | Stop all nodes | `./stop-nodes.sh` |
+**Domain Structure**:
+- `nodes.xdag.io` - Base domain (XDAG project)
+- `mainnet.nodes.xdag.io` - Mainnet nodes (used in tests)
+- `testnet.nodes.xdag.io` - Testnet nodes
+- `dev.nodes.xdag.io` - Development nodes
 
-### Log Files
+## Test Results
 
-- `logs/discovery-*.log` - Node discovery logs
-- `pids/discovery-*.pid` - Node process IDs
-- `discovery-results/report-*.txt` - Test reports
+### Result Files
 
-### Documentation Files
+Test reports are saved in `results/`:
+- `dht-report-YYYYMMDD-HHMMSS.txt` - DHT test results
+- `dns-report-YYYYMMDD-HHMMSS.txt` - DNS test results
 
-- `docs/EIP-1459-detailed-guide.md` - EIP-1459 detailed explanation
-- `docs/node-discovery-test-plan.md` - Test plan
-- `docs/discovery-test-summary.md` - Test summary
-- `docs/IMPLEMENTATION_SUMMARY.md` - Implementation summary
+### Success Criteria
 
----
+**DHT Mode**:
+- ✅ Discovery coverage > 90% (excellent)
+- ✅ Discovery coverage > 70% (good)
+- ✅ Average > 3 TCP connections per node
+- ✅ PING/PONG exchanges active
+- ✅ FIND_NODE/NEIGHBORS working
 
-## 🔧 Configuration Parameters
+**DNS Mode**:
+- ✅ All nodes have Mock DNS enabled
+- ✅ DNS effectiveness > 80% (excellent)
+- ✅ DNS effectiveness > 50% (good)
+- ✅ Average > 3 discovered nodes
+- ✅ DNS sync active
 
-### test-discovery.sh Configuration
+## Examples
+
+### Example 1: Quick DHT Test (3 nodes, 1 minute)
 
 ```bash
-NODE_COUNT=10         # Node count (default: 3)
-TEST_DURATION=300     # Test duration in seconds (default: 60)
-BASE_PORT=10000       # Starting port (TCP+UDP)
-NETWORK_ID=1          # Network ID
-
-# JVM parameters
--Xms256m              # Initial heap 256MB (smaller than performance test)
--Xmx512m              # Max heap 512MB
-
-# Application parameters
--p $PORT              # Listen port
--d 1                  # Enable Discovery ✅ Required
--s $SEEDS             # TCP seed nodes
--a $ACTIVE_NODES      # UDP active nodes ✅ Critical configuration
+./test.sh dht 3 60
+./verify.sh dht
+./stop-nodes.sh
 ```
 
-### Key Difference: active-nodes Parameter
+### Example 2: DNS Discovery Test (5 nodes, 3 minutes)
 
 ```bash
-# Node 0 (Bootstrap): No configuration needed
--a ""
-
-# Node 1-2: Connect to multiple UDP nodes
--a "127.0.0.1:10000,127.0.0.1:10001"
-
-# Node 3+: Only connect to Node 0 (force recursive discovery via DHT)
--a "127.0.0.1:10000"
+./test.sh dns 5 180
+./verify.sh dns
+./stop-nodes.sh
 ```
 
-**Purpose**: Force Node 3+ to discover other nodes through Kademlia DHT, testing DHT functionality.
+### Example 3: Production-like DHT Test (20 nodes, 10 minutes)
 
----
-
-## 📈 Test Scenarios
-
-### Scenario 1: Kademlia DHT Basic Test
-
-**Objective**: Verify UDP message exchange and node discovery
-
-**Configuration**:
-- 10 nodes, no DNS configured
-- Rely solely on Kademlia DHT
-
-**Expected Results**:
-```
-Time  | Node0 Discovered | Node5 Discovered | Node9 Discovered
-------|-----------------|-----------------|------------------
-30s   | 2-3             | 2-3             | 2-3              # Direct neighbors
-60s   | 4-6             | 4-6             | 4-6              # Recursive discovery
-120s  | 7-9             | 7-9             | 7-9              # Most nodes
-300s  | 9-10            | 9-10            | 9-10             # All nodes
-```
-
-**Verification Metrics**:
-- ✅ PING/PONG success rate > 95%
-- ✅ Node discovery coverage > 90% (within 5 minutes)
-- ✅ K-bucket fill rate > 80%
-- ✅ No node leaks (stable memory)
-
-**Execution**:
 ```bash
-./test-discovery.sh 10 300
-# The script will:
-# 1. Start nodes with DiscoveryApp
-# 2. Monitor at intervals (30s, 60s, 120s, 180s, 300s)
-# 3. Generate detailed report
-# Check DHT statistics in the report
-cat discovery-results/report-*.txt
+./test.sh dht 20 600
+./verify.sh dht
+
+# View detailed logs
+grep "FIND_NODE" logs/dht-*.log | less
+
+# View statistics
+grep "Discovered Nodes" logs/dht-*.log
 ```
 
----
+## Viewing Logs
 
-### Scenario 2: DNS Discovery Test
-
-**Objective**: Verify EIP-1459 DNS sync functionality
-
-**Prerequisites**: Requires Mock DNS server or real DNS
-
-**Steps**:
-
-1. **Start Mock DNS Server**:
-```java
-// Use MockDnsServer.java
-MockDnsServer server = new MockDnsServer();
-for (int i = 0; i < 50; i++) {
-    server.addMockNode("127.0.0.1", 20000 + i);
-}
-server.start("test.nodes.local", 5353);
-System.out.println("Tree URL: " + server.getTreeUrl());
-```
-
-2. **Start Nodes**:
+### View discovery activity
 ```bash
-# Modify test-discovery.sh to add DNS URL parameter
---dns-url "enrtree://PUBKEY@test.nodes.local"
+# DHT mode
+grep "PING\|PONG\|FIND_NODE\|NEIGHBORS" logs/dht-*.log | less
+
+# DNS mode
+grep "DNS\|Mock" logs/dns-*.log | less
 ```
 
-3. **Verify Sync**:
+### View discovery statistics
 ```bash
-grep "SyncTree\|DNS sync" logs/discovery-*.log
+# Any mode
+grep "Discovered Nodes" logs/*.log
 
-# Expected:
-# [INFO] SyncTree complete: Links=0, Nodes=50, Total=50
-# [INFO] Added 50 nodes from DNS to DHT
+# View monitoring status
+grep "Discovery Status" logs/*.log
 ```
 
----
-
-### Scenario 3: Hybrid Discovery Mode (Most Realistic)
-
-**Objective**: DNS + Kademlia working together
-
-**Architecture**:
-```
-Bootstrap Node (Node 0):
-  - Retrieve 50 nodes from DNS
-  - Act as UDP seed for other nodes
-
-Regular Nodes (Node 1-9):
-  - PING/PONG with Bootstrap node
-  - Recursive discovery via FIND_NODE
-  - Eventually form complete network
-```
-
-**Expected Flow**:
-```
-Phase 1 (0-30s): Bootstrap
-  - Node 0 retrieves 50 nodes from DNS
-  - Node 0 DHT table: 50 nodes
-
-Phase 2 (30-120s): Discovery Propagation
-  - Node 1-9 PING Node 0
-  - Node 1-9 FIND_NODE queries
-  - Receive NEIGHBORS responses
-  - Recursively discover more nodes
-
-Phase 3 (120s+): Network Stabilization
-  - All nodes have complete DHT tables
-  - TCP connections established
-  - Complete P2P topology formed
-```
-
----
-
-## 🔍 Key Metrics Interpretation
-
-### DHT Statistics: `DHT: X/Y`
-
-```
-[node-10001] ... | DHT: 5/8 | ...
-```
-
-- **X (dhtNodes)**: Verified nodes in K-bucket
-  - PING sent and PONG received
-  - Available for queries and connections
-  - These nodes are reliable
-
-- **Y (allNodes)**: Total known nodes
-  - Includes K-bucket nodes
-  - Includes nodes discovered via FIND_NODE but not verified
-  - Includes nodes retrieved from DNS
-
-**Health Indicators**:
-```
-Excellent: X/Y >= 80%  (Most nodes verified)
-Good:      X/Y >= 60%
-Fair:      X/Y >= 40%
-Poor:      X/Y < 40%   (Many nodes unverified or offline)
-```
-
----
-
-### UDP Message Statistics
-
-**Normal Range** (10-node network):
-- PING: 10-50 times/minute
-- PONG: 10-50 times/minute
-- FIND_NODE: 5-20 times/minute
-- NEIGHBORS: 5-20 times/minute
-
-**Abnormal Conditions**:
-- Message count = 0: Discovery not started or UDP port blocked
-- Message count too high (>500/min): May have query loops or configuration errors
-
----
-
-### Discovery Coverage
-
-```
-Discovery Coverage = (Nodes discovered by this node) / (Total network nodes - 1)
-```
-
-**Targets**:
-- 1 minute: > 30%
-- 5 minutes: > 90%
-- 10 minutes: > 95%
-
----
-
-## 🛠️ Troubleshooting
-
-### Issue 1: DHT Statistics Always 0/0
-
-**Possible Causes**:
-- Discovery not enabled
-- UDP port blocked
-- active-nodes not configured
-
-**Verification Steps**:
+### View specific node log
 ```bash
-# 1. Confirm Discovery is enabled
-grep "Discovery enabled: true" logs/discovery-*.log
+# Node 0 in DHT mode
+cat logs/dht-0.log
 
-# 2. Confirm UDP port is listening
-lsof -i UDP:10000-10010
-
-# 3. Confirm active-nodes is configured
-grep "UDP Active Nodes" logs/discovery-*.log
-
-# 4. Check KadService logs
-grep "KadService\|NodeHandler" logs/discovery-*.log
+# Node 0 in DNS mode
+cat logs/dns-0.log
 ```
 
-**Solution**:
+## Troubleshooting
+
+### Issue: "No discovery test is currently running"
+
+**Check**: No test has been started or all nodes have stopped
+
+**Fix**:
 ```bash
-# Check -a parameter in test-discovery.sh
-grep '\-a' test-discovery.sh
-
-# Ensure there's configuration like:
-# -a "127.0.0.1:10000"
+./test.sh dht 5 180    # Start a test
 ```
 
----
+### Issue: Low discovery coverage in DHT mode
 
-### Issue 2: DHT Growth is Slow
+**Possible causes**:
+- Network connectivity issues
+- Firewall blocking UDP ports
+- Test duration too short
 
-**Possible Causes**:
-- DiscoverTask period too long
-- Insufficient active-nodes configuration
-- High network latency
-
-**Verification Steps**:
+**Fix**:
 ```bash
-# Check if DiscoverTask is running
-grep "DiscoverTask\|discover-task" logs/discovery-*.log
+# Increase test duration
+./test.sh dht 10 600   # 10 minutes
 
-# Check FIND_NODE messages
-grep "FIND_NODE\|FindNode" logs/discovery-*.log
+# Check logs for errors
+grep -i "error\|exception" logs/dht-*.log
 ```
 
-**Solution**:
+### Issue: "Mock DNS not enabled" in DNS mode
+
+**Check**: Mock DNS initialization failed
+
+**Fix**:
 ```bash
-# Increase active-nodes
-ACTIVE_NODES="127.0.0.1:10000,127.0.0.1:10001,127.0.0.1:10002"
+# Rebuild with tests
+mvn clean package
+
+# Ensure test-classes directory exists
+ls target/test-classes/io/xdag/p2p/discover/dns/mock/
 ```
 
----
+### Issue: Nodes fail to start
 
-### Issue 3: DNS Sync Failure
+**Check**: Port conflicts or JAR missing
 
-**Possible Causes**:
-- DNS URL not configured
-- Mock DNS server not started
-- Domain resolution failed
-
-**Verification Steps**:
+**Fix**:
 ```bash
-# Confirm DNS URL configuration
-grep "treeUrls\|dns-url" logs/discovery-*.log
+# Stop all Java processes
+./stop-nodes.sh
 
-# Check DNS resolution logs
-grep "SyncTree\|DNS sync\|resolveRoot" logs/discovery-*.log
+# Rebuild JAR
+mvn clean package -DskipTests
+
+# Check JAR exists
+ls -lh ../../target/xdagj-p2p-*.jar
 ```
 
----
+## Architecture
 
-## 📊 EIP-1459 DNS Discovery
+### Unified DiscoveryApp
 
-### What is EIP-1459?
-
-**Objective**: Publish signed, verifiable, updatable node lists via DNS
-
-**URL Format**:
-```
-enrtree://PUBKEY@DOMAIN
-
-Example:
-enrtree://AOFTICU2...@nodes.xdag.org
-         └─────┬────┘  └─────┬─────┘
-         Public Key(base32)  DNS domain
-```
-
-### Merkle Tree Structure
+The discovery test framework uses a single **DiscoveryApp** that supports both modes:
 
 ```
-                ROOT (signed)
-               /     |      \
-          BRANCH   BRANCH   LINK
-          /    \      |       |
-       ENR   ENR   BRANCH  Other trees
+DiscoveryApp (Auto-detects mode)
+  │
+  ├─ Kademlia DHT Mode (no --url-schemes)
+  │  ├─ UDP discovery (PING/PONG)
+  │  ├─ DHT routing (FIND_NODE/NEIGHBORS)
+  │  └─ TCP connections
+  │
+  └─ DNS Discovery Mode (--url-schemes provided)
+     ├─ Mock DNS (if -Dmock.dns.enabled=true)
+     │  ├─ MockDnsResolver (in-memory)
+     │  └─ Auto-generated DNS tree
+     └─ DNS sync → Node discovery → TCP connections
 ```
 
-**Record Types**:
-1. **enrtree-root**: Root record (with signature)
-2. **enrtree-branch**: Branch record
-3. **enr**: Leaf node (actual node info)
-4. **enrtree-link**: Link to other trees
+### Mock DNS Framework
 
-### Why Do We Need It?
-
-**Scenario 1 - New Node Bootstrap**:
-```
-Traditional: Hardcode 5 seed IPs → If all offline = Cannot join network ❌
-EIP-1459: Query DNS → Get 100 latest nodes → Success rate >90% ✅
-```
-
-**Scenario 2 - Network Upgrade**:
-```
-Traditional: Modify code → Release new version → Users update (slow) ❌
-EIP-1459: Update DNS record (1 minute) → All clients auto-retrieve ✅
-```
-
-**Scenario 3 - Prevent DNS Hijacking**:
-```
-Problem: ISP or attackers tamper with DNS records
-EIP-1459: Hash protection + Signature verification + Hardcoded public key → Cannot forge ✅
-```
-
-See: [docs/EIP-1459-detailed-guide.md](docs/EIP-1459-detailed-guide.md)
-
----
-
-## 📝 Test Checklist
-
-Before running node discovery tests, ensure:
-
-- [ ] Latest JAR built: `mvn clean package -DskipTests`
-- [ ] TCP+UDP ports not occupied: `lsof -i :10000-10010`
-- [ ] Old nodes stopped: `./stop-nodes.sh`
-- [ ] Old logs cleaned: `rm -rf logs/* pids/*`
-- [ ] Understand DHT metrics meaning
-
-During testing, monitor:
-
-- [ ] DHT node count increasing
-- [ ] UDP messages exchanging normally
-- [ ] Any error logs
-- [ ] K-bucket fill rate
-
-After testing, analyze:
-
-- [ ] Final discovery coverage percentage
-- [ ] DHT health (X/Y ratio)
-- [ ] Can all nodes discover each other
-- [ ] UDP message rate normal
-
----
-
-## 🎓 Further Reading
-
-1. **EIP-1459 Detailed Guide**: [docs/EIP-1459-detailed-guide.md](docs/EIP-1459-detailed-guide.md)
-   - EIP-1459 principles
-   - Merkle tree structure
-   - Signature verification mechanism
-
-2. **Test Plan**: [docs/node-discovery-test-plan.md](docs/node-discovery-test-plan.md)
-   - Detailed test scenarios
-   - Performance metrics definition
-   - Troubleshooting guide
-
-3. **Implementation Summary**: [docs/IMPLEMENTATION_SUMMARY.md](docs/IMPLEMENTATION_SUMMARY.md)
-   - Completed work
-   - Test tool inventory
-   - Ready-to-use solutions
-
-4. **Test Summary**: [docs/discovery-test-summary.md](docs/discovery-test-summary.md)
-   - Current status analysis
-   - Root cause issues
-   - Correct test approach
-
----
-
-## 🎯 Summary
-
-### What This Test Validates:
-
-✅ Kademlia DHT working properly
-✅ UDP messages exchanging normally
-✅ Nodes can discover each other
-✅ DHT table maintained correctly
-✅ Network can self-organize
-
-### Value of Kademlia DHT:
-
-✅ **Auto-discovery**: No central server needed
-✅ **Network Self-organization**: Nodes automatically form topology
-✅ **Fault Tolerance**: Node downtime doesn't affect network
-✅ **Scalability**: Supports thousands of nodes
-
-### Value of EIP-1459 DNS:
-
-✅ **Cold Start**: New nodes quickly retrieve initial nodes
-✅ **Dynamic Updates**: DNS records can be updated anytime
-✅ **Security Verification**: Merkle tree + signature prevents tampering
-✅ **Decentralization**: DNS is distributed
-
-### Synergy Between Both:
+For DNS testing without external infrastructure:
 
 ```
-Complete Bootstrap Flow:
-  1. DNS Discovery: Retrieve initial nodes (50-200)
-  2. TCP Connections: Connect to some nodes
-  3. Kademlia DHT: Recursively discover more from these nodes
-  4. Complete Network: Form complete P2P topology
+MockDnsResolver (Singleton)
+  ├─ TXT record storage (in-memory)
+  ├─ Thread-safe operations
+  └─ Simple CRUD API
+
+MockableLookUpTxt
+  ├─ Mock mode switching
+  └─ Compatible with production code
 ```
 
-**Remember**: Node discovery is the foundation of P2P networks! Without it, networks cannot self-organize.
+## Advanced Usage
+
+### Running specific node count ranges
+
+```bash
+# Small network (3-5 nodes)
+./test.sh dht 5 180
+
+# Medium network (10-15 nodes)
+./test.sh dht 15 300
+
+# Large network (20 nodes, max)
+./test.sh dht 20 600
+```
+
+### Analyzing discovery patterns
+
+```bash
+# Count PING messages per node
+for i in {0..4}; do
+  echo "Node $i: $(grep -c 'Sending PING to node:' logs/dht-$i.log) PINGs sent"
+done
+
+# Check discovery progression
+for t in 30 60 120; do
+  echo "At ${t}s:"
+  grep "Discovered Nodes:" logs/dht-0.log | grep "$t"
+done
+```
+
+### Testing both modes sequentially
+
+```bash
+# Test DHT, then DNS
+./test.sh dht 10 300
+./verify.sh dht
+./stop-nodes.sh
+
+sleep 5
+
+./test.sh dns 5 180
+./verify.sh dns
+./stop-nodes.sh
+```
+
+## Production Considerations
+
+### DHT Mode
+- **Pros**: Self-organizing, resilient, no central dependency
+- **Cons**: Slower bootstrap, requires active nodes
+- **Use when**: Building decentralized P2P network
+
+### DNS Mode
+- **Pros**: Fast bootstrap, reliable, well-known mechanism
+- **Cons**: Requires DNS infrastructure (or Mock DNS for testing)
+- **Use when**: Need fast initial node list, have DNS available
+
+### Hybrid Approach (Recommended)
+1. Use DNS for fast initial bootstrap
+2. Switch to DHT for ongoing peer discovery
+3. Maintain both mechanisms for redundancy
+
+## Technical Details
+
+### Node ID Derivation
+- Derived from XDAG address (20 bytes, 160 bits)
+- Used for Kademlia distance calculation
+- Consistent across restarts
+
+### Port Allocation
+- Base port: 10000 (configurable)
+- Node i uses port: BASE_PORT + i
+- UDP and TCP on same port
+
+### Discovery Timing
+- Initial delay: 10s (monitoring start)
+- Monitoring interval: 30s
+- Connection establishment: 10s
+
+### Resource Usage
+- Memory: 256MB-512MB per node
+- CPU: Minimal (discovery only, no mining)
+- Disk: Logs only (~1-5MB per node)
+
+## References
+
+- **EIP-1459**: https://eips.ethereum.org/EIPS/eip-1459
+- **Kademlia Paper**: Maymounkov & Mazières, 2002
+- **Mock DNS Guide**: `docs/DNS_MOCK_TESTING_GUIDE.md`
+- **Source Code**: `src/main/java/io/xdag/p2p/example/DiscoveryApp.java`
+
+## Summary
+
+This testing framework provides:
+1. **Unified Scripts**: Single scripts for both DHT and DNS modes
+2. **Zero Dependencies**: Mock DNS works offline
+3. **Comprehensive Testing**: Automated verification
+4. **Production Ready**: EIP-1459 compliant
+
+**Get Started**:
+```bash
+# Quick test
+./test.sh dns 5 60
+./verify.sh dns
+./stop-nodes.sh
+```
+
+Happy testing! 🚀

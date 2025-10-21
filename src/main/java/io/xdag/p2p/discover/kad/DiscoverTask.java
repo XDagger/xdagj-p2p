@@ -64,7 +64,7 @@ public class DiscoverTask {
         1,
         KademliaOptions.DISCOVER_CYCLE,
         TimeUnit.MILLISECONDS);
-    log.debug("DiscoverTask started");
+    log.info("DiscoverTask initialized and scheduled with {}ms interval", KademliaOptions.DISCOVER_CYCLE);
   }
 
   Bytes nextTargetId() {

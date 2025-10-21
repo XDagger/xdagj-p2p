@@ -33,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 
@@ -88,7 +89,7 @@ public class ReputationManager {
     this.backupFile = dir.resolve(DEFAULT_REPUTATION_FILE + BACKUP_SUFFIX);
 
     this.saveExecutor = Executors.newSingleThreadScheduledExecutor(
-        new BasicThreadFactory.Builder()
+        BasicThreadFactory.builder()
             .namingPattern("reputation-save-%d")
             .daemon(true)
             .build());
@@ -255,6 +256,7 @@ public class ReputationManager {
    * Internal data structure for storing reputation with timestamp.
    */
   private static class ReputationData implements Serializable {
+    @Serial
     private static final long serialVersionUID = 1L;
 
     // Decay parameters
@@ -263,6 +265,7 @@ public class ReputationManager {
     private static final int NEUTRAL_SCORE = 100;
 
     private final int score;
+    @Getter
     private final long timestamp;
 
     public ReputationData(int score, long timestamp) {
@@ -298,12 +301,5 @@ public class ReputationManager {
       return NEUTRAL_SCORE;
     }
 
-    public int getRawScore() {
-      return score;
-    }
-
-    public long getTimestamp() {
-      return timestamp;
-    }
   }
 }
