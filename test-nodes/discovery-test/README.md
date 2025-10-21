@@ -40,19 +40,19 @@ UDP Message Rate: < 100 msg/sec/node
 
 ## 🚀 Quick Start
 
-### 1. Basic Discovery Test (Simplest)
+### 1. Basic Discovery Test (Quick Start)
 
 ```bash
-# Start 10 nodes (UDP discovery enabled)
-./start-discovery.sh 10
+# Run discovery test with 10 nodes for 5 minutes
+./test-discovery.sh 10 300
 
-# Monitor DHT statistics (updates every 5 seconds)
-tail -f logs/node-*.log | grep "DHT:"
+# Monitor progress in real-time
+tail -f logs/discovery-*.log | grep "Discovery Status"
 
 # Expected output:
-# [node-10001] ... | DHT: 1/2 | ...  (after 30s)
-# [node-10001] ... | DHT: 3/5 | ...  (after 60s)
-# [node-10001] ... | DHT: 7/9 | ...  (after 120s)
+# [node-10001] Discovery Status at 30s  | DHT: 1/2 | ...
+# [node-10001] Discovery Status at 60s  | DHT: 3/5 | ...
+# [node-10001] Discovery Status at 120s | DHT: 7/9 | ...
 ```
 
 **DHT Metrics Interpretation**:
@@ -63,7 +63,7 @@ DHT: 5/8
      └─── Verified nodes in K-bucket
 ```
 
-**Runtime**: Recommended 5-10 minutes
+**Runtime**: The script will run for the specified duration (300s = 5 minutes)
 
 ---
 
@@ -108,10 +108,9 @@ cat discovery-results/report-*.txt
 
 | File | Function | Usage |
 |------|------|------|
-| `start-discovery.sh` | Start nodes (discovery enabled) | `./start-discovery.sh [node_count]` |
-| `stop-nodes.sh` | Stop all nodes | `./stop-nodes.sh` |
 | `test-discovery.sh` | Complete discovery test | `./test-discovery.sh [node_count] [seconds]` |
 | `verify-discovery.sh` | Quick verification script | `./verify-discovery.sh` |
+| `stop-nodes.sh` | Stop all nodes | `./stop-nodes.sh` |
 
 ### Log Files
 
@@ -130,16 +129,17 @@ cat discovery-results/report-*.txt
 
 ## 🔧 Configuration Parameters
 
-### start-discovery.sh Configuration
+### test-discovery.sh Configuration
 
 ```bash
-NODE_COUNT=10         # Node count
+NODE_COUNT=10         # Node count (default: 3)
+TEST_DURATION=300     # Test duration in seconds (default: 60)
 BASE_PORT=10000       # Starting port (TCP+UDP)
 NETWORK_ID=1          # Network ID
 
 # JVM parameters
--Xms512m              # Initial heap 512MB (smaller than performance test)
--Xmx1024m             # Max heap 1GB
+-Xms256m              # Initial heap 256MB (smaller than performance test)
+-Xmx512m              # Max heap 512MB
 
 # Application parameters
 -p $PORT              # Listen port
@@ -193,11 +193,13 @@ Time  | Node0 Discovered | Node5 Discovered | Node9 Discovered
 
 **Execution**:
 ```bash
-./start-discovery.sh 10
-# Wait 5 minutes
-sleep 300
-# Check DHT statistics
-grep "DHT:" logs/discovery-*.log | tail -20
+./test-discovery.sh 10 300
+# The script will:
+# 1. Start nodes with DiscoveryApp
+# 2. Monitor at intervals (30s, 60s, 120s, 180s, 300s)
+# 3. Generate detailed report
+# Check DHT statistics in the report
+cat discovery-results/report-*.txt
 ```
 
 ---
@@ -223,7 +225,7 @@ System.out.println("Tree URL: " + server.getTreeUrl());
 
 2. **Start Nodes**:
 ```bash
-# Modify start-discovery.sh, add DNS URL
+# Modify test-discovery.sh to add DNS URL parameter
 --dns-url "enrtree://PUBKEY@test.nodes.local"
 ```
 
@@ -355,8 +357,8 @@ grep "KadService\|NodeHandler" logs/discovery-*.log
 
 **Solution**:
 ```bash
-# Check -a parameter in start-discovery.sh
-grep '\-a' start-discovery.sh
+# Check -a parameter in test-discovery.sh
+grep '\-a' test-discovery.sh
 
 # Ensure there's configuration like:
 # -a "127.0.0.1:10000"
