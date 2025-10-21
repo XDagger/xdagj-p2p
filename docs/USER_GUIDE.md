@@ -124,27 +124,17 @@ xdagj-p2p supports DNS-based node discovery using the EIP-1459 protocol. This al
 
 ### XDAG DNS Discovery Domains
 
-The XDAG network uses the following DNS domain structure for clear network identification:
+The XDAG network uses the following DNS domain structure for network identification:
 
 ```bash
 # XDAG Mainnet
 mainnet.xdag.io          # XDAG mainnet node discovery
-nodes.xdag.io            # Alias for mainnet (backward compatibility)
 
-# XDAG Testnet  
+# XDAG Testnet
 testnet.xdag.io          # XDAG testnet node discovery
-
-# Regional Optimization (Optional)
-mainnet-us.xdag.io       # Mainnet North America region
-mainnet-asia.xdag.io     # Mainnet Asia-Pacific region
-mainnet-eu.xdag.io       # Mainnet Europe region
-testnet-us.xdag.io       # Testnet North America region
-testnet-asia.xdag.io     # Testnet Asia-Pacific region
-
-# Special Purpose (Optional)
-bootstrap.xdag.io        # Bootstrap/seed nodes for mainnet
-testnet-bootstrap.xdag.io # Bootstrap/seed nodes for testnet
 ```
+
+**Note**: The DNS tree URLs use the format `tree://PUBKEY@domain` as defined in the EIP-1459 protocol.
 
 ### DNS Provider Support
 
@@ -165,7 +155,7 @@ For more details about the EIP-1459 protocol, see: https://eips.ethereum.org/EIP
 ```bash
 # Publish to XDAG mainnet
 java -jar target/xdagj-p2p-0.1.2-jar-with-dependencies.jar -p 16783 -v 201910292 -d 1 \
--s bootstrap.xdag.io:16783 \
+-s <SEED_NODE_IP>:16783 \
 -publish \
 --dns-private <XDAG_MAINNET_DNS_PRIVATE_KEY> \
 --server-type aws \
@@ -181,7 +171,7 @@ java -jar target/xdagj-p2p-0.1.2-jar-with-dependencies.jar -p 16783 -v 201910292
 ```bash
 # Publish to XDAG testnet
 java -jar target/xdagj-p2p-0.1.2-jar-with-dependencies.jar -p 16783 -v 54321 -d 1 \
--s testnet-bootstrap.xdag.io:16783 \
+-s <SEED_NODE_IP>:16783 \
 -publish \
 --dns-private <XDAG_TESTNET_DNS_PRIVATE_KEY> \
 --server-type aws \
@@ -376,16 +366,16 @@ config.setDiscoverEnable(true);
 Set discover seed nodes
 
 ```java
-// For XDAG mainnet
+// For XDAG mainnet - use actual seed node IPs
 List<InetSocketAddress> mainnetSeedNodeList = new ArrayList<>();
-mainnetSeedNodeList.add(new InetSocketAddress("bootstrap.xdag.io", 16783));
-mainnetSeedNodeList.add(new InetSocketAddress("mainnet-us.xdag.io", 16783));
+mainnetSeedNodeList.add(new InetSocketAddress("<SEED_NODE_IP_1>", 16783));
+mainnetSeedNodeList.add(new InetSocketAddress("<SEED_NODE_IP_2>", 16783));
 config.setSeedNodes(mainnetSeedNodeList);
 
-// For XDAG testnet
+// For XDAG testnet - use actual seed node IPs
 List<InetSocketAddress> testnetSeedNodeList = new ArrayList<>();
-testnetSeedNodeList.add(new InetSocketAddress("testnet-bootstrap.xdag.io", 16783));
-testnetSeedNodeList.add(new InetSocketAddress("testnet-us.xdag.io", 16783));
+testnetSeedNodeList.add(new InetSocketAddress("<SEED_NODE_IP_1>", 16783));
+testnetSeedNodeList.add(new InetSocketAddress("<SEED_NODE_IP_2>", 16783));
 config.setSeedNodes(testnetSeedNodeList);
 ```
 

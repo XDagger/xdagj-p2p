@@ -61,7 +61,7 @@ P2pConfig config = new P2pConfig();
 config.setPort(16783);
 config.setDiscoverEnable(true);
 config.setSeedNodes(Arrays.asList(
-    new InetSocketAddress("bootstrap.xdag.io", 16783)
+    new InetSocketAddress("<SEED_NODE_IP>", 16783)
 ));
 
 // 2. Implement event handler
@@ -92,7 +92,7 @@ mvn clean package -DskipTests
 # Run P2P node
 java -jar target/xdagj-p2p-0.1.2-jar-with-dependencies.jar \
   -p 16783 \
-  -s bootstrap.xdag.io:16783
+  -s <SEED_NODE_IP>:16783
 ```
 
 **See [docs/EXAMPLES.md](docs/EXAMPLES.md) for more examples including custom message implementation.**
@@ -324,7 +324,7 @@ XDAGJ-P2P uses **Kademlia DHT** for fully decentralized peer-to-peer discovery.
 # Start node with seed nodes
 java -jar xdagj-p2p-0.1.2.jar \
   -p 16783 \
-  -s bootstrap1.xdag.io:16783,bootstrap2.xdag.io:16783
+  -s <SEED_NODE_IP_1>:16783,<SEED_NODE_IP_2>:16783
 ```
 
 **How it works:**
@@ -346,7 +346,7 @@ java -jar xdagj-p2p-0.1.2.jar \
 ```bash
 java -jar xdagj-p2p-0.1.2.jar \
   -p 16783 \
-  -s bootstrap1.xdag.io:16783,bootstrap2.xdag.io:16783,bootstrap3.xdag.io:16783
+  -s <SEED_NODE_IP_1>:16783,<SEED_NODE_IP_2>:16783,<SEED_NODE_IP_3>:16783
 ```
 
 **Development/Testing:**

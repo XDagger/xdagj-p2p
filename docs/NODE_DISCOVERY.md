@@ -24,7 +24,7 @@ XDAGJ-P2P v0.1.2 uses **Kademlia DHT** for fully decentralized peer-to-peer disc
 # Start node with seed nodes (recommended for production)
 java -jar xdagj-p2p-0.1.2.jar \
   -p 16783 \
-  -s bootstrap1.xdag.io:16783,bootstrap2.xdag.io:16783
+  -s <SEED_NODE_IP_1>:16783,<SEED_NODE_IP_2>:16783
 ```
 
 #### How It Works
@@ -147,7 +147,7 @@ int leadingZeros = 160 - distance.bitLength();
 # Multiple seed nodes for redundancy
 java -jar xdagj-p2p-0.1.2.jar \
   -p 16783 \
-  -s bootstrap1.xdag.io:16783,bootstrap2.xdag.io:16783,bootstrap3.xdag.io:16783 \
+  -s <SEED_NODE_IP_1>:16783,<SEED_NODE_IP_2>:16783,<SEED_NODE_IP_3>:16783 \
   -d 1
 ```
 
@@ -167,9 +167,9 @@ config.setConnectionTimeout(10000); // 10 seconds
 
 // Add multiple seed nodes
 List<InetSocketAddress> seeds = Arrays.asList(
-    new InetSocketAddress("bootstrap1.xdag.io", 16783),
-    new InetSocketAddress("bootstrap2.xdag.io", 16783),
-    new InetSocketAddress("bootstrap3.xdag.io", 16783)
+    new InetSocketAddress("<SEED_NODE_IP_1>", 16783),
+    new InetSocketAddress("<SEED_NODE_IP_2>", 16783),
+    new InetSocketAddress("<SEED_NODE_IP_3>", 16783)
 );
 config.setSeedNodes(seeds);
 
@@ -383,7 +383,7 @@ Active connections: 0
 **Debug:**
 ```bash
 # Check UDP connectivity to seed node
-nc -u bootstrap1.xdag.io 16783
+nc -u <SEED_NODE_IP> 16783
 
 # View discovery logs
 tail -f logs/xdagj-p2p.log | grep "KAD_"

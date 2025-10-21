@@ -57,8 +57,8 @@ Create an IAM user with Route53 permissions:
 # DNS signing key (required)
 export DNS_PRIVATE_KEY="your-private-key-in-hex-format"
 
-# DNS domain (required)
-export DNS_DOMAIN="nodes.xdag.org"
+# DNS domain (required - use mainnet.xdag.io or testnet.xdag.io)
+export DNS_DOMAIN="mainnet.xdag.io"
 
 # AWS credentials (required)
 export AWS_ACCESS_KEY_ID="AKIAIOSFODNN7EXAMPLE"
@@ -92,8 +92,11 @@ The application will:
 Check your DNS records:
 
 ```bash
-# List TXT records for your domain
-dig TXT _dnsaddr.nodes.xdag.org
+# For mainnet
+dig TXT _dnsaddr.mainnet.xdag.io
+
+# For testnet
+dig TXT _dnsaddr.testnet.xdag.io
 
 # The output should show EIP-1459 formatted records
 ```
@@ -109,8 +112,15 @@ Much simpler - just provide the DNS tree URL:
 ```java
 P2pConfig config = new P2pConfig();
 config.setDiscoverEnable(true);
+
+// For mainnet
 config.setTreeUrls(Arrays.asList(
-    "enrtree://PUBKEY@nodes.xdag.org"
+    "tree://APFGGTFOBVE2ZNAB3CSMNNX6RRK3ODIRLP2AA5U4YFAA6MSYZUYTQ@mainnet.xdag.io"
+));
+
+// For testnet
+config.setTreeUrls(Arrays.asList(
+    "tree://BQHGGTFOBVE2ZNAB3CSMNNX6RRK3ODIRLP2AA5U4YFAA6MSYZUYTQ@testnet.xdag.io"
 ));
 ```
 
