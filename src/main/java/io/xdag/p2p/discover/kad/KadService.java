@@ -232,6 +232,12 @@ public class KadService implements DiscoverService {
                 break;
             case KAD_PONG:
                 KadPongMessage kadPongMessage = (KadPongMessage) m;
+                Node pongFromNode = kadPongMessage.getFrom();
+                if (pongFromNode != null && pongFromNode.getId() != null) {
+                    n.setId(pongFromNode.getId());
+                    n.updateHostV4(pongFromNode.getHostV4());
+                    n.updateHostV6(pongFromNode.getHostV6());
+                }
                 NodeHandler pongHandler = getNodeHandler(n);
                 pongHandler.getNode().touch();
                 pongHandler.handlePong(kadPongMessage);

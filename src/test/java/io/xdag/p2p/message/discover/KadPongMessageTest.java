@@ -26,6 +26,7 @@ package io.xdag.p2p.message.discover;
 import static org.junit.jupiter.api.Assertions.*;
 
 import io.xdag.p2p.config.P2pConstant;
+import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.message.MessageCode;
 import io.xdag.p2p.utils.SimpleDecoder;
 import io.xdag.p2p.utils.SimpleEncoder;
@@ -41,7 +42,7 @@ public class KadPongMessageTest {
     @Test
     public void testMessageCreation() {
         // Test creating a new KadPongMessage
-        KadPongMessage msg = new KadPongMessage();
+        KadPongMessage msg = new KadPongMessage((Node) null);
         
         assertNotNull(msg);
         assertEquals(MessageCode.KAD_PONG, msg.getCode());
@@ -55,7 +56,7 @@ public class KadPongMessageTest {
     @Test
     public void testNetworkIdAndVersion() {
         // Test that network ID and version are correctly set from constants
-        KadPongMessage msg = new KadPongMessage();
+        KadPongMessage msg = new KadPongMessage((Node) null);
         
         assertEquals((byte) P2pConstant.MAINNET_ID, msg.getNetworkId());
         assertEquals((short) P2pConstant.MAINNET_VERSION, msg.getNetworkVersion());
@@ -65,7 +66,7 @@ public class KadPongMessageTest {
     public void testTimestampIsSet() {
         // Test that timestamp is automatically set on creation
         long beforeCreation = System.currentTimeMillis();
-        KadPongMessage msg = new KadPongMessage();
+        KadPongMessage msg = new KadPongMessage((Node) null);
         long afterCreation = System.currentTimeMillis();
         
         assertTrue(msg.getTimestamp() >= beforeCreation);
@@ -75,7 +76,7 @@ public class KadPongMessageTest {
     @Test
     public void testEncodeDecodeRoundTrip() {
         // Test that encoding and then decoding produces equivalent message
-        KadPongMessage original = new KadPongMessage();
+        KadPongMessage original = new KadPongMessage((Node) null);
         
         // Get the encoded body
         byte[] encoded = original.getBody();
@@ -94,7 +95,7 @@ public class KadPongMessageTest {
     @Test
     public void testEncodeMethod() {
         // Test the encode() method specifically
-        KadPongMessage msg = new KadPongMessage();
+        KadPongMessage msg = new KadPongMessage((Node) null);
         
         SimpleEncoder enc = new SimpleEncoder();
         msg.encode(enc);
@@ -113,7 +114,7 @@ public class KadPongMessageTest {
     @Test
     public void testGetSendData() {
         // Test getSendData() method which should include message code prefix
-        KadPongMessage msg = new KadPongMessage();
+        KadPongMessage msg = new KadPongMessage((Node) null);
         Bytes sendData = msg.getSendData();
         
         assertNotNull(sendData);
@@ -126,7 +127,7 @@ public class KadPongMessageTest {
     @Test
     public void testMultipleEncodingsProduceSameResult() {
         // Test that encoding the same message multiple times produces the same result
-        KadPongMessage msg = new KadPongMessage();
+        KadPongMessage msg = new KadPongMessage((Node) null);
         
         SimpleEncoder enc1 = new SimpleEncoder();
         msg.encode(enc1);
@@ -142,7 +143,7 @@ public class KadPongMessageTest {
     @Test
     public void testToString() {
         // Test toString() method
-        KadPongMessage msg = new KadPongMessage();
+        KadPongMessage msg = new KadPongMessage((Node) null);
         String str = msg.toString();
         
         assertNotNull(str);
@@ -155,7 +156,7 @@ public class KadPongMessageTest {
     @Test
     public void testMessageCodeIsCorrect() {
         // Test that message code is KAD_PONG
-        KadPongMessage msg = new KadPongMessage();
+        KadPongMessage msg = new KadPongMessage((Node) null);
         
         assertEquals(MessageCode.KAD_PONG, msg.getCode());
         assertEquals(MessageCode.KAD_PONG, msg.getType());
@@ -164,7 +165,7 @@ public class KadPongMessageTest {
     @Test
     public void testResponseMessageClass() {
         // Test that response message class is null (KadPong has no response)
-        KadPongMessage msg = new KadPongMessage();
+        KadPongMessage msg = new KadPongMessage((Node) null);
         
         assertNull(msg.getResponseMessageClass());
     }
@@ -172,7 +173,7 @@ public class KadPongMessageTest {
     @Test
     public void testBodyIsNotEmpty() {
         // Test that body is populated
-        KadPongMessage msg = new KadPongMessage();
+        KadPongMessage msg = new KadPongMessage((Node) null);
         
         assertNotNull(msg.getBody());
         assertTrue(msg.getBody().length > 0);
@@ -184,9 +185,9 @@ public class KadPongMessageTest {
     @Test
     public void testDifferentMessagesHaveDifferentTimestamps() throws InterruptedException {
         // Test that messages created at different times have different timestamps
-        KadPongMessage msg1 = new KadPongMessage();
+        KadPongMessage msg1 = new KadPongMessage((Node) null);
         Thread.sleep(10); // Small delay to ensure different timestamp
-        KadPongMessage msg2 = new KadPongMessage();
+        KadPongMessage msg2 = new KadPongMessage((Node) null);
         
         // Timestamps should be different
         assertTrue(msg2.getTimestamp() >= msg1.getTimestamp());

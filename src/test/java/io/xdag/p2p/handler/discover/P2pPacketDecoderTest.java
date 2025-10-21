@@ -95,7 +95,7 @@ class P2pPacketDecoderTest {
     @Test
     void testDecodeValidKadPongMessage() {
         // Create a valid KAD_PONG message
-        KadPongMessage pong = new KadPongMessage();
+        KadPongMessage pong = new KadPongMessage((Node) null);
 
         // Create packet: message code + body
         byte[] data = new byte[pong.getBody().length + 1];
@@ -327,7 +327,7 @@ class P2pPacketDecoderTest {
         assertEquals(MessageCode.KAD_PING, event1.getMessage().getCode());
 
         // Test decoding KAD_PONG
-        KadPongMessage pong = new KadPongMessage();
+        KadPongMessage pong = new KadPongMessage((Node) null);
         byte[] pongData = new byte[pong.getBody().length + 1];
         pongData[0] = pong.getCode().toByte();
         System.arraycopy(pong.getBody(), 0, pongData, 1, pong.getBody().length);

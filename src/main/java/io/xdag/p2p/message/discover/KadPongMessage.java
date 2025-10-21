@@ -42,18 +42,25 @@ public class KadPongMessage extends Message {
   private final byte networkId;
   private final short networkVersion;
   private final long timestamp;
+  private final Node from;
 
-  public KadPongMessage() {
+  public KadPongMessage(Node from) {
     super(MessageCode.KAD_PONG, null);
 
     this.timestamp = System.currentTimeMillis();
-    this.networkId = P2pConstant.MAINNET_ID;
-    this.networkVersion = P2pConstant.MAINNET_VERSION;
+    this.networkId = from != null ? from.getNetworkId() : (byte) P2pConstant.MAINNET_ID;
+    this.networkVersion = from != null ? from.getNetworkVersion() : P2pConstant.MAINNET_VERSION;
+    this.from = from;
 
     SimpleEncoder enc = new SimpleEncoder();
     enc.writeByte(networkId);
     enc.writeShort(networkVersion);
     enc.writeLong(timestamp);
+
+    // Include sender node information for DHT
+    if (from != null) {
+      enc.writeBytes(from.toBytes());
+    }
 
     this.body = enc.toBytes();
   }
@@ -66,6 +73,22 @@ public class KadPongMessage extends Message {
     this.networkVersion = dec.readShort();
     this.timestamp = dec.readLong();
 
+    // Decode sender node information if present
+    // Minimum size without from field: 1 (byte) + 2 (short) + 8 (long) = 11 bytes
+    Node fromNode = null;
+    if (body != null && body.length > 11) {
+      try {
+        byte[] fromBytes = dec.readBytes();
+        if (fromBytes != null && fromBytes.length > 0) {
+          fromNode = new Node(fromBytes);
+        }
+      } catch (Exception e) {
+        // Backward compatibility: older messages without from field
+        fromNode = null;
+      }
+    }
+    this.from = fromNode;
+
     this.body = body;
   }
 
@@ -74,6 +97,9 @@ public class KadPongMessage extends Message {
     enc.writeByte(networkId);
     enc.writeShort(networkVersion);
     enc.writeLong(timestamp);
+    if (from != null) {
+      enc.writeBytes(from.toBytes());
+    }
   }
 
   @Override
@@ -82,6 +108,7 @@ public class KadPongMessage extends Message {
         + "networkId=" + networkId +
         ", networkVersion=" + networkVersion +
         ", timestamp=" + timestamp +
+        ", from=" + (from != null ? from.getPreferInetSocketAddress() : "null") +
         "]";
   }
 

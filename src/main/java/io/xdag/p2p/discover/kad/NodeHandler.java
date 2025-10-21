@@ -266,7 +266,7 @@ public class NodeHandler {
   }
 
   public void sendPong() {
-    Message pong = new KadPongMessage();
+    Message pong = new KadPongMessage(kadService.getPublicHomeNode());
     sendMessage(pong);
   }
 
