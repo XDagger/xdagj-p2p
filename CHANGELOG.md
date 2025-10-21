@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Network Layer Statistics Bug**: Fixed send statistics always showing 0
+  - Root cause: `XdagFrameCodec.encode()` was missing statistics recording while `decode()` already had it
+  - Added network layer send statistics recording in `XdagFrameCodec.encode()` (lines 63-70)
+  - Network Layer Sent now shows proper values (e.g., "19,549,346 msgs (1692.21 MB)")
+
+- **Duplicate Connection Attempts**: Reduced duplicate connection attempts from every ~5s to every ~30s
+  - Root cause: `connectLoop()` only checked by InetSocketAddress, not Node ID
+  - In local testing, inbound connections use random ports (e.g., 58114) not target ports (10001)
+  - Added Node ID check in `ChannelManager.connectLoop()` (lines 373-376)
+  - Duplicate attempts now limited by recentConnections cache (30-second expiry)
+
+- **Self-Connection Attempts**: Eliminated self-connection attempts in local testing
+  - Root cause: Boot nodes list included node's own listen address, connectLoop() didn't filter it
+  - Added self-connection detection in `ChannelManager.connectLoop()` (lines 365-370)
+  - Now compares port and checks loopback/local address before attempting connection
+  - Logs show: "Skipping self-connection to /127.0.0.1:10000"
+
 ### Changed
 - **Enhanced UDP Discovery Logging**: Upgraded Kademlia DHT protocol logging from DEBUG to INFO level
   - `NodeHandler.handlePing()`, `handlePong()`, `handleNeighbours()`, `handleFindNode()`, `sendFindNode()` now use INFO level
@@ -36,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Unifies identity system: Node ID = XDAG address
   - Updated JavaDoc comments in `Node.java` and `P2pConfig.java` to reflect new format
   - Updated all test files to use 20-byte random IDs instead of 64-byte
-  - All 462 tests passing with 66% instruction coverage maintained
+  - All 471 tests passing with 66% instruction coverage maintained
 
 ### Added
 - Reputation system persistence with automatic saves and backups
@@ -107,7 +125,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **All methods covered**: 100% (3/3 methods)
 
 ### Changed (Test Metrics)
-- Test count: 469 tests → 487 tests → **462 tests** (removed obsolete tests, all passing)
+- Test count: 469 tests → 487 tests → **471 tests** (removed obsolete tests, all passing)
 - Overall instruction coverage: 62.9% → 65.6% → **66%** (+3.1%)
 - Overall branch coverage: 49.1% → 52.2% → **52%** (+2.9%)
 - Overall line coverage: 64.2% → 66.5% → **66.7%** (+2.5%)
