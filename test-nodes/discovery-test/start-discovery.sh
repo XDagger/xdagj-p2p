@@ -68,9 +68,11 @@ for i in $(seq 0 $((NODE_COUNT-1))); do
     [ -n "$SEEDS" ] && log_debug "  TCP Seeds: $SEEDS"
     [ -n "$ACTIVE_NODES" ] && log_debug "  UDP Active: $ACTIVE_NODES"
     
-    # Start node with reduced heap for discovery testing
-    nohup java -Xms512m -Xmx1024m \
-        -jar "$JAR_FILE" \
+    # Start node with DiscoveryApp (pure node discovery, no TPS testing)
+    nohup java -Xms256m -Xmx512m \
+        -Dlogback.configurationFile=logback-discovery.xml \
+        -cp "$JAR_FILE" \
+        io.xdag.p2p.example.DiscoveryApp \
         -p $PORT \
         -d 1 \
         $([ -n "$SEEDS" ] && echo "-s $SEEDS") \
