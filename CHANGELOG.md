@@ -63,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Atomic file operations with `.bak` backup files
   - Time-based reputation decay towards neutral (5 points/day)
   - Thread-safe concurrent operations
+  - **20 comprehensive tests** covering all features
 - Simplified ban system with graduated durations
   - `BanInfo` class tracking ban details (count, timestamps, expiry)
   - Graduated ban durations for repeat offenders (2x per offense, max 30 days)
@@ -75,6 +76,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Zero external dependencies
 - Data directory configuration in `P2pConfig` (default: "data")
 - TEST_MIGRATION_NOTES.md documenting test exclusion reasons
+- **Mock DNS Testing Framework** for deterministic DNS testing
+  - `MockDnsResolver` for in-memory DNS record storage
+  - `MockableLookUpTxt` supporting both mock and real DNS queries
+  - 9 comprehensive DNS discovery tests
 
 ### Changed
 - `NodeHandler` now loads/saves reputation scores automatically
@@ -125,7 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **All methods covered**: 100% (3/3 methods)
 
 ### Changed (Test Metrics)
-- Test count: 469 tests → 487 tests → **471 tests** (removed obsolete tests, all passing)
+- Test count: 469 tests → 487 tests → **491 tests** (added ReputationManager tests, all passing)
 - Overall instruction coverage: 62.9% → 65.6% → **66%** (+3.1%)
 - Overall branch coverage: 49.1% → 52.2% → **52%** (+2.9%)
 - Overall line coverage: 64.2% → 66.5% → **66.7%** (+2.5%)
@@ -169,7 +174,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **DnsManager** (146 lines) - Manager class never instantiated
 - **UnknownMessage** (48 lines) - Message class never instantiated
 - Total cleanup: **Multiple commits removing 2,277+ lines following YAGNI and extreme simplicity principles**
-- All 462 tests continue passing with 66% coverage maintained
+- All 491 tests continue passing with 66% coverage maintained
 
 ### Planned
 - Improve test coverage for channel module (currently 53.5%)

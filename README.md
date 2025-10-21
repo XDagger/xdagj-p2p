@@ -3,12 +3,12 @@
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://openjdk.java.net/)
 [![Maven](https://img.shields.io/badge/Maven-3.6+-blue.svg)](https://maven.apache.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-471%20Total-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/Tests-491%20Total-brightgreen.svg)](#testing)
 [![Coverage](https://img.shields.io/badge/Coverage-66%25-yellow.svg)](#testing)
 
 High-performance Java P2P networking library for the XDAG blockchain ecosystem, built with modern Java technologies and comprehensive testing.
 
-**Key Features:** Kademlia DHT discovery • Persistent reputation system • Graduated ban management • Layered network statistics • Production-ready with 471 tests
+**Key Features:** Kademlia DHT discovery • Persistent reputation system • Graduated ban management • Layered network statistics • Production-ready with 491 tests
 
 ---
 
@@ -29,7 +29,7 @@ High-performance Java P2P networking library for the XDAG blockchain ecosystem, 
 ### Code Quality
 - Removed 2,277 lines of dead code following extreme simplicity principles
 - Simplified statistics system (5 classes → 1 class, -72% code)
-- Added 34 new tests (471 total, all passing)
+- Added 54 new tests (491 total, all passing)
 - Overall coverage improved: 62.9% → 66%
 
 See [CHANGELOG.md](CHANGELOG.md) for complete release notes.
@@ -146,7 +146,7 @@ Error Rate:            0% (7M+ messages tested)
 
 ### Test Coverage
 ```
-Tests:          471 test cases (100% pass rate)
+Tests:          491 test cases (100% pass rate)
 Instructions:   66% (10,369 / 15,630)
 Branches:       52% (721 / 1,373)
 Lines:          66% (2,422 / 3,633)
@@ -219,7 +219,7 @@ graph TB
 - **Tuweni 2.7.0**: Packet processing utilities
 
 ### Testing
-- **JUnit 5.12.2 + Mockito 5.12.0**: 471 comprehensive tests
+- **JUnit 5.12.2 + Mockito 5.12.0**: 491 comprehensive tests
 - **JaCoCo**: 66% instruction coverage
 - **Professional test suite**: Multi-node network testing
 
@@ -264,7 +264,7 @@ Connection Success:  >99% reliability
 
 ### Run Unit Tests
 ```bash
-# All 471 tests
+# All 491 tests
 mvn test
 
 # Generate coverage report
@@ -372,7 +372,10 @@ java -jar xdagj-p2p-0.1.2.jar \
 - **[User Guide](docs/USER_GUIDE.md)** - Complete usage guide
 - **[Examples](docs/EXAMPLES.md)** - Code examples and use cases
 - **[Node Discovery](docs/NODE_DISCOVERY.md)** - Discovery mechanisms and configuration
+- **[DNS Configuration](docs/DNS_CONFIGURATION.md)** - EIP-1459 DNS discovery setup with AWS Route53
+- **[Reputation System](docs/REPUTATION.md)** - Node credit scoring and persistence
 - **[Performance](docs/PERFORMANCE.md)** - Benchmark methodology and results
+- **[Roadmap](docs/ROADMAP.md)** - Development roadmap and planned features
 - **[Migration Guide](NODE_ID_MIGRATION_PLAN.md)** - 520-bit to 160-bit migration
 - **[Testing Guide](test-nodes/README.md)** - Professional network testing
 - **[Change Log](CHANGELOG.md)** - Version history
@@ -411,4 +414,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Status:** v0.1.2 Production-Ready | **Tests:** 471 passing | **Coverage:** 66%
+**Status:** v0.1.2 Production-Ready | **Tests:** 491 passing | **Coverage:** 66%
