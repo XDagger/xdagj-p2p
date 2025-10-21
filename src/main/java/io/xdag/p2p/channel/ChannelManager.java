@@ -350,6 +350,9 @@ public class ChannelManager {
 
         Collections.shuffle(connectableNodes);
 
+        // Get home node's port to avoid self-connection
+        int homePort = config.getPort();
+
         int connectCount = 0;
         for (Node node : connectableNodes) {
             if (connectCount >= desiredConnections) {
@@ -357,7 +360,21 @@ public class ChannelManager {
             }
 
             InetSocketAddress address = node.getPreferInetSocketAddress();
+            // Skip if: already connected by address, recent connection attempt, banned, or already connected by Node ID
             if (address != null && !isConnected(address) && recentConnections.getIfPresent(address) == null) {
+                // Skip self-connection attempts (comparing port since in local testing all nodes use 127.0.0.1)
+                if (address.getPort() == homePort &&
+                    (address.getAddress().isLoopbackAddress() || address.getAddress().isAnyLocalAddress())) {
+                    log.debug("Skipping self-connection to {}", address);
+                    continue;
+                }
+
+                // Skip if already connected to this Node ID (prevents duplicate connections in local testing)
+                if (node.getId() != null && connectedNodeIds.containsKey(node.getId())) {
+                    log.debug("Skipping connection to {} - already connected to Node ID {}", address, node.getId());
+                    continue;
+                }
+
                 // Skip banned nodes
                 if (isBanned(address.getAddress())) {
                     log.debug("Skipping banned node: {}", address);

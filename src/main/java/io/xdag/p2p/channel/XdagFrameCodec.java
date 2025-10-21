@@ -59,6 +59,15 @@ public class XdagFrameCodec extends ByteToMessageCodec<XdagFrame> {
 
         frame.writeHeader(out);
         out.writeBytes(frame.getBody());
+
+        // Track network layer send - record total frame size (header + body)
+        int totalFrameSize = XdagFrame.HEADER_SIZE + bodySize;
+
+        // Retrieve Channel from context attributes
+        Channel channel = ctx.channel().attr(CHANNEL_ATTRIBUTE).get();
+        if (channel != null && channel.getLayeredStats() != null) {
+            channel.getLayeredStats().getNetwork().recordMessageSent(totalFrameSize);
+        }
     }
 
     @Override
