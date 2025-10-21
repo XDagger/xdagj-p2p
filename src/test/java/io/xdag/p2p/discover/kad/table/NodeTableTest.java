@@ -71,13 +71,9 @@ public class NodeTableTest {
 
     private String buildHighBitId(int suffix) {
         // Build 64-byte (128 hex chars) id starting with 0x80 to ensure leadingZeroBits = 0
-        StringBuilder sb = new StringBuilder(128);
-        sb.append("80");
-        for (int i = 0; i < 62; i++) {
-            sb.append("00");
-        }
-        sb.append(String.format("%02x", suffix & 0xFF));
-        return sb.toString();
+      return "80"
+          + "00".repeat(62)
+          + String.format("%02x", suffix & 0xFF);
     }
 
     @Test

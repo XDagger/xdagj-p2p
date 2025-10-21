@@ -24,8 +24,9 @@
 package io.xdag.p2p.discover.kad;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.discover.kad.table.KademliaOptions;
@@ -56,8 +57,8 @@ class DiscoverTaskTest {
 
         assertNotNull(id1);
         assertNotNull(id2);
-        assertTrue(id1.size() > 0);
-        assertTrue(id2.size() > 0);
+        assertFalse(id1.isEmpty());
+        assertFalse(id2.isEmpty());
     }
 
     @Test
@@ -75,7 +76,7 @@ class DiscoverTaskTest {
         assertNotNull(same);
         assertEquals(home.getId(), same.toUnprefixedHexString());
         assertNotNull(last);
-        assertTrue(!same.equals(last));
+        assertNotEquals(same, last);
     }
 
     @Test

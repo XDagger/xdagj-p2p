@@ -27,8 +27,6 @@ package io.xdag.p2p.message;
 import io.netty.channel.ChannelHandlerContext;
 import io.xdag.p2p.channel.Channel;
 import io.xdag.p2p.config.P2pConfig;
-import io.xdag.p2p.message.Message;
-import io.xdag.p2p.message.MessageCode;
 import io.xdag.p2p.message.node.PingMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

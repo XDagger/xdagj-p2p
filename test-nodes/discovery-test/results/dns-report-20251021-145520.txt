@@ -1,0 +1,9 @@
+Node Discovery Test Report
+=========================
+Mode: dns
+Node count: 2
+Test duration: 30 seconds
+DNS Tree URL: enrtree://ABCD1234@test.nodes.example.org
+Mock DNS: ENABLED
+Start time: 2025年10月21日 星期二 14时55分20秒 CST
+

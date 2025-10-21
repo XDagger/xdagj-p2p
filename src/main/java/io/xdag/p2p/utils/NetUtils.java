@@ -54,7 +54,6 @@ import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
-import org.apache.tuweni.bytes.Bytes;
 
 @Slf4j(topic = "net")
 public class NetUtils {
@@ -126,7 +125,7 @@ public class NetUtils {
       log.debug("Node validation failed: node or nodeId is null");
       return false;
     }
-    if (node.getId() == null || node.getId().length() == 0) {
+    if (node.getId() == null || node.getId().isEmpty()) {
       log.debug(
           "Node validation failed: nodeId is empty");
       return false;

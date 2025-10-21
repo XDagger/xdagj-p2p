@@ -83,7 +83,7 @@ public class MessageFactory {
     }
 
     public static Message parse(io.xdag.p2p.config.P2pConfig config, org.apache.tuweni.bytes.Bytes encoded) throws MessageException {
-        if (encoded == null || encoded.size() < 1) {
+        if (encoded == null || encoded.isEmpty()) {
             throw new MessageException("Empty UDP packet");
         }
         byte code = encoded.get(0);

@@ -25,7 +25,6 @@ package io.xdag.p2p.utils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -38,7 +37,6 @@ import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.util.Objects;
 import java.util.stream.Stream;
-import org.apache.tuweni.bytes.Bytes;
 import org.junit.jupiter.api.Test;
 
 public class NetUtilsTest {

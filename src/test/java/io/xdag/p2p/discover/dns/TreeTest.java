@@ -32,7 +32,6 @@ import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.dns.tree.Entry;
 import io.xdag.p2p.discover.dns.tree.Tree;
 import io.xdag.p2p.discover.dns.update.PublishConfig;
-import io.xdag.p2p.utils.EncodeUtils;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;

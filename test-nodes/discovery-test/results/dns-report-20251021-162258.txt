@@ -1,0 +1,156 @@
+Node Discovery Test Report
+=========================
+Mode: dns
+Node count: 10
+Test duration: 300 seconds
+DNS Tree URL: enrtree://ABCD1234@mainnet.nodes.xdag.io
+Mock DNS: ENABLED
+Start time: 2025年10月21日 星期二 16时22分58秒 CST
+
+========================================
+Time: 30 seconds
+========================================
+
+Node 0:
+  - Mock DNS enabled: YES
+  - DNS sync checks: 3
+  - Discovered nodes: 2025
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+
+Node 4:
+  - Mock DNS enabled: YES
+  - DNS sync checks: 3
+  - Discovered nodes: 2025
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+
+Node 9:
+  - Mock DNS enabled: YES
+  - DNS sync checks: 2
+  - Discovered nodes: 2025
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+
+========================================
+Time: 60 seconds
+========================================
+
+Node 0:
+  - Mock DNS enabled: YES
+  - DNS sync checks: 3
+  - Discovered nodes: 2025
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+
+Node 4:
+  - Mock DNS enabled: YES
+  - DNS sync checks: 3
+  - Discovered nodes: 2025
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+
+Node 9:
+  - Mock DNS enabled: YES
+  - DNS sync checks: 3
+  - Discovered nodes: 2025
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+
+========================================
+Time: 120 seconds
+========================================
+
+Node 0:
+  - Mock DNS enabled: YES
+  - DNS sync checks: 3
+  - Discovered nodes: 2025
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+
+Node 4:
+  - Mock DNS enabled: YES
+  - DNS sync checks: 3
+  - Discovered nodes: 2025
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+
+Node 9:
+  - Mock DNS enabled: YES
+  - DNS sync checks: 3
+  - Discovered nodes: 2025
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+
+========================================
+Time: 180 seconds
+========================================
+
+Node 0:
+  - Mock DNS enabled: YES
+  - DNS sync checks: 3
+  - Discovered nodes: 2025
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+
+Node 4:
+  - Mock DNS enabled: YES
+  - DNS sync checks: 3
+  - Discovered nodes: 2025
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+
+Node 9:
+  - Mock DNS enabled: YES
+  - DNS sync checks: 3
+  - Discovered nodes: 2025
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+
+========================================
+Time: 300 seconds
+========================================
+
+
+========================================
+Final Statistics (after 300 seconds)
+========================================
+
+Averages:
+  - Nodes with Mock DNS: 0 / 10
+  - Average discovered: 0
+  - DNS effectiveness: 0%
+
+========================================
+Test Evaluation
+========================================
+[0;31m❌ Only 0/10 nodes enabled Mock DNS[0m
+[0;31m❌ Poor: DNS discovery only 0% effective[0m
+[1;33m⚠️  Low discovery: Only 0 nodes average[0m
+
+End time: 2025年10月21日 星期二 16时27分58秒 CST
+

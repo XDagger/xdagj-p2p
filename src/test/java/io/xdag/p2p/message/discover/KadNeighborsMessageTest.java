@@ -53,7 +53,7 @@ public class KadNeighborsMessageTest {
         String fromId = Bytes.random(20).toHexString();
         fromNode = new Node(fromId, new InetSocketAddress("127.0.0.1", 10001));
         fromNode.setNetworkId((byte) P2pConstant.MAINNET_ID);
-        fromNode.setNetworkVersion((short) P2pConstant.MAINNET_VERSION);
+        fromNode.setNetworkVersion(P2pConstant.MAINNET_VERSION);
         
         // Create neighbor nodes
         neighbors = new ArrayList<>();
@@ -61,7 +61,7 @@ public class KadNeighborsMessageTest {
             String neighborId = Bytes.random(20).toHexString();
             Node neighbor = new Node(neighborId, new InetSocketAddress("192.168.1." + (100 + i), 10002 + i));
             neighbor.setNetworkId((byte) P2pConstant.MAINNET_ID);
-            neighbor.setNetworkVersion((short) P2pConstant.MAINNET_VERSION);
+            neighbor.setNetworkVersion(P2pConstant.MAINNET_VERSION);
             neighbors.add(neighbor);
         }
     }
@@ -188,7 +188,7 @@ public class KadNeighborsMessageTest {
     public void testSingleNeighbor() {
         // Test with a single neighbor
         List<Node> singleNeighbor = new ArrayList<>();
-        singleNeighbor.add(neighbors.get(0));
+        singleNeighbor.add(neighbors.getFirst());
         
         KadNeighborsMessage msg = new KadNeighborsMessage(fromNode, singleNeighbor);
         
@@ -197,7 +197,7 @@ public class KadNeighborsMessageTest {
         // Verify round-trip
         KadNeighborsMessage decoded = new KadNeighborsMessage(msg.getBody());
         assertEquals(1, decoded.getNeighbors().size());
-        assertEquals(neighbors.get(0).getId(), decoded.getNeighbors().get(0).getId());
+        assertEquals(neighbors.getFirst().getId(), decoded.getNeighbors().getFirst().getId());
     }
 
     @Test
@@ -228,7 +228,7 @@ public class KadNeighborsMessageTest {
         Bytes sendData = msg.getSendData();
         
         assertNotNull(sendData);
-        assertTrue(sendData.size() > 0);
+        assertFalse(sendData.isEmpty());
         
         // First byte should be the message code
         assertEquals(MessageCode.KAD_NEIGHBORS.toByte(), sendData.get(0));

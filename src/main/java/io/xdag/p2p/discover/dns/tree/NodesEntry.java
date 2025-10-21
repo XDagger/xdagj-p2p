@@ -25,7 +25,6 @@ package io.xdag.p2p.discover.dns.tree;
 
 import io.xdag.p2p.DnsException;
 import io.xdag.p2p.DnsException.TypeEnum;
-import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.dns.DnsNode;
 import java.net.UnknownHostException;
 import java.util.List;

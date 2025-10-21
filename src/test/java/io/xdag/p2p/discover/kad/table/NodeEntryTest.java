@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import io.xdag.p2p.discover.Node;
-import io.xdag.p2p.utils.BytesUtils;
 import java.net.InetSocketAddress;
 import java.security.SecureRandom;
 import org.apache.tuweni.bytes.Bytes;

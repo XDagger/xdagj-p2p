@@ -52,11 +52,11 @@ public class KadPingMessageTest {
         
         fromNode = new Node(fromId, new InetSocketAddress("127.0.0.1", 10001));
         fromNode.setNetworkId((byte) P2pConstant.MAINNET_ID);
-        fromNode.setNetworkVersion((short) P2pConstant.MAINNET_VERSION);
+        fromNode.setNetworkVersion(P2pConstant.MAINNET_VERSION);
         
         toNode = new Node(toId, new InetSocketAddress("192.168.1.100", 10002));
         toNode.setNetworkId((byte) P2pConstant.MAINNET_ID);
-        toNode.setNetworkVersion((short) P2pConstant.MAINNET_VERSION);
+        toNode.setNetworkVersion(P2pConstant.MAINNET_VERSION);
     }
 
     @Test
@@ -83,7 +83,7 @@ public class KadPingMessageTest {
         assertEquals(fromNode.getNetworkId(), msg.getNetworkId());
         assertEquals(fromNode.getNetworkVersion(), msg.getNetworkVersion());
         assertEquals((byte) P2pConstant.MAINNET_ID, msg.getNetworkId());
-        assertEquals((short) P2pConstant.MAINNET_VERSION, msg.getNetworkVersion());
+        assertEquals(P2pConstant.MAINNET_VERSION, msg.getNetworkVersion());
     }
 
     @Test
@@ -206,7 +206,7 @@ public class KadPingMessageTest {
         Bytes sendData = msg.getSendData();
         
         assertNotNull(sendData);
-        assertTrue(sendData.size() > 0);
+        assertFalse(sendData.isEmpty());
         
         // First byte should be the message code
         assertEquals(MessageCode.KAD_PING.toByte(), sendData.get(0));
@@ -234,13 +234,13 @@ public class KadPingMessageTest {
         String altFromId = Bytes.random(20).toHexString();
         Node altFromNode = new Node(altFromId, new InetSocketAddress("10.0.0.1", 20001));
         altFromNode.setNetworkId((byte) P2pConstant.MAINNET_ID);
-        altFromNode.setNetworkVersion((short) P2pConstant.MAINNET_VERSION);
+        altFromNode.setNetworkVersion(P2pConstant.MAINNET_VERSION);
         
         KadPingMessage msg1 = new KadPingMessage(fromNode, toNode);
         KadPingMessage msg2 = new KadPingMessage(altFromNode, toNode);
         
         // Messages should have different bodies (different from nodes)
-        assertFalse(Bytes.wrap(msg1.getBody()).equals(Bytes.wrap(msg2.getBody())));
+        assertNotEquals(Bytes.wrap(msg1.getBody()), Bytes.wrap(msg2.getBody()));
     }
 
     @Test

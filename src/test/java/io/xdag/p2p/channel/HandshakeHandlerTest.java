@@ -26,17 +26,13 @@ package io.xdag.p2p.channel;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.xdag.crypto.keys.ECKeyPair;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.message.MessageCode;
-import io.xdag.p2p.message.node.HelloMessage;
 import io.xdag.p2p.message.node.InitMessage;
-import io.xdag.p2p.message.node.WorldMessage;
 import java.security.SecureRandom;
 import org.apache.tuweni.bytes.Bytes;
 import org.junit.jupiter.api.BeforeEach;

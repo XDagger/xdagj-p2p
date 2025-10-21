@@ -27,7 +27,7 @@ public class DisconnectCodeTest {
   void testGetValueUniqueness() {
     Set<Integer> values = new HashSet<>();
     for (ReasonCode code : ReasonCode.values()) {
-      assertTrue(values.add((int)(code.toByte() & 0xFF)));
+      assertTrue(values.add(code.toByte() & 0xFF));
     }
   }
 

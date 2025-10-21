@@ -23,7 +23,6 @@
  */
 package io.xdag.p2p.message.discover;
 
-import io.xdag.p2p.config.P2pConstant;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.message.Message;
 import io.xdag.p2p.message.MessageCode;

@@ -24,7 +24,6 @@
 package io.xdag.p2p.channel;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import io.netty.channel.ChannelPipeline;
@@ -51,7 +50,7 @@ class P2pChannelInitializerTest {
     }
 
     @Test
-    void testInitChannel_Outbound() throws Exception {
+    void testInitChannel_Outbound() {
         P2pChannelInitializer initializer = new P2pChannelInitializer(config, channelManager, keyPair, true);
 
         // Create a mock NioSocketChannel to test initialization
@@ -73,7 +72,7 @@ class P2pChannelInitializerTest {
     }
 
     @Test
-    void testInitChannel_Inbound() throws Exception {
+    void testInitChannel_Inbound() {
         P2pChannelInitializer initializer = new P2pChannelInitializer(config, channelManager, keyPair, false);
 
         // Create a mock NioSocketChannel to test initialization

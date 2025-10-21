@@ -36,7 +36,6 @@ import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
 import java.lang.reflect.Field;
 import java.net.InetSocketAddress;
-import org.apache.tuweni.bytes.Bytes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

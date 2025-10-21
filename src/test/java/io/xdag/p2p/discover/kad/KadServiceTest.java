@@ -24,7 +24,6 @@
 package io.xdag.p2p.discover.kad;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -40,9 +39,7 @@ import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.handler.discover.UdpEvent;
 import io.xdag.p2p.message.discover.KadPingMessage;
-import io.xdag.p2p.discover.kad.table.KademliaOptions;
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;

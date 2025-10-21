@@ -97,7 +97,8 @@ public class UpgradeControllerTest {
         int packetId = 1;
         int packetSize = body.length;
         short packetVersion = (short)0; // XdagFrame.VERSION
-        byte compressType = (byte) (cfg.isEnableFrameCompression() ? XdagFrame.COMPRESS_SNAPPY : XdagFrame.COMPRESS_NONE);
+        byte compressType =
+            cfg.isEnableFrameCompression() ? XdagFrame.COMPRESS_SNAPPY : XdagFrame.COMPRESS_NONE;
 
         XdagFrame frame = new XdagFrame(packetVersion, compressType, packetType, packetId, packetSize, Math.min(packetSize, cfg.getNetMaxFrameBodySize()), Bytes.wrap(body, 0, Math.min(packetSize, cfg.getNetMaxFrameBodySize())).toArray());
 

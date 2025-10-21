@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Layered P2P network statistics tracker
- *
+ * <p>
  * Clearly separates Network Layer (TCP/Netty) and Application Layer (Business Logic) metrics
  * to provide accurate performance insights.
  */
@@ -133,11 +133,4 @@ public class LayeredStats {
     private final NetworkLayer network = new NetworkLayer();
     private final ApplicationLayer application = new ApplicationLayer();
 
-    public NetworkLayer getNetwork() {
-        return network;
-    }
-
-    public ApplicationLayer getApplication() {
-        return application;
-    }
 }

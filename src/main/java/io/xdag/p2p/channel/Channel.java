@@ -33,7 +33,6 @@ import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.config.P2pConstant;
 import io.xdag.p2p.message.Message;
 import io.xdag.p2p.message.MessageQueue;
-import io.xdag.p2p.handler.node.XdagBusinessHandler;
 import io.xdag.p2p.stats.LayeredStats;
 import io.xdag.p2p.utils.BytesUtils;
 import java.net.InetAddress;

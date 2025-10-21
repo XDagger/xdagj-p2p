@@ -26,7 +26,6 @@ package io.xdag.p2p.channel;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.message.Message;
-import io.xdag.p2p.message.MessageException;
 import io.xdag.p2p.message.node.PingMessage;
 import io.xdag.p2p.message.node.PongMessage;
 import org.junit.jupiter.api.BeforeEach;
@@ -188,11 +187,11 @@ class XdagMessageHandlerTest {
             frames.add(frame);
         }
 
-        assertTrue(frames.size() >= 1, "Should produce at least one frame");
+        assertFalse(frames.isEmpty(), "Should produce at least one frame");
 
         // All frames should have same packet ID
         if (frames.size() > 1) {
-            int packetId = frames.get(0).getPacketId();
+            int packetId = frames.getFirst().getPacketId();
             for (XdagFrame f : frames) {
                 assertEquals(packetId, f.getPacketId());
                 assertEquals(ping.getCode().toByte(), f.getPacketType());
@@ -266,7 +265,7 @@ class XdagMessageHandlerTest {
         assertNull(decoded, "Incomplete packet should not produce output");
 
         // Feed last frame
-        chunkChannel.writeInbound(frames.get(frames.size() - 1));
+        chunkChannel.writeInbound(frames.getLast());
 
         // Now should get complete message
         decoded = chunkChannel.readInbound();
@@ -439,9 +438,7 @@ class XdagMessageHandlerTest {
     void testDecodeEmptyFramesList() {
         // This tests internal behavior - decodeFrames with empty list
         // We can't directly test private method, but we ensure the handler doesn't crash
-        assertDoesNotThrow(() -> {
-            channel.checkException();
-        });
+        assertDoesNotThrow(() -> channel.checkException());
     }
 
     @Test

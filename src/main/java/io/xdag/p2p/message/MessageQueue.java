@@ -33,8 +33,8 @@ import io.xdag.p2p.channel.Channel;
 import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 
 @Slf4j
 public class MessageQueue {
@@ -45,7 +45,9 @@ public class MessageQueue {
     private final Queue<Message> prioritized = new ConcurrentLinkedQueue<>();
     private ChannelHandlerContext ctx;
     private AtomicBoolean isClosed = new AtomicBoolean(false);
-    private Thread timerThread;  // New virtual thread
+  // Add getters
+  @Getter
+  private Thread timerThread;  // New virtual thread
 
     public MessageQueue(P2pConfig config, Channel channel) {
         this.config = config;
@@ -141,12 +143,7 @@ public class MessageQueue {
         ctx.flush();
     }
 
-    // Add getters
-    public Thread getTimerThread() {
-        return timerThread;
-    }
-
-    public boolean isClosed() {
+  public boolean isClosed() {
         return isClosed.get();
     }
 }

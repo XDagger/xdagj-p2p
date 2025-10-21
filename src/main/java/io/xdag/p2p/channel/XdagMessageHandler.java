@@ -124,7 +124,7 @@ public class XdagMessageHandler extends MessageToMessageCodec<XdagFrame, Message
         }
     }
 
-    private Message onChunked(XdagFrame frame) throws IOException, MessageException {
+    private Message onChunked(XdagFrame frame) throws IOException {
         int packetId = frame.getPacketId();
         PacketAggregate agg = inFlight.computeIfAbsent(packetId, k -> new PacketAggregate(frame.getPacketSize()));
         if (agg.expectedSize < 0 || agg.expectedSize > config.getNetMaxPacketSize()) {
@@ -148,7 +148,7 @@ public class XdagMessageHandler extends MessageToMessageCodec<XdagFrame, Message
         return null;
     }
 
-    private Message decodeFrames(List<XdagFrame> frames) throws MessageException, IOException {
+    private Message decodeFrames(List<XdagFrame> frames) throws IOException {
         if (frames == null || frames.isEmpty()) {
             throw new MessageException("Frames can't be null or empty");
         }

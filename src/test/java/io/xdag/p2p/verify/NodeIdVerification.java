@@ -23,7 +23,6 @@
  */
 package io.xdag.p2p.verify;
 
-import io.xdag.crypto.keys.ECKeyPair;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.discover.kad.KadService;
@@ -31,7 +30,7 @@ import org.apache.tuweni.bytes.Bytes;
 
 /**
  * Verification program for the new Node ID implementation.
- *
+ * <p>
  * This class demonstrates and verifies that:
  * 1. Node ID is now derived from XDAG address (20 bytes, 160 bits)
  * 2. Node ID format is 40 hex characters (with or without 0x prefix)

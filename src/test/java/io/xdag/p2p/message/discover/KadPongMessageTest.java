@@ -59,7 +59,7 @@ public class KadPongMessageTest {
         KadPongMessage msg = new KadPongMessage((Node) null);
         
         assertEquals((byte) P2pConstant.MAINNET_ID, msg.getNetworkId());
-        assertEquals((short) P2pConstant.MAINNET_VERSION, msg.getNetworkVersion());
+        assertEquals(P2pConstant.MAINNET_VERSION, msg.getNetworkVersion());
     }
 
     @Test
@@ -118,7 +118,7 @@ public class KadPongMessageTest {
         Bytes sendData = msg.getSendData();
         
         assertNotNull(sendData);
-        assertTrue(sendData.size() > 0);
+        assertFalse(sendData.isEmpty());
         
         // First byte should be the message code
         assertEquals(MessageCode.KAD_PONG.toByte(), sendData.get(0));

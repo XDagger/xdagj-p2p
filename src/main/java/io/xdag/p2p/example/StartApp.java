@@ -36,7 +36,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * P2P TPS testing application
- *
+ * <p>
  * Optimized for balanced throughput with controlled memory usage
  * - 4 concurrent sender threads to reduce memory pressure
  * - Batch processing with controlled memory usage

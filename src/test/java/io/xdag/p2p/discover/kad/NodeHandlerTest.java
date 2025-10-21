@@ -98,7 +98,7 @@ public class NodeHandlerTest {
         verify(kadService, atLeast(2)).sendOutbound(captor.capture());
 
         // Get the last sent event (the PONG response)
-        UdpEvent sentEvent = captor.getAllValues().get(captor.getAllValues().size() - 1);
+        UdpEvent sentEvent = captor.getAllValues().getLast();
         assertEquals(remoteNode.getPreferInetSocketAddress(), sentEvent.getAddress());
         assertEquals(io.xdag.p2p.message.MessageCode.KAD_PONG, sentEvent.getMessage().getType());
     }
@@ -118,7 +118,7 @@ public class NodeHandlerTest {
         verify(kadService, atLeast(2)).sendOutbound(captor.capture());
 
         // Get the last sent event (the NEIGHBORS response)
-        UdpEvent sentEvent = captor.getAllValues().get(captor.getAllValues().size() - 1);
+        UdpEvent sentEvent = captor.getAllValues().getLast();
         assertEquals(remoteNode.getPreferInetSocketAddress(), sentEvent.getAddress());
         assertEquals(io.xdag.p2p.message.MessageCode.KAD_NEIGHBORS, sentEvent.getMessage().getType());
     }

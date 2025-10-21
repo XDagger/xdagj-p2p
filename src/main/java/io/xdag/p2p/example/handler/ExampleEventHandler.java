@@ -44,7 +44,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -107,11 +106,11 @@ public class ExampleEventHandler extends P2pEventHandler {
 
   /**
    * Handler-level statistics for internal monitoring
-   *
+   * <p>
    * IMPORTANT: These are global counters at the handler level, NOT per-channel.
    * They track messages AFTER Bloom Filter deduplication.
    * For detailed per-channel network statistics, use channel.getLayeredStats().
-   *
+   * <p>
    * Semantics:
    * - handlerUniqueReceived: Total unique messages after Bloom Filter deduplication (cumulative)
    * - handlerDuplicates: Total duplicate messages caught by Bloom Filter (cumulative)
@@ -469,12 +468,12 @@ public class ExampleEventHandler extends P2pEventHandler {
 
   /**
    * Select forward targets using Round-Robin load balancing
-   *
-   * Stage 1.4 Optimization: Replaced expensive sort (31μs) with round-robin (<1μs)
+   * <p>
+   * Stage 1.4 Optimization: Replaced expensive sort (31μs) with round-robin (1μs)
    * - Old: O(n log n) sort on every forward
    * - New: O(n) round-robin, 30x faster
    * - Load balancing: Round-robin naturally distributes load evenly
-   *
+   * <p>
    * Algorithm:
    * 1. Exclude source channel (avoid sending back)
    * 2. Round-robin select 50% of channels
@@ -487,7 +486,7 @@ public class ExampleEventHandler extends P2pEventHandler {
     // Get all channels and filter out source
     List<Channel> candidateChannels = new ArrayList<>();
     for (Channel ch : channels.values()) {
-      if (sourceAddress == null || !ch.getInetSocketAddress().equals(sourceAddress)) {
+      if (!ch.getInetSocketAddress().equals(sourceAddress)) {
         candidateChannels.add(ch);
       }
     }

@@ -23,13 +23,10 @@
  */
 package io.xdag.p2p.message.discover;
 
-import io.xdag.p2p.Peer;
-import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.config.P2pConstant;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.message.Message;
 import io.xdag.p2p.message.MessageCode;
-import io.xdag.p2p.utils.NetUtils;
 import io.xdag.p2p.utils.SimpleDecoder;
 import io.xdag.p2p.utils.SimpleEncoder;
 import lombok.Getter;

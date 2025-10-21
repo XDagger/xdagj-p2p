@@ -28,9 +28,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.xdag.p2p.channel.XdagFrame;
-import io.xdag.p2p.message.MessageCode;
 import io.xdag.p2p.message.node.PingMessage;
-import io.xdag.p2p.message.node.PongMessage;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j

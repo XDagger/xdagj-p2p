@@ -233,7 +233,7 @@ public class KadFindNodeMessageTest {
         Bytes sendData = msg.getSendData();
         
         assertNotNull(sendData);
-        assertTrue(sendData.size() > 0);
+        assertFalse(sendData.isEmpty());
         
         // First byte should be the message code
         assertEquals(MessageCode.KAD_FIND_NODE.toByte(), sendData.get(0));
@@ -267,7 +267,7 @@ public class KadFindNodeMessageTest {
         KadFindNodeMessage msg2 = new KadFindNodeMessage(altFromNode, targetId);
         
         // Messages should have different bodies (different from nodes)
-        assertFalse(Bytes.wrap(msg1.getBody()).equals(Bytes.wrap(msg2.getBody())));
+        assertNotEquals(Bytes.wrap(msg1.getBody()), Bytes.wrap(msg2.getBody()));
     }
 
     @Test

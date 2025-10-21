@@ -1,0 +1,176 @@
+Node Discovery Test Report
+=========================
+Mode: dht
+Node count: 10
+Test duration: 300 seconds
+Start time: 2025年10月21日 星期二 16时27分26秒 CST
+
+========================================
+Time: 30 seconds
+========================================
+
+Node 0:
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+  - FIND_NODE: 0
+0
+  - NEIGHBORS: 0
+0
+  - Discovered nodes: 2025
+
+Node 4:
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+  - FIND_NODE: 0
+0
+  - NEIGHBORS: 0
+0
+  - Discovered nodes: 2025
+
+Node 9:
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+  - FIND_NODE: 0
+0
+  - NEIGHBORS: 0
+0
+  - Discovered nodes: 2025
+
+========================================
+Time: 60 seconds
+========================================
+
+Node 0:
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+  - FIND_NODE: 0
+0
+  - NEIGHBORS: 0
+0
+  - Discovered nodes: 2025
+
+Node 4:
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+  - FIND_NODE: 0
+0
+  - NEIGHBORS: 0
+0
+  - Discovered nodes: 2025
+
+Node 9:
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+  - FIND_NODE: 0
+0
+  - NEIGHBORS: 0
+0
+  - Discovered nodes: 2025
+
+========================================
+Time: 120 seconds
+========================================
+
+Node 0:
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+  - FIND_NODE: 0
+0
+  - NEIGHBORS: 0
+0
+  - Discovered nodes: 2025
+
+Node 4:
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+  - FIND_NODE: 0
+0
+  - NEIGHBORS: 0
+0
+  - Discovered nodes: 2025
+
+Node 9:
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+  - FIND_NODE: 0
+0
+  - NEIGHBORS: 0
+0
+  - Discovered nodes: 2025
+
+========================================
+Time: 180 seconds
+========================================
+
+Node 0:
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+  - FIND_NODE: 0
+0
+  - NEIGHBORS: 0
+0
+  - Discovered nodes: 2025
+
+Node 4:
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+  - FIND_NODE: 0
+0
+  - NEIGHBORS: 0
+0
+  - Discovered nodes: 2025
+
+Node 9:
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+  - FIND_NODE: 0
+0
+  - NEIGHBORS: 0
+0
+  - Discovered nodes: 2025
+
+========================================
+Time: 300 seconds
+========================================
+
+
+========================================
+Final Statistics (after 300 seconds)
+========================================
+
+Averages:
+  - Average discovered: 0
+  - Discovery coverage: 0%
+
+========================================
+Test Evaluation
+========================================
+[0;31m❌ Poor: Discovery coverage 0% < 50%[0m
+[0;31m❌ Insufficient discovery: Only 0 average[0m
+
+End time: 2025年10月21日 星期二 16时32分26秒 CST
+

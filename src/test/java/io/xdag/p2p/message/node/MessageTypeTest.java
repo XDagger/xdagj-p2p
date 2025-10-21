@@ -23,7 +23,7 @@ public class MessageTypeTest {
   void testToByteUniqueness() {
     Set<Integer> codes = new HashSet<>();
     for (MessageCode c : MessageCode.values()) {
-      assertTrue(codes.add((int)(c.toByte() & 0xFF)));
+      assertTrue(codes.add(c.toByte() & 0xFF));
     }
   }
 

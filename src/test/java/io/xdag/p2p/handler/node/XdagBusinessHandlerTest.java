@@ -83,7 +83,7 @@ class XdagBusinessHandlerTest {
     }
 
     @Test
-    void testPingMessageAutoRespondsWithPong() throws Exception {
+    void testPingMessageAutoRespondsWithPong() {
         // Given
         PingMessage pingMessage = new PingMessage();
 
@@ -95,7 +95,7 @@ class XdagBusinessHandlerTest {
     }
 
     @Test
-    void testPongMessageIsIgnored() throws Exception {
+    void testPongMessageIsIgnored() {
         // Given
         PongMessage pongMessage = new PongMessage();
 
@@ -107,7 +107,7 @@ class XdagBusinessHandlerTest {
     }
 
     @Test
-    void testAppTestMessageDispatchedToHandlers() throws Exception {
+    void testAppTestMessageDispatchedToHandlers() {
         // Given
         P2pEventHandler messageHandler1 = mock(P2pEventHandler.class);
         P2pEventHandler messageHandler2 = mock(P2pEventHandler.class);
@@ -134,7 +134,7 @@ class XdagBusinessHandlerTest {
     }
 
     @Test
-    void testNonAppTestMessageDispatchedWithCodeAndBody() throws Exception {
+    void testNonAppTestMessageDispatchedWithCodeAndBody() {
         // Given
         P2pEventHandler messageHandler = mock(P2pEventHandler.class);
         when(config.getHandlerList()).thenReturn(List.of(messageHandler));
@@ -157,7 +157,7 @@ class XdagBusinessHandlerTest {
     }
 
     @Test
-    void testMessageDroppedWhenChannelNotFound() throws Exception {
+    void testMessageDroppedWhenChannelNotFound() {
         // Given
         InetSocketAddress unknownAddress = new InetSocketAddress("10.0.0.1", 9999);
         when(nettyChannel.remoteAddress()).thenReturn(unknownAddress);
@@ -177,7 +177,7 @@ class XdagBusinessHandlerTest {
     }
 
     @Test
-    void testExceptionInMessageHandlingIsCaught() throws Exception {
+    void testExceptionInMessageHandlingIsCaught() {
         // Given
         P2pEventHandler faultyHandler = mock(P2pEventHandler.class);
         doThrow(new RuntimeException("Handler error")).when(faultyHandler).onMessage(any(), any());
@@ -205,7 +205,7 @@ class XdagBusinessHandlerTest {
     }
 
     @Test
-    void testMultipleHandlersReceiveMessage() throws Exception {
+    void testMultipleHandlersReceiveMessage() {
         // Given
         P2pEventHandler handler1 = mock(P2pEventHandler.class);
         P2pEventHandler handler2 = mock(P2pEventHandler.class);
@@ -227,7 +227,7 @@ class XdagBusinessHandlerTest {
     }
 
     @Test
-    void testPingResponseEvenIfWriteAndFlushFails() throws Exception {
+    void testPingResponseEvenIfWriteAndFlushFails() {
         // Given
         when(ctx.writeAndFlush(any())).thenThrow(new RuntimeException("Write failed"));
         PingMessage pingMessage = new PingMessage();
@@ -237,7 +237,7 @@ class XdagBusinessHandlerTest {
     }
 
     @Test
-    void testEmptyHandlerListDoesNotCauseError() throws Exception {
+    void testEmptyHandlerListDoesNotCauseError() {
         // Given
         when(config.getHandlerList()).thenReturn(new ArrayList<>());
 
@@ -251,7 +251,7 @@ class XdagBusinessHandlerTest {
     }
 
     @Test
-    void testNullMessageBodyHandling() throws Exception {
+    void testNullMessageBodyHandling() {
         // Given
         P2pEventHandler messageHandler = mock(P2pEventHandler.class);
         when(config.getHandlerList()).thenReturn(List.of(messageHandler));
@@ -274,7 +274,7 @@ class XdagBusinessHandlerTest {
     }
 
     @Test
-    void testSequentialPingPongMessages() throws Exception {
+    void testSequentialPingPongMessages() {
         // Given
         PingMessage ping1 = new PingMessage();
         PongMessage pong1 = new PongMessage();
@@ -290,7 +290,7 @@ class XdagBusinessHandlerTest {
     }
 
     @Test
-    void testMessageWithEmptyBody() throws Exception {
+    void testMessageWithEmptyBody() {
         // Given
         P2pEventHandler messageHandler = mock(P2pEventHandler.class);
         when(config.getHandlerList()).thenReturn(List.of(messageHandler));
@@ -310,7 +310,7 @@ class XdagBusinessHandlerTest {
     }
 
     @Test
-    void testDifferentMessageCodesRoutedCorrectly() throws Exception {
+    void testDifferentMessageCodesRoutedCorrectly() {
         // Given
         P2pEventHandler messageHandler = mock(P2pEventHandler.class);
         when(config.getHandlerList()).thenReturn(List.of(messageHandler));
@@ -329,7 +329,7 @@ class XdagBusinessHandlerTest {
     }
 
     @Test
-    void testChannelManagerIntegration() throws Exception {
+    void testChannelManagerIntegration() {
         // Given
         Message message = mock(Message.class);
         when(message.getType()).thenReturn(MessageCode.DISCONNECT);
@@ -344,7 +344,7 @@ class XdagBusinessHandlerTest {
     }
 
     @Test
-    void testOneHandlerFailureDoesNotAffectOthers() throws Exception {
+    void testOneHandlerFailureDoesNotAffectOthers() {
         // Given
         P2pEventHandler goodHandler1 = mock(P2pEventHandler.class);
         P2pEventHandler faultyHandler = mock(P2pEventHandler.class);

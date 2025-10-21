@@ -23,7 +23,6 @@
  */
 package io.xdag.p2p.discover.dns;
 
-import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.config.P2pConstant;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.utils.BytesUtils;

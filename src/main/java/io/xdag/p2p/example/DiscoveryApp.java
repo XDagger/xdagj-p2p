@@ -31,7 +31,6 @@ import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.discover.dns.DnsNode;
 import io.xdag.p2p.example.cli.CliConfigParser;
 import io.xdag.p2p.example.handler.ExampleEventHandler;
-import io.xdag.p2p.utils.EncodeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.tuweni.bytes.Bytes;
 
@@ -208,7 +207,7 @@ public class DiscoveryApp {
       java.lang.reflect.Method addRecord = mockDnsResolver.getMethod("addRecord", String.class, String.class);
 
       // Get the first tree URL
-      String treeUrl = config.getTreeUrls().get(0);
+      String treeUrl = config.getTreeUrls().getFirst();
       log.info("Configuring mock DNS for tree URL: {}", treeUrl);
 
       // Parse tree URL: enrtree://PUBKEY@DOMAIN

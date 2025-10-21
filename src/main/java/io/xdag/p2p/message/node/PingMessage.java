@@ -27,7 +27,9 @@ import io.xdag.p2p.message.Message;
 import io.xdag.p2p.message.MessageCode;
 import io.xdag.p2p.utils.SimpleDecoder;
 import io.xdag.p2p.utils.SimpleEncoder;
+import lombok.Getter;
 
+@Getter
 public class PingMessage extends Message {
 
     private final long timestamp;
@@ -55,11 +57,7 @@ public class PingMessage extends Message {
         }
     }
 
-    public long getTimestamp() {
-        return timestamp;
-    }
-
-    @Override
+  @Override
     public void encode(SimpleEncoder enc) {
         enc.writeLong(timestamp);
     }
