@@ -34,14 +34,14 @@
 
         <!-- dns -->
         <dnsjava.version>3.6.3</dnsjava.version>
-        <aws-dns.version>2.31.52</aws-dns.version>
+        <aws-dns.version>2.35.11</aws-dns.version>
 
         <!-- log -->
         <slf4j.version>2.0.17</slf4j.version>
 
         <!-- test -->
         <junit.version>5.12.2</junit.version>
-        <mockito.version>5.14.2</mockito.version>
+        <mockito.version>5.20.0</mockito.version>
         <jmh.version>1.37</jmh.version>
 
         <!-- maven plugin -->
