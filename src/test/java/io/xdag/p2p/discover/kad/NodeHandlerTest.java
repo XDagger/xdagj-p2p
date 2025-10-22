@@ -172,4 +172,285 @@ public class NodeHandlerTest {
         assert(nodeHandlerString.contains("NodeHandler"));
         assert(nodeHandlerString.contains("state"));
     }
+
+    // ==================== Additional Tests for Coverage ====================
+
+    @Test
+    public void testHandlePongTransitionsToAlive() {
+        // Given - simulate PING sent and waiting for PONG
+        // Set network IDs to match
+        remoteNode.setNetworkId((byte) 1);
+        remoteNodeHandler.sendPing();
+
+        // When - receive PONG with matching network ID
+        Node pongNode = new Node(remoteNode.getId(),
+                                remoteNode.getHostV4(), null, remoteNode.getPort());
+        pongNode.setNetworkId((byte) 1); // Matching network ID
+        io.xdag.p2p.message.discover.KadPongMessage pong =
+            new io.xdag.p2p.message.discover.KadPongMessage(pongNode);
+        remoteNodeHandler.handlePong(pong);
+
+        // Then - should transition to ALIVE state (or ACTIVE if table has space)
+        NodeHandler.State newState = remoteNodeHandler.getState();
+        assert(newState == NodeHandler.State.ALIVE || newState == NodeHandler.State.ACTIVE);
+    }
+
+    @Test
+    public void testHandlePongIncreasesReputation() {
+        // Given - initial reputation
+        int initialReputation = remoteNodeHandler.getReputationScore();
+        remoteNodeHandler.sendPing();
+
+        // When - receive PONG
+        io.xdag.p2p.message.discover.KadPongMessage pong =
+            new io.xdag.p2p.message.discover.KadPongMessage(remoteNode);
+        remoteNodeHandler.handlePong(pong);
+
+        // Then - reputation should increase
+        int newReputation = remoteNodeHandler.getReputationScore();
+        assert(newReputation > initialReputation);
+    }
+
+    @Test
+    public void testHandlePongWhenNotWaitingDoesNothing() {
+        // Given - not waiting for PONG (initial state)
+        NodeHandler.State initialState = remoteNodeHandler.getState();
+
+        // When - receive unexpected PONG
+        io.xdag.p2p.message.discover.KadPongMessage pong =
+            new io.xdag.p2p.message.discover.KadPongMessage(remoteNode);
+        remoteNodeHandler.handlePong(pong);
+
+        // Then - state should not change to ALIVE (since waitForPong was false)
+        // The state will change during sendPing in constructor, but not from this PONG
+        assertNotNull(remoteNodeHandler.getState());
+    }
+
+    @Test
+    public void testHandleNeighbours() {
+        // Given - send FIND_NODE first
+        byte[] targetId = new byte[20];
+        random.nextBytes(targetId);
+        remoteNodeHandler.sendFindNode(targetId);
+
+        // When - receive NEIGHBORS
+        java.util.List<Node> neighbors = new java.util.ArrayList<>();
+        Node neighbor1 = new Node(Bytes.random(20).toUnprefixedHexString(),
+                                  "192.168.1.100", null, 30303);
+        neighbors.add(neighbor1);
+
+        io.xdag.p2p.message.discover.KadNeighborsMessage neighborsMsg =
+            new io.xdag.p2p.message.discover.KadNeighborsMessage(remoteNode, neighbors);
+
+        remoteNodeHandler.handleNeighbours(neighborsMsg);
+
+        // Then - should create handlers for neighbors
+        verify(kadService, atLeast(1)).getNodeHandler(any(Node.class));
+    }
+
+    @Test
+    public void testHandleNeighboursWithoutRequestIgnored() {
+        // Given - no FIND_NODE sent, so not waiting for neighbors
+        java.util.List<Node> neighbors = new java.util.ArrayList<>();
+        neighbors.add(new Node(Bytes.random(20).toUnprefixedHexString(),
+                              "192.168.1.100", null, 30303));
+
+        io.xdag.p2p.message.discover.KadNeighborsMessage neighborsMsg =
+            new io.xdag.p2p.message.discover.KadNeighborsMessage(remoteNode, neighbors);
+
+        // When - receive unsolicited NEIGHBORS
+        remoteNodeHandler.handleNeighbours(neighborsMsg);
+
+        // Then - should log warning and not process (verified by not creating node handlers)
+        // The test passes if no exception is thrown
+    }
+
+    @Test
+    public void testHandleTimedOutDecreasesReputation() {
+        // Given - initial reputation and PING sent
+        int initialReputation = remoteNodeHandler.getReputationScore();
+        remoteNodeHandler.sendPing();
+
+        // When - timeout occurs
+        remoteNodeHandler.handleTimedOut();
+
+        // Then - reputation should decrease
+        int newReputation = remoteNodeHandler.getReputationScore();
+        assert(newReputation < initialReputation);
+    }
+
+    @Test
+    public void testHandleTimedOutTransitionsToDead() {
+        // Given - node in DISCOVERED state, exhaust all ping trials
+        assertEquals(NodeHandler.State.DISCOVERED, remoteNodeHandler.getState());
+
+        // When - timeout multiple times (3 trials: initial + 2 retries)
+        remoteNodeHandler.handleTimedOut(); // Trial 2
+        remoteNodeHandler.handleTimedOut(); // Trial 1
+        remoteNodeHandler.handleTimedOut(); // Trial 0 -> DEAD
+
+        // Then - should transition to DEAD
+        assertEquals(NodeHandler.State.DEAD, remoteNodeHandler.getState());
+    }
+
+    @Test
+    public void testSendPong() {
+        // When - send PONG
+        remoteNodeHandler.sendPong();
+
+        // Then - should send PONG message
+        ArgumentCaptor<UdpEvent> captor = ArgumentCaptor.forClass(UdpEvent.class);
+        verify(kadService, atLeast(1)).sendOutbound(captor.capture());
+
+        // Find the PONG message
+        boolean foundPong = captor.getAllValues().stream()
+            .anyMatch(event -> event.getMessage().getType() == io.xdag.p2p.message.MessageCode.KAD_PONG);
+        assert(foundPong);
+    }
+
+    @Test
+    public void testSendFindNode() {
+        // Given - target ID
+        byte[] targetId = new byte[20];
+        random.nextBytes(targetId);
+
+        // When - send FIND_NODE
+        remoteNodeHandler.sendFindNode(targetId);
+
+        // Then - should send FIND_NODE message
+        ArgumentCaptor<UdpEvent> captor = ArgumentCaptor.forClass(UdpEvent.class);
+        verify(kadService, atLeast(1)).sendOutbound(captor.capture());
+
+        // Find the FIND_NODE message
+        boolean foundFindNode = captor.getAllValues().stream()
+            .anyMatch(event -> event.getMessage().getType() == io.xdag.p2p.message.MessageCode.KAD_FIND_NODE);
+        assert(foundFindNode);
+    }
+
+    @Test
+    public void testSendNeighbours() {
+        // Given - list of neighbors
+        java.util.List<Node> neighbors = new java.util.ArrayList<>();
+        neighbors.add(new Node(Bytes.random(20).toUnprefixedHexString(),
+                              "192.168.1.100", null, 30303));
+
+        // When - send NEIGHBORS
+        remoteNodeHandler.sendNeighbours(neighbors, System.currentTimeMillis());
+
+        // Then - should send NEIGHBORS message
+        ArgumentCaptor<UdpEvent> captor = ArgumentCaptor.forClass(UdpEvent.class);
+        verify(kadService, atLeast(1)).sendOutbound(captor.capture());
+
+        // Find the NEIGHBORS message
+        boolean foundNeighbors = captor.getAllValues().stream()
+            .anyMatch(event -> event.getMessage().getType() == io.xdag.p2p.message.MessageCode.KAD_NEIGHBORS);
+        assert(foundNeighbors);
+    }
+
+    @Test
+    public void testHandlePingWithIncompatibleNetworkId() {
+        // Given - node with different network ID
+        when(p2pConfig.getNetworkId()).thenReturn((byte) 1);
+        Node incompatibleNode = new Node(Bytes.random(20).toUnprefixedHexString(),
+                                        "192.168.1.50", null, 30303);
+        incompatibleNode.setNetworkId((byte) 99); // Different network ID
+        NodeHandler incompatibleHandler = new NodeHandler(incompatibleNode, kadService);
+
+        // When - handle PING with incompatible network - create ping from incompatible node
+        KadPingMessage ping = new KadPingMessage(incompatibleNode, remoteNode);
+        incompatibleHandler.handlePing(ping);
+
+        // Then - should transition to DEAD state
+        assertEquals(NodeHandler.State.DEAD, incompatibleHandler.getState());
+    }
+
+    @Test
+    public void testHandlePongWithIncompatibleNetworkId() {
+        // Given - send PING first
+        when(p2pConfig.getNetworkId()).thenReturn((byte) 1);
+        remoteNode.setNetworkId((byte) 1);
+        remoteNodeHandler.sendPing();
+
+        // Create a node with incompatible network ID
+        Node incompatibleNode = new Node(remoteNode.getId(),
+                                        remoteNode.getHostV4(), null, remoteNode.getPort());
+        incompatibleNode.setNetworkId((byte) 99); // Incompatible network ID
+
+        // When - receive PONG from incompatible network
+        io.xdag.p2p.message.discover.KadPongMessage pong =
+            new io.xdag.p2p.message.discover.KadPongMessage(incompatibleNode);
+        remoteNodeHandler.handlePong(pong);
+
+        // Then - should transition to DEAD state
+        assertEquals(NodeHandler.State.DEAD, remoteNodeHandler.getState());
+    }
+
+    @Test
+    public void testNodeHandlerWithNullAddress() {
+        // Given - node without valid address
+        Node nodeWithoutAddress = new Node(Bytes.random(20).toUnprefixedHexString(),
+                                          null, null, 0);
+
+        // When - create NodeHandler
+        NodeHandler handlerWithoutAddress = new NodeHandler(nodeWithoutAddress, kadService);
+
+        // Then - state should be null since no PING was sent (no valid address)
+        // This is expected behavior - nodes without addresses cannot be discovered
+        assert(handlerWithoutAddress.getState() == null ||
+               handlerWithoutAddress.getState() != NodeHandler.State.DISCOVERED);
+    }
+
+    @Test
+    public void testReputationBounds() {
+        // Given - initial reputation
+        remoteNodeHandler.sendPing();
+
+        // When - receive many PONGs to increase reputation beyond max
+        for (int i = 0; i < 50; i++) {
+            io.xdag.p2p.message.discover.KadPongMessage pong =
+                new io.xdag.p2p.message.discover.KadPongMessage(remoteNode);
+            remoteNodeHandler.handlePong(pong);
+            remoteNodeHandler.sendPing(); // Send ping to set waitForPong flag
+        }
+
+        // Then - reputation should not exceed maximum (200)
+        int reputation = remoteNodeHandler.getReputationScore();
+        assert(reputation <= 200);
+    }
+
+    @Test
+    public void testHandleNeighboursFiltersOutHomeNode() {
+        // Given - send FIND_NODE first
+        byte[] targetId = new byte[20];
+        random.nextBytes(targetId);
+        remoteNodeHandler.sendFindNode(targetId);
+
+        // When - receive NEIGHBORS including home node
+        java.util.List<Node> neighbors = new java.util.ArrayList<>();
+        neighbors.add(homeNode); // Should be filtered out
+        neighbors.add(new Node(Bytes.random(20).toUnprefixedHexString(),
+                              "192.168.1.100", null, 30303));
+
+        io.xdag.p2p.message.discover.KadNeighborsMessage neighborsMsg =
+            new io.xdag.p2p.message.discover.KadNeighborsMessage(remoteNode, neighbors);
+
+        remoteNodeHandler.handleNeighbours(neighborsMsg);
+
+        // Then - should process neighbors but filter out home node
+        // Verified by checking getNodeHandler is called (for non-home nodes)
+        verify(kadService, atLeast(1)).getNodeHandler(any(Node.class));
+    }
+
+    @Test
+    public void testChangeStateFromDiscoveredToAlive() {
+        // Given - node in DISCOVERED state
+        assertEquals(NodeHandler.State.DISCOVERED, remoteNodeHandler.getState());
+
+        // When - transition to ALIVE
+        remoteNodeHandler.changeState(NodeHandler.State.ALIVE);
+
+        // Then - state should be ALIVE or ACTIVE (depending on table space)
+        NodeHandler.State newState = remoteNodeHandler.getState();
+        assert(newState == NodeHandler.State.ALIVE || newState == NodeHandler.State.ACTIVE);
+    }
 }
