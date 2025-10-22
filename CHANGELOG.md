@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2025-01-22
+
+### Added (Test Coverage Expansion)
+- **Massive Test Suite Growth**: 503 → 859 tests (+356 tests, +71%)
+- **DNS Module Comprehensive Testing**:
+  - **TreeTest** (30 tests): Tree class coverage 59% → 82% (+23%)
+    - Constructor and initialization tests
+    - Getter/setter operations for rootEntry, seq, privateKey, publicKey
+    - Static merge() method with multiple scenarios (empty, single, multiple nodes, network splitting)
+    - toTXT() method with various domain formats
+    - Entry retrieval methods (getLinksEntry, getBranchesEntry, getNodesEntry)
+    - Map retrieval methods (getLinksMap, getNodesMap)
+    - Edge cases and boundary conditions
+  - **ClientTreeTest** (21 tests): ClientTree functionality and lifecycle
+  - **LinkCacheTest** (22 tests): Link cache management and backref tracking
+  - **PublishConfigTest** (17 tests): DNS publishing configuration validation
+  - **PublishServiceTest** (14 tests): DNS service publishing logic
+  - **AwsClientTest** (28 tests): AWS Route53 client operations
+
+### Changed (Test Metrics)
+- Test count: 503 → **859 tests** (+356, +71%)
+- Overall instruction coverage: 75% → **76%** (+1%)
+- Overall branch coverage: 63% → **64%** (+1%)
+- **dns.tree package**: 71% coverage with 30 new comprehensive tests
+- **dns.sync package**: 43% coverage with 43 new tests
+- **dns.update package**: 40% coverage with 59 new tests
+- All 859 tests passing with zero flaky tests
+- Execution time: ~30 seconds
+
+### Documentation
+- Updated README.md with new test counts and coverage metrics
+- Updated CHANGELOG.md with comprehensive v0.1.3 release notes
+- Updated ROADMAP.md to reflect v0.1.2 completion and v0.1.3 planning
+- Fixed documentation inconsistencies (maxConnections default, Netty version)
+
+## [0.1.2] - 2025-10-14
+
 ### Fixed
 - **Network Layer Statistics Bug**: Fixed send statistics always showing 0
   - Root cause: `XdagFrameCodec.encode()` was missing statistics recording while `decode()` already had it
@@ -240,6 +277,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Serialization: 4M-22M ops/sec
 - Data access: 98M-206M ops/sec
 
-[Unreleased]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.1-dev...HEAD
+[Unreleased]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.1-dev...v0.1.2
 [0.1.1-dev]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.0...v0.1.1-dev
 [0.1.0]: https://github.com/XDagger/xdagj-p2p/releases/tag/v0.1.0

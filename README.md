@@ -12,7 +12,19 @@ High-performance Java P2P networking library for the XDAG blockchain ecosystem, 
 
 ---
 
-## What's New in v0.1.2
+## What's New in v0.1.3
+
+### Test Coverage Expansion (v0.1.3)
+- **Massive Test Suite Growth**: 503 → 859 tests (+356 tests, +71%)
+- **Coverage Improvement**: 75% → 76% instruction coverage
+- **DNS Module Tests**: Added comprehensive tests for dns.tree, dns.sync, dns.update modules
+  - TreeTest: 30 tests, Tree class coverage 59% → 82%
+  - ClientTreeTest: 21 tests for ClientTree functionality
+  - LinkCacheTest: 22 tests for link cache management
+  - PublishConfigTest: 17 tests for DNS publishing configuration
+- **All Tests Passing**: 859/859 tests with zero flaky tests
+
+### Previous Features (v0.1.2)
 
 ### Breaking Change: Node ID Migration
 - Migrated from 520-bit to **160-bit Node ID** format (XDAG address-based)
@@ -47,7 +59,7 @@ See [CHANGELOG.md](CHANGELOG.md) for complete release notes.
 <dependency>
     <groupId>io.xdag</groupId>
     <artifactId>xdagj-p2p</artifactId>
-    <version>0.1.2</version>
+    <version>0.1.3</version>
 </dependency>
 ```
 
@@ -90,7 +102,7 @@ p2pService.start(config);
 mvn clean package -DskipTests
 
 # Run P2P node
-java -jar target/xdagj-p2p-0.1.2-jar-with-dependencies.jar \
+java -jar target/xdagj-p2p-0.1.3-jar-with-dependencies.jar \
   -p 16783 \
   -s <SEED_NODE_IP>:16783
 ```
@@ -318,11 +330,11 @@ python3 analyze-network-performance.py --logs-dir logs
 
 XDAGJ-P2P uses **Kademlia DHT** for fully decentralized peer-to-peer discovery.
 
-### Current Method (v0.1.2)
+### Current Method (v0.1.3)
 
 ```bash
 # Start node with seed nodes
-java -jar xdagj-p2p-0.1.2.jar \
+java -jar xdagj-p2p-0.1.3.jar \
   -p 16783 \
   -s <SEED_NODE_IP_1>:16783,<SEED_NODE_IP_2>:16783
 ```
@@ -344,21 +356,21 @@ java -jar xdagj-p2p-0.1.2.jar \
 
 **Production (24/7 nodes):**
 ```bash
-java -jar xdagj-p2p-0.1.2.jar \
+java -jar xdagj-p2p-0.1.3.jar \
   -p 16783 \
   -s <SEED_NODE_IP_1>:16783,<SEED_NODE_IP_2>:16783,<SEED_NODE_IP_3>:16783
 ```
 
 **Development/Testing:**
 ```bash
-java -jar xdagj-p2p-0.1.2.jar \
+java -jar xdagj-p2p-0.1.3.jar \
   -p 16783 \
   -s 127.0.0.1:10000,192.168.1.100:16783
 ```
 
 **Private Networks:**
 ```bash
-java -jar xdagj-p2p-0.1.2.jar \
+java -jar xdagj-p2p-0.1.3.jar \
   -p 16783 \
   -s 10.0.1.10:16783,10.0.1.11:16783
 ```
@@ -414,4 +426,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Status:** v0.1.2 Production-Ready | **Tests:** 859 passing | **Coverage:** 76%
+**Status:** v0.1.3 Production-Ready | **Tests:** 859 passing | **Coverage:** 76%
