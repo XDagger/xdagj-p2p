@@ -109,6 +109,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ✅ Updated documentation to reflect actual project state
 
 ### Added (Test Coverage Improvements)
+- **TreeTest** (dns.tree module) with 30 comprehensive tests
+  - Tests for Tree constructor and initialization
+  - Tests for getter/setter operations (rootEntry, seq, privateKey, publicKey)
+  - Tests for static merge() method with various scenarios (empty, single, multiple nodes, network splitting)
+  - Tests for toTXT() method with different domain formats
+  - Tests for entry retrieval methods (getLinksEntry, getBranchesEntry, getNodesEntry)
+  - Tests for map retrieval methods (getLinksMap, getNodesMap)
+  - Tests for getDnsNodes() method
+  - Tests for edge cases and boundary conditions
+  - **Coverage improved**: 59% → 82% instructions (+23%)
+  - **Branch coverage**: 85% (41/48 branches covered)
+
 - **XdagMessageHandlerTest** with 18 comprehensive tests
   - Tests for basic encode/decode operations
   - Tests for Snappy compression support
@@ -130,13 +142,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **All methods covered**: 100% (3/3 methods)
 
 ### Changed (Test Metrics)
-- Test count: 469 tests → 487 tests → **491 tests** (added ReputationManager tests, all passing)
-- Overall instruction coverage: 62.9% → 65.6% → **66%** (+3.1%)
-- Overall branch coverage: 49.1% → 52.2% → **52%** (+2.9%)
-- Overall line coverage: 64.2% → 66.5% → **66.7%** (+2.5%)
+- Test count: 469 tests → 487 tests → 491 tests → **859 tests** (added DNS module tests, all passing)
+- Overall instruction coverage: 62.9% → 65.6% → 66% → **76%** (+13.1%)
+- Overall branch coverage: 49.1% → 52.2% → 52% → **64%** (+14.9%)
 - **XdagMessageHandler**: 5.8% → **88.9%** instruction coverage (15x improvement!)
 - **P2pPacketDecoder**: 6.6% → **57.2%** instruction coverage (8.7x improvement!)
-- All tests passing with comprehensive handler and decoder testing
+- **Tree class** (dns.tree): 59% → **82%** instruction coverage (+23%, 30 new tests)
+- All tests passing with comprehensive handler, decoder, and DNS module testing
 
 ### Removed (Dead Code Cleanup)
 - **Code Simplification (Following Extreme Simplicity Principles)**:
