@@ -36,9 +36,8 @@ import io.xdag.p2p.discover.dns.tree.NodesEntry;
 import io.xdag.p2p.discover.dns.tree.RootEntry;
 import io.xdag.p2p.discover.dns.tree.Tree;
 import io.xdag.p2p.utils.BytesUtils;
-import io.xdag.p2p.utils.CryptoUtils;
+import io.xdag.p2p.utils.EncodeUtils;
 import java.net.UnknownHostException;
-import java.security.SignatureException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -80,10 +79,9 @@ public class Client {
 
   /** Scheduled executor for DNS synchronization tasks */
   private final ScheduledExecutorService syncer =
-      Executors.newSingleThreadScheduledExecutor(
-          new BasicThreadFactory.Builder().namingPattern("dnsSyncer").build());
+      Executors.newSingleThreadScheduledExecutor(BasicThreadFactory.builder().namingPattern("workerthread-%d").build());
 
-  /** Constructor for DNS synchronization client. Initializes the cache with specified limits. */
+  /** Constructor for the DNS synchronization client. Initializes the cache with specified limits. */
   public Client(P2pConfig p2pConfig) {
     this.p2pConfig = p2pConfig;
     this.cache = CacheBuilder.newBuilder().maximumSize(cacheLimit).recordStats().build();
@@ -165,11 +163,10 @@ public class Client {
    * @return the resolved root entry
    * @throws TextParseException if DNS text parsing fails
    * @throws DnsException if DNS resolution fails
-   * @throws SignatureException if signature verification fails
    * @throws UnknownHostException if host is unknown
    */
   public RootEntry resolveRoot(LinkEntry linkEntry)
-      throws TextParseException, DnsException, SignatureException, UnknownHostException {
+      throws TextParseException, DnsException, UnknownHostException {
     // do not put root in cache
     TXTRecord txtRecord = LookUpTxt.lookUpTxt(p2pConfig, linkEntry.domain());
     if (txtRecord == null) {
@@ -219,7 +216,7 @@ public class Client {
   private Entry doResolveEntry(String domain, String hash)
       throws DnsException, TextParseException, UnknownHostException {
     try {
-      log.debug("Decode hash: {}", BytesUtils.toHexString(CryptoUtils.decode32(hash)));
+      log.debug("Decode hash: {}", BytesUtils.toHexString(EncodeUtils.decode32(hash)));
     } catch (Exception e) {
       throw new DnsException(TypeEnum.OTHER_ERROR, "invalid base32 hash: " + hash);
     }
@@ -235,7 +232,7 @@ public class Client {
     } else if (txt.startsWith(Entry.linkPrefix)) {
       entry = LinkEntry.parseEntry(txt);
     } else if (txt.startsWith(Entry.nodesPrefix)) {
-      entry = NodesEntry.parseEntry(p2pConfig, txt);
+      entry = NodesEntry.parseEntry(txt);
     }
 
     if (entry == null) {
@@ -243,7 +240,7 @@ public class Client {
           TypeEnum.NO_ENTRY_FOUND, String.format("hash:%s, domain:%s, txt:%s", hash, domain, txt));
     }
 
-    String wantHash = CryptoUtils.encode32AndTruncate(entry.toString());
+    String wantHash = EncodeUtils.encode32AndTruncate(entry.toString());
     if (!wantHash.equals(hash)) {
       throw new DnsException(
           TypeEnum.HASH_MISS_MATCH,

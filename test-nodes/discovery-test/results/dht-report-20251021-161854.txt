@@ -1,0 +1,81 @@
+Node Discovery Test Report
+=========================
+Mode: dht
+Node count: 10
+Test duration: 300 seconds
+Start time: 2025年10月21日 星期二 16时18分54秒 CST
+
+========================================
+Time: 30 seconds
+========================================
+
+Node 0:
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+  - FIND_NODE: 0
+0
+  - NEIGHBORS: 0
+0
+  - Discovered nodes: 2025
+
+Node 4:
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+  - FIND_NODE: 0
+0
+  - NEIGHBORS: 0
+0
+  - Discovered nodes: 2025
+
+Node 9:
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+  - FIND_NODE: 0
+0
+  - NEIGHBORS: 0
+0
+  - Discovered nodes: 2025
+
+========================================
+Time: 60 seconds
+========================================
+
+Node 0:
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+  - FIND_NODE: 0
+0
+  - NEIGHBORS: 0
+0
+  - Discovered nodes: 2025
+
+Node 4:
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+  - FIND_NODE: 0
+0
+  - NEIGHBORS: 0
+0
+  - Discovered nodes: 2025
+
+Node 9:
+  - PING sent: 0
+0
+  - PONG received: 0
+0
+  - FIND_NODE: 0
+0
+  - NEIGHBORS: 0
+0
+  - Discovered nodes: 2025
+

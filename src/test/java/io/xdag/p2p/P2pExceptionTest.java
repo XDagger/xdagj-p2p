@@ -195,7 +195,7 @@ public class P2pExceptionTest {
     assertInstanceOf(Throwable.class, exception, "P2pException should be instance of Throwable");
   }
 
-  /** Test exception with null message. */
+  /** Test exception with a null message. */
   @Test
   void testExceptionWithNullMessage() {
     P2pException exception = new P2pException(P2pException.TypeEnum.EMPTY_MESSAGE, (String) null);
@@ -205,7 +205,7 @@ public class P2pExceptionTest {
     assertNull(exception.getMessage(), "Exception message should be null");
   }
 
-  /** Test exception with empty message. */
+  /** Test exception with an empty message. */
   @Test
   void testExceptionWithEmptyMessage() {
     String emptyMessage = "";
@@ -262,7 +262,7 @@ public class P2pExceptionTest {
   @Test
   void testCreateExceptionsForAllTypes() {
     for (P2pException.TypeEnum type : P2pException.TypeEnum.values()) {
-      // Test with message only
+      // Test with a message only
       assertDoesNotThrow(
           () -> new P2pException(type, "Test message for " + type.getDesc()),
           "Should be able to create exception with message for type: " + type);

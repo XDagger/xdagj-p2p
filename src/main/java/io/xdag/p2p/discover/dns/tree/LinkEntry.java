@@ -23,10 +23,10 @@
  */
 package io.xdag.p2p.discover.dns.tree;
 
+import io.xdag.crypto.keys.PublicKey;
 import io.xdag.p2p.DnsException;
 import io.xdag.p2p.DnsException.TypeEnum;
-import io.xdag.p2p.utils.BytesUtils;
-import io.xdag.p2p.utils.CryptoUtils;
+import io.xdag.p2p.utils.EncodeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.tuweni.bytes.Bytes;
 import org.jetbrains.annotations.NotNull;
@@ -72,8 +72,8 @@ public record LinkEntry(String represent, String domain, String unCompressHexPub
     String base32PublicKey = items[0];
 
     try {
-      Bytes data = CryptoUtils.decode32(base32PublicKey);
-      String unCompressPublicKey = CryptoUtils.decompressPubKey(BytesUtils.toHexString(data));
+      Bytes data = EncodeUtils.decode32(base32PublicKey);
+      String unCompressPublicKey = PublicKey.fromBytes(data).toUnprefixedHex();
       return new LinkEntry(treeRepresent, items[1], unCompressPublicKey);
     } catch (RuntimeException exception) {
       throw new DnsException(TypeEnum.BAD_PUBLIC_KEY, "bad public key:" + base32PublicKey);
@@ -81,7 +81,7 @@ public record LinkEntry(String represent, String domain, String unCompressHexPub
   }
 
   /**
-   * Build a link representation string from public key and domain.
+   * Build a link representation string from the public key and domain.
    *
    * @param base32PubKey the base32-encoded public key
    * @param domain the domain name

@@ -50,12 +50,10 @@ public class CliConfigParser {
   private static final String OPT_TRUST_IPS = "t";
   private static final String OPT_MAX_CONNECTIONS = "M";
   private static final String OPT_MIN_CONNECTIONS = "m";
-  private static final String OPT_MIN_ACTIVE_CONNECTIONS = "ma";
   private static final String OPT_DISCOVER = "d";
   private static final String OPT_PORT = "p";
   private static final String OPT_VERSION = "v";
   private static final String OPT_URL_SCHEMES = "u";
-  private static final String OPT_MAX_CONNECTIONS_SAME_IP = "msi";
 
   // DNS publish options
   private static final String OPT_PUBLISH = "publish";
@@ -70,7 +68,6 @@ public class CliConfigParser {
   private static final String OPT_ACCESS_KEY_SECRET = "access-key-secret";
   private static final String OPT_HOST_ZONE_ID = "host-zone-id";
   private static final String OPT_AWS_REGION = "aws-region";
-  private static final String OPT_ALIYUN_ENDPOINT = "aliyun-dns-endpoint";
 
   /** Parse command line arguments and configure P2pConfig */
   public boolean parseAndConfigure(String[] args, P2pConfig config) throws CliParseException {
@@ -133,15 +130,6 @@ public class CliConfigParser {
       config.setMinConnections(parseIntOption(cli, OPT_MIN_CONNECTIONS));
     }
 
-    if (cli.hasOption(OPT_MIN_ACTIVE_CONNECTIONS)) {
-      config.setMinActiveConnections(parseIntOption(cli, OPT_MIN_ACTIVE_CONNECTIONS));
-    }
-
-    // Max connections with same IP
-    if (cli.hasOption(OPT_MAX_CONNECTIONS_SAME_IP)) {
-      config.setMaxConnectionsWithSameIp(parseIntOption(cli, OPT_MAX_CONNECTIONS_SAME_IP));
-    }
-
     // Validate connection limits
     if (config.getMinConnections() > config.getMaxConnections()) {
       throw new CliParseException(
@@ -157,7 +145,7 @@ public class CliConfigParser {
 
     // Version (Network ID)
     if (cli.hasOption(OPT_VERSION)) {
-      config.setNetworkId(parseIntOption(cli, OPT_VERSION));
+      config.setNetworkId((byte)parseIntOption(cli, OPT_VERSION));
     }
 
     // Discovery
@@ -214,10 +202,8 @@ public class CliConfigParser {
     String serverType = cli.getOptionValue(OPT_SERVER_TYPE);
     if ("aws".equalsIgnoreCase(serverType)) {
       publishConfig.setDnsType(DnsType.AwsRoute53);
-    } else if ("aliyun".equalsIgnoreCase(serverType)) {
-      publishConfig.setDnsType(DnsType.AliYun);
     } else {
-      throw new CliParseException("server-type must be 'aws' or 'aliyun'");
+      throw new CliParseException("server-type must be 'aws'");
     }
 
     // Access credentials (required)
@@ -241,14 +227,6 @@ public class CliConfigParser {
       if (cli.hasOption(OPT_HOST_ZONE_ID)) {
         publishConfig.setAwsHostZoneId(cli.getOptionValue(OPT_HOST_ZONE_ID));
       }
-    }
-
-    // Aliyun specific options
-    if (publishConfig.getDnsType() == DnsType.AliYun) {
-      if (!cli.hasOption(OPT_ALIYUN_ENDPOINT)) {
-        throw new CliParseException("aliyun-dns-endpoint is required for Aliyun");
-      }
-      publishConfig.setAliDnsEndpoint(cli.getOptionValue(OPT_ALIYUN_ENDPOINT));
     }
 
     // Optional parameters
@@ -283,9 +261,7 @@ public class CliConfigParser {
     List<InetSocketAddress> addresses = new ArrayList<>();
     for (String address : addressString.split(",")) {
       InetSocketAddress socketAddress = NetUtils.parseInetSocketAddress(address.trim());
-      if (socketAddress != null) {
-        addresses.add(socketAddress);
-      }
+      addresses.add(socketAddress);
     }
     return addresses;
   }
@@ -335,20 +311,6 @@ public class CliConfigParser {
             .longOpt("min-connection")
             .hasArg()
             .desc("min connection number, int, default 8")
-            .build());
-
-    options.addOption(
-        Option.builder(OPT_MIN_ACTIVE_CONNECTIONS)
-            .longOpt("min-active-connection")
-            .hasArg()
-            .desc("min active connection number, int, default 2")
-            .build());
-
-    options.addOption(
-        Option.builder(OPT_MAX_CONNECTIONS_SAME_IP)
-            .longOpt("max-connections-same-ip")
-            .hasArg()
-            .desc("max connections from same IP, int, default 2")
             .build());
 
     // Port
@@ -444,21 +406,21 @@ public class CliConfigParser {
         Option.builder()
             .longOpt(OPT_SERVER_TYPE)
             .hasArg()
-            .desc("dns server to publish, required, only aws or aliyun is support")
+            .desc("dns server to publish, required, only aws is support")
             .build());
 
     options.addOption(
         Option.builder()
             .longOpt(OPT_ACCESS_KEY_ID)
             .hasArg()
-            .desc("access key id of aws or aliyun api, required, string")
+            .desc("access key id of aws api, required, string")
             .build());
 
     options.addOption(
         Option.builder()
             .longOpt(OPT_ACCESS_KEY_SECRET)
             .hasArg()
-            .desc("access key secret of aws or aliyun api, required, string")
+            .desc("access key secret of aws api, required, string")
             .build());
 
     options.addOption(
@@ -474,13 +436,6 @@ public class CliConfigParser {
             .longOpt(OPT_HOST_ZONE_ID)
             .hasArg()
             .desc("if server-type is aws, it's host zone id of aws's domain, optional, string")
-            .build());
-
-    options.addOption(
-        Option.builder()
-            .longOpt(OPT_ALIYUN_ENDPOINT)
-            .hasArg()
-            .desc("if server-type is aliyun, it's endpoint of aws dns server, required, string")
             .build());
   }
 
@@ -511,7 +466,6 @@ public class CliConfigParser {
         && (longOpt.startsWith("dns-")
             || longOpt.equals(OPT_PUBLISH)
             || longOpt.contains("aws")
-            || longOpt.contains("aliyun")
             || longOpt.equals("domain")
             || longOpt.equals("server-type")
             || longOpt.contains("access-key"));

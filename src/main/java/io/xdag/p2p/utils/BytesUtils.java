@@ -23,11 +23,6 @@
  */
 package io.xdag.p2p.utils;
 
-import io.netty.buffer.ByteBuf;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
-import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.tuweni.bytes.Bytes;
@@ -45,31 +40,6 @@ public class BytesUtils {
   }
 
   /**
-   * Wrap byte array into Tuweni Bytes object.
-   *
-   * @param bytes the byte array to wrap
-   * @return Tuweni Bytes object
-   */
-  public static Bytes wrap(byte[] bytes) {
-    return bytes == null ? Bytes.EMPTY : Bytes.wrap(bytes);
-  }
-
-  /**
-   * Wrap a portion of byte array as Tuweni Bytes
-   *
-   * @param bytes the source byte array to wrap
-   * @param offset starting position in the array
-   * @param length number of bytes to wrap
-   * @return Tuweni Bytes object containing the specified portion
-   */
-  public static Bytes wrap(byte[] bytes, int offset, int length) {
-    if (bytes == null || offset < 0 || length <= 0 || offset + length > bytes.length) {
-      return Bytes.EMPTY;
-    }
-    return Bytes.wrap(bytes, offset, length);
-  }
-
-  /**
    * Convert string to Tuweni Bytes using UTF-8 encoding
    *
    * @param str the string to convert
@@ -77,45 +47,6 @@ public class BytesUtils {
    */
   public static Bytes fromString(String str) {
     return str == null ? Bytes.EMPTY : Bytes.wrap(str.getBytes(StandardCharsets.UTF_8));
-  }
-
-  /**
-   * Convert Tuweni Bytes to string using UTF-8 encoding
-   *
-   * @param bytes the Tuweni Bytes to convert
-   * @return UTF-8 string representation of the bytes
-   */
-  public static String toString(Bytes bytes) {
-    return bytes == null ? "" : new String(bytes.toArray(), StandardCharsets.UTF_8);
-  }
-
-  /**
-   * Concatenate multiple Bytes into one
-   *
-   * @param bytesArray variable number of Bytes objects to concatenate
-   * @return concatenated Bytes object
-   */
-  public static Bytes concat(Bytes... bytesArray) {
-    if (bytesArray == null || bytesArray.length == 0) {
-      return Bytes.EMPTY;
-    }
-    return Bytes.concatenate(bytesArray);
-  }
-
-  /**
-   * Slice bytes from start to end (exclusive)
-   *
-   * @param bytes the source Bytes to slice from
-   * @param start starting index (inclusive)
-   * @param end ending index (exclusive)
-   * @return sliced Bytes object
-   */
-  public static Bytes slice(Bytes bytes, int start, int end) {
-    if (bytes == null || start < 0 || end <= start || start >= bytes.size()) {
-      return Bytes.EMPTY;
-    }
-    int actualEnd = Math.min(end, bytes.size());
-    return bytes.slice(start, actualEnd - start);
   }
 
   /**
@@ -150,19 +81,6 @@ public class BytesUtils {
   }
 
   /**
-   * Check if two Bytes are equal
-   *
-   * @param a first Bytes object to compare
-   * @param b second Bytes object to compare
-   * @return true if both Bytes objects are equal, false otherwise
-   */
-  public static boolean equals(Bytes a, Bytes b) {
-    if (a == null && b == null) return true;
-    if (a == null || b == null) return false;
-    return a.equals(b);
-  }
-
-  /**
    * Convert hex string to Tuweni Bytes
    *
    * @param hex the hex string to convert (with or without 0x prefix)
@@ -191,7 +109,7 @@ public class BytesUtils {
    * XOR two Bytes of equal length
    *
    * @param a first Bytes object
-   * @param b second Bytes object (must be same length as a)
+   * @param b second Bytes object (must be the same length as a)
    * @return Bytes object containing the XOR result
    * @throws IllegalArgumentException if bytes are null or different lengths
    */
@@ -211,7 +129,7 @@ public class BytesUtils {
    * Count leading zero bits in bytes (used for Kademlia distance calculation)
    *
    * @param bytes the Bytes object to analyze
-   * @return number of leading zero bits, or Integer.MAX_VALUE if bytes is null/empty
+   * @return number of leading zero bits, or Integer.MAX_VALUE if bytes are null/empty
    */
   public static int leadingZeroBits(Bytes bytes) {
     if (bytes == null || bytes.isEmpty()) {
@@ -238,56 +156,6 @@ public class BytesUtils {
     return leadingZeros;
   }
 
-  /** Efficiently extract bytes from ByteBuf using Tuweni Bytes */
-  public static Bytes extractBytesFromByteBuf(ByteBuf buffer) {
-    int readableBytes = buffer.readableBytes();
-    if (readableBytes == 0) {
-      return Bytes.EMPTY;
-    }
-
-    if (buffer.hasArray()) {
-      // If ByteBuf has a backing array, wrap it efficiently without copying
-      byte[] array = buffer.array();
-      int offset = buffer.arrayOffset() + buffer.readerIndex();
-      buffer.readerIndex(buffer.readerIndex() + readableBytes); // Update reader index
-      return Bytes.wrap(array, offset, readableBytes);
-    } else {
-      // Fallback: copy data if no backing array
-      byte[] data = new byte[readableBytes];
-      buffer.readBytes(data);
-      return Bytes.wrap(data);
-    }
-  }
-
-  /**
-   * Get bytes data from object data.
-   *
-   * @param obj the object to convert to bytes
-   * @return byte array representation of the object
-   */
-  public static byte[] fromObject(Object obj) {
-    byte[] bytes = null;
-    try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream)) {
-      objectOutputStream.writeObject(obj);
-      objectOutputStream.flush();
-      bytes = byteArrayOutputStream.toByteArray();
-    } catch (IOException e) {
-      log.error("Method objectToByteArray failed.", e);
-    }
-    return bytes;
-  }
-
-  /**
-   * Get string data from bytes data using Tuweni.
-   *
-   * @param b the byte array to convert
-   * @return string representation or null if bytes are empty
-   */
-  public static String toStr(byte[] b) {
-    return (b == null || b.length == 0) ? null : new String(b);
-  }
-
   /**
    * Convert byte to unsigned integer value.
    *
@@ -298,14 +166,4 @@ public class BytesUtils {
     return b & 0xFF;
   }
 
-  /**
-   * Convert BigInteger to hex string without leading zeros (except for zero value). This is a
-   * utility method to replace ByteArray.toHexString usage.
-   *
-   * @param value BigInteger to convert
-   * @return hex string representation
-   */
-  public static String toHexString(BigInteger value) {
-    return value.toString(16);
-  }
 }

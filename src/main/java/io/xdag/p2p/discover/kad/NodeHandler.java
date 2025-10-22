@@ -26,12 +26,11 @@ package io.xdag.p2p.discover.kad;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.handler.discover.UdpEvent;
-import io.xdag.p2p.message.discover.Message;
-import io.xdag.p2p.message.discover.kad.FindNodeMessage;
-import io.xdag.p2p.message.discover.kad.NeighborsMessage;
-import io.xdag.p2p.message.discover.kad.PingMessage;
-import io.xdag.p2p.message.discover.kad.PongMessage;
-import java.net.InetSocketAddress;
+import io.xdag.p2p.message.Message;
+import io.xdag.p2p.message.discover.KadFindNodeMessage;
+import io.xdag.p2p.message.discover.KadNeighborsMessage;
+import io.xdag.p2p.message.discover.KadPingMessage;
+import io.xdag.p2p.message.discover.KadPongMessage;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -47,18 +46,38 @@ public class NodeHandler {
   private volatile State state;
   private final KadService kadService;
   private NodeHandler replaceCandidate;
-  private final AtomicInteger pingTrials = new AtomicInteger(3);
+  private final AtomicInteger pingTrials = new AtomicInteger(2);
   private volatile boolean waitForPong = false;
   private volatile boolean waitForNeighbors = false;
 
-  public NodeHandler(P2pConfig p2pConfig, Node node, KadService kadService) {
-    this.p2pConfig = p2pConfig;
+  // Simple reputation system: tracks successful and failed interactions
+  private final AtomicInteger reputation = new AtomicInteger(100); // Start with neutral reputation (0-200 range)
+  private static final int REPUTATION_PING_TIMEOUT_PENALTY = -5;
+  private static final int REPUTATION_PONG_RECEIVED_REWARD = 5;
+  private static final int REPUTATION_MIN = 0;
+  private static final int REPUTATION_MAX = 200;
+  private static final int REPUTATION_DEAD_THRESHOLD = 20;
+
+  public NodeHandler(Node node, KadService kadService) {
+    this.p2pConfig = kadService.getP2pConfig();
     this.node = node;
     this.kadService = kadService;
-    log.debug("Creating NodeHandler for node: {}", node.getPreferInetSocketAddress());
+    log.info("Creating NodeHandler for node: {}", node.getPreferInetSocketAddress());
+
+    // Load existing reputation from persistence if available
+    String nodeId = node.getId();
+    if (nodeId != null && kadService.getReputationManager() != null) {
+      int savedReputation = kadService.getReputationManager().getReputation(nodeId);
+      reputation.set(savedReputation);
+      log.info("Loaded reputation {} for node {}", savedReputation, node.getPreferInetSocketAddress());
+    }
+
     // send ping only if IP stack is compatible
     if (node.getPreferInetSocketAddress() != null) {
+      log.info("Node {} has valid address, transitioning to DISCOVERED state (will send PING)", node.getPreferInetSocketAddress());
       changeState(State.DISCOVERED);
+    } else {
+      log.warn("Node has no valid address, cannot send PING");
     }
   }
 
@@ -104,7 +123,7 @@ public class NodeHandler {
         // Congratulate the winner
         replaceCandidate.changeState(State.ACTIVE);
       } else if (oldState == State.ALIVE) {
-        // ok the old node was better, nothing to do here
+        // ok, the old node was better, nothing to do here
       } else {
         // wrong state transition
       }
@@ -117,11 +136,15 @@ public class NodeHandler {
     state = newState;
   }
 
-  public void handlePing(PingMessage msg) {
+  public void handlePing(KadPingMessage msg) {
+    log.info("Received PING from node: {}", node.getPreferInetSocketAddress());
     if (!kadService.getTable().getNode().equals(node)) {
+      log.info("Sending PONG to node: {}", node.getPreferInetSocketAddress());
       sendPong();
     }
-    node.setP2pVersion(msg.getNetworkId());
+    node.setNetworkId(msg.getNetworkId());
+    node.setNetworkVersion(msg.getNetworkVersion());
+
     if (!node.isConnectible(p2pConfig.getNetworkId())) {
       changeState(State.DEAD);
     } else if (state.equals(State.DEAD)) {
@@ -129,10 +152,16 @@ public class NodeHandler {
     }
   }
 
-  public void handlePong(PongMessage msg) {
+  public void handlePong(KadPongMessage msg) {
+    log.info("Received PONG from node: {}", node.getPreferInetSocketAddress());
     if (waitForPong) {
       waitForPong = false;
-      node.setP2pVersion(msg.getNetworkId());
+      node.setNetworkId(msg.getNetworkId());
+      node.setNetworkVersion(msg.getNetworkVersion());
+
+      // Reward successful response
+      adjustReputation(REPUTATION_PONG_RECEIVED_REWARD);
+
       if (!node.isConnectible(p2pConfig.getNetworkId())) {
         changeState(State.DEAD);
       } else {
@@ -141,40 +170,85 @@ public class NodeHandler {
     }
   }
 
-  public void handleNeighbours(NeighborsMessage msg, InetSocketAddress sender) {
+  public void handleNeighbours(KadNeighborsMessage msg) {
     if (!waitForNeighbors) {
-      log.warn("Receive neighbors from {} without send find nodes", sender);
+      log.warn("Receive neighbors without send find nodes");
       return;
     }
+    log.info("Received NEIGHBORS from node: {} ({} neighbors)",
+             node.getPreferInetSocketAddress(), msg.getNeighbors().size());
     waitForNeighbors = false;
-    for (Node n : msg.getNodes()) {
-      if (!kadService.getPublicHomeNode().getHexId().equals(n.getHexId())) {
+    for (Node n : msg.getNeighbors()) {
+      if (kadService.getPublicHomeNode().getId() == null || n.getId() == null ||
+          !kadService.getPublicHomeNode().getId().equals(n.getId())) {
         kadService.getNodeHandler(n);
       }
     }
   }
 
-  public void handleFindNode(FindNodeMessage msg) {
-    List<Node> closest = kadService.getTable().getClosestNodes(msg.getTargetId());
+  public void handleFindNode(KadFindNodeMessage msg) {
+    List<Node> closest = kadService.getTable().getClosestNodes(msg.getTarget());
+    log.info("Received FIND_NODE from node: {}, sending {} neighbors",
+             node.getPreferInetSocketAddress(), closest.size());
     sendNeighbours(closest, msg.getTimestamp());
   }
 
   public void handleTimedOut() {
     waitForPong = false;
+
+    // Penalize timeout
+    adjustReputation(REPUTATION_PING_TIMEOUT_PENALTY);
+
     if (pingTrials.getAndDecrement() > 0) {
       sendPing();
     } else {
       if (state == State.DISCOVERED || state == State.EVICTCANDIDATE) {
         changeState(State.DEAD);
       } else {
-        // TODO just influence to reputation
+        // Node has a history but timed out - check reputation
+        if (reputation.get() < REPUTATION_DEAD_THRESHOLD) {
+          log.info("Node {} reputation too low ({}), marking as DEAD",
+                   node.getPreferInetSocketAddress(), reputation.get());
+          changeState(State.DEAD);
+        } else {
+          log.debug("Node {} timed out but has acceptable reputation ({}), keeping alive",
+                    node.getPreferInetSocketAddress(), reputation.get());
+        }
       }
     }
   }
 
+  /**
+   * Adjust the reputation score of this node.
+   *
+   * @param delta the amount to adjust (positive for reward, negative for penalty)
+   */
+  private void adjustReputation(int delta) {
+    int oldRep = reputation.get();
+    int newRep = Math.max(REPUTATION_MIN, Math.min(REPUTATION_MAX, oldRep + delta));
+    reputation.set(newRep);
+    log.debug("Node {} reputation: {} -> {} (delta: {})",
+              node.getPreferInetSocketAddress(), oldRep, newRep, delta);
+
+    // Persist the updated reputation
+    String nodeId = node.getId();
+    if (nodeId != null && kadService.getReputationManager() != null) {
+      kadService.getReputationManager().setReputation(nodeId, newRep);
+    }
+  }
+
+  /**
+   * Get the current reputation score of this node.
+   *
+   * @return reputation score (0-200, where 100 is neutral)
+   */
+  public int getReputationScore() {
+    return reputation.get();
+  }
+
   public void sendPing() {
-    log.debug("Sending PING to node: {}", node.getPreferInetSocketAddress());
-    PingMessage msg = new PingMessage(p2pConfig, kadService.getPublicHomeNode(), getNode());
+    log.info("Sending PING to node: {}", node.getPreferInetSocketAddress());
+    KadPingMessage msg = new KadPingMessage(kadService.getPublicHomeNode(), getNode());
     waitForPong = true;
     sendMessage(msg);
 
@@ -199,20 +273,21 @@ public class NodeHandler {
   }
 
   public void sendPong() {
-    Message pong = new PongMessage(p2pConfig, kadService.getPublicHomeNode());
+    Message pong = new KadPongMessage(kadService.getPublicHomeNode());
     sendMessage(pong);
   }
 
   public void sendFindNode(byte[] target) {
+    log.info("Sending FIND_NODE to node: {}", node.getPreferInetSocketAddress());
     waitForNeighbors = true;
-    FindNodeMessage msg =
-        new FindNodeMessage(p2pConfig, kadService.getPublicHomeNode(), Bytes.wrap(target));
+    KadFindNodeMessage msg =
+        new KadFindNodeMessage(kadService.getPublicHomeNode(), Bytes.wrap(target));
     sendMessage(msg);
   }
 
   public void sendNeighbours(List<Node> neighbours, long sequence) {
     Message msg =
-        new NeighborsMessage(p2pConfig, kadService.getPublicHomeNode(), neighbours, sequence);
+        new KadNeighborsMessage(kadService.getPublicHomeNode(), neighbours);
     sendMessage(msg);
   }
 
@@ -233,7 +308,7 @@ public class NodeHandler {
 
   public enum State {
     /**
-     * The new node was just discovered either by receiving it with Neighbours message or by
+     * The new node was just discovered either by receiving it with the Neighbours message or by
      * receiving Ping from a new node In either case we are sending Ping and waiting for Pong If the
      * Pong is received the node becomes {@link #ALIVE} If the Pong was timed out the node becomes
      * {@link #DEAD}

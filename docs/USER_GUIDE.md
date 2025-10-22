@@ -29,7 +29,7 @@ $ java -jar target/xdagj-p2p-{version}-jar-with-dependencies.jar [options]
 
 For example, with current version:
 ```bash
-$ java -jar target/xdagj-p2p-0.1.0-jar-with-dependencies.jar [options]
+$ java -jar target/xdagj-p2p-0.1.2-jar-with-dependencies.jar [options]
 ```
 
 available cli options:
@@ -59,12 +59,10 @@ usage: P2P Discovery Options:
  -v,--version <arg>                  p2p version, int, default 1
 
 usage: DNS Options:
-    --access-key-id <arg>         access key id of aws or aliyun api,
+    --access-key-id <arg>         access key id of aws api,
                                   required, string
-    --access-key-secret <arg>     access key secret of aws or aliyun api,
+    --access-key-secret <arg>     access key secret of aws api,
                                   required, string
-    --aliyun-dns-endpoint <arg>   if server-type is aliyun, it's endpoint
-                                  of aws dns server, required, string
     --aws-region <arg>            if server-type is aws, it's region of
                                   aws api, such as "eu-south-1", required,
                                   string
@@ -85,7 +83,7 @@ usage: DNS Options:
                                   [1~5], default 5
     --publish                     enable dns publish
     --server-type <arg>           dns server to publish, required, only
-                                  aws or aliyun is support
+                                  aws is support
     --static-nodes <arg>          static nodes to publish, if exist then
                                   nodes from kad will be ignored,
                                   optional, ip:port[,ip:port[...]]
@@ -102,19 +100,19 @@ For example:
 **Node A** - starts with default configuration parameters. Let's say its IP is 127.0.0.1
 
 ```bash
-$ java -jar target/xdagj-p2p-0.1.0-jar-with-dependencies.jar
+$ java -jar target/xdagj-p2p-0.1.2-jar-with-dependencies.jar
 ```
 
 **Node B** - start with seed nodes(127.0.0.1:16783). Let's say its IP is 127.0.0.2
 
 ```bash
-$ java -jar target/xdagj-p2p-0.1.0-jar-with-dependencies.jar -s 127.0.0.1:16783
+$ java -jar target/xdagj-p2p-0.1.2-jar-with-dependencies.jar -s 127.0.0.1:16783
 ```
 
 **Node C** - start with seed nodes(127.0.0.1:16783). Let's say its IP is 127.0.0.3
 
 ```bash
-$ java -jar target/xdagj-p2p-0.1.0-jar-with-dependencies.jar -s 127.0.0.1:16783
+$ java -jar target/xdagj-p2p-0.1.2-jar-with-dependencies.jar -s 127.0.0.1:16783
 ```
 
 After the three nodes are successfully started, the usual situation is that node B can discover node
@@ -126,41 +124,29 @@ xdagj-p2p supports DNS-based node discovery using the EIP-1459 protocol. This al
 
 ### XDAG DNS Discovery Domains
 
-The XDAG network uses the following DNS domain structure for clear network identification:
+The XDAG network uses the following DNS domain structure for network identification:
 
 ```bash
 # XDAG Mainnet
 mainnet.xdag.io          # XDAG mainnet node discovery
-nodes.xdag.io            # Alias for mainnet (backward compatibility)
 
-# XDAG Testnet  
+# XDAG Testnet
 testnet.xdag.io          # XDAG testnet node discovery
-
-# Regional Optimization (Optional)
-mainnet-us.xdag.io       # Mainnet North America region
-mainnet-asia.xdag.io     # Mainnet Asia-Pacific region
-mainnet-eu.xdag.io       # Mainnet Europe region
-testnet-us.xdag.io       # Testnet North America region
-testnet-asia.xdag.io     # Testnet Asia-Pacific region
-
-# Special Purpose (Optional)
-bootstrap.xdag.io        # Bootstrap/seed nodes for mainnet
-testnet-bootstrap.xdag.io # Bootstrap/seed nodes for testnet
 ```
+
+**Note**: The DNS tree URLs use the format `tree://PUBKEY@domain` as defined in the EIP-1459 protocol.
 
 ### DNS Provider Support
 
 Node lists can be deployed to any DNS provider such as CloudFlare DNS, dnsimple, Amazon
-Route 53, Aliyun Cloud using their respective client libraries. Currently we support:
+Route 53 Cloud using their respective client libraries. Currently we support:
 - **Amazon Route 53** (recommended for global deployment)
-- **Aliyun Cloud DNS** (recommended for China region)
 
 For more details about the EIP-1459 protocol, see: https://eips.ethereum.org/EIPS/eip-1459
 
-### 1.2.1 Acquire your apikey from Amazon Route 53 or Aliyun Cloud
+### 1.2.1 Acquire your apikey from Amazon Route 53 Cloud
 
 * Amazon Route 53 include: AWS Access Key ID、AWS Access Key Secret、Route53 Zone ID、AWS Region, get more info <https://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html>
-* Aliyun Cloud include: accessKeyId、accessKeySecret、endpoint, get more info <https://help.aliyun.com/document_detail/116401.html>
 
 ### 1.2.2 Publish nodes to XDAG networks
 
@@ -168,8 +154,8 @@ For more details about the EIP-1459 protocol, see: https://eips.ethereum.org/EIP
 
 ```bash
 # Publish to XDAG mainnet
-java -jar target/xdagj-p2p-0.1.0-jar-with-dependencies.jar -p 16783 -v 201910292 -d 1 \
--s bootstrap.xdag.io:16783 \
+java -jar target/xdagj-p2p-0.1.2-jar-with-dependencies.jar -p 16783 -v 201910292 -d 1 \
+-s <SEED_NODE_IP>:16783 \
 -publish \
 --dns-private <XDAG_MAINNET_DNS_PRIVATE_KEY> \
 --server-type aws \
@@ -184,8 +170,8 @@ java -jar target/xdagj-p2p-0.1.0-jar-with-dependencies.jar -p 16783 -v 201910292
 
 ```bash
 # Publish to XDAG testnet
-java -jar target/xdagj-p2p-0.1.0-jar-with-dependencies.jar -p 16783 -v 54321 -d 1 \
--s testnet-bootstrap.xdag.io:16783 \
+java -jar target/xdagj-p2p-0.1.2-jar-with-dependencies.jar -p 16783 -v 54321 -d 1 \
+-s <SEED_NODE_IP>:16783 \
 -publish \
 --dns-private <XDAG_TESTNET_DNS_PRIVATE_KEY> \
 --server-type aws \
@@ -233,11 +219,11 @@ To use DNS discovery, you can specify the tree URLs when starting your nodes:
 
 ```bash
 # Connect to XDAG mainnet using DNS discovery
-java -jar target/xdagj-p2p-0.1.0-jar-with-dependencies.jar -p 16783 -v 201910292 -d 1 \
+java -jar target/xdagj-p2p-0.1.2-jar-with-dependencies.jar -p 16783 -v 201910292 -d 1 \
 -u tree://APFGGTFOBVE2ZNAB3CSMNNX6RRK3ODIRLP2AA5U4YFAA6MSYZUYTQ@mainnet.xdag.io
 
 # Connect to XDAG testnet using DNS discovery
-java -jar target/xdagj-p2p-0.1.0-jar-with-dependencies.jar -p 16783 -v 54321 -d 1 \
+java -jar target/xdagj-p2p-0.1.2-jar-with-dependencies.jar -p 16783 -v 54321 -d 1 \
 -u tree://BQHGGTFOBVE2ZNAB3CSMNNX6RRK3ODIRLP2AA5U4YFAA6MSYZUYTQ@testnet.xdag.io
 ```
 
@@ -254,11 +240,11 @@ To use xdagj-p2p as a dependency in your project, add the following to your `pom
 <dependency>
     <groupId>io.xdag</groupId>
     <artifactId>xdagj-p2p</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.2</version>
 </dependency>
 ```
 
-The standard dependency JAR (`xdagj-p2p-0.1.0.jar`) contains the core library code, making it suitable for use as a Maven dependency.
+The standard dependency JAR (`xdagj-p2p-0.1.2.jar`) contains the core library code, making it suitable for use as a Maven dependency.
 
 ## 2.2 Core classes
 
@@ -380,16 +366,16 @@ config.setDiscoverEnable(true);
 Set discover seed nodes
 
 ```java
-// For XDAG mainnet
+// For XDAG mainnet - use actual seed node IPs
 List<InetSocketAddress> mainnetSeedNodeList = new ArrayList<>();
-mainnetSeedNodeList.add(new InetSocketAddress("bootstrap.xdag.io", 16783));
-mainnetSeedNodeList.add(new InetSocketAddress("mainnet-us.xdag.io", 16783));
+mainnetSeedNodeList.add(new InetSocketAddress("<SEED_NODE_IP_1>", 16783));
+mainnetSeedNodeList.add(new InetSocketAddress("<SEED_NODE_IP_2>", 16783));
 config.setSeedNodes(mainnetSeedNodeList);
 
-// For XDAG testnet
+// For XDAG testnet - use actual seed node IPs
 List<InetSocketAddress> testnetSeedNodeList = new ArrayList<>();
-testnetSeedNodeList.add(new InetSocketAddress("testnet-bootstrap.xdag.io", 16783));
-testnetSeedNodeList.add(new InetSocketAddress("testnet-us.xdag.io", 16783));
+testnetSeedNodeList.add(new InetSocketAddress("<SEED_NODE_IP_1>", 16783));
+testnetSeedNodeList.add(new InetSocketAddress("<SEED_NODE_IP_2>", 16783));
 config.setSeedNodes(testnetSeedNodeList);
 ```
 

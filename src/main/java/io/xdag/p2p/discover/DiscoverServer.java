@@ -29,14 +29,11 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.MultiThreadIoEventLoopGroup;
 import io.netty.channel.nio.NioIoHandler;
 import io.netty.channel.socket.nio.NioDatagramChannel;
-import io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
-import io.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepender;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.config.P2pConstant;
 import io.xdag.p2p.handler.discover.EventHandler;
 import io.xdag.p2p.handler.discover.MessageHandler;
 import io.xdag.p2p.handler.discover.P2pPacketDecoder;
-import io.xdag.p2p.stats.TrafficStats;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
@@ -88,7 +85,7 @@ public class DiscoverServer {
     MultiThreadIoEventLoopGroup group =
         new MultiThreadIoEventLoopGroup(
             P2pConstant.UDP_NETTY_WORK_THREAD_NUM,
-            new BasicThreadFactory.Builder().namingPattern("discoverServer").build(),
+            BasicThreadFactory.builder().namingPattern("discoverServer").build(),
             NioIoHandler.newFactory());
     try {
       while (!shutdown) {
@@ -99,9 +96,7 @@ public class DiscoverServer {
                 new ChannelInitializer<NioDatagramChannel>() {
                   @Override
                   public void initChannel(NioDatagramChannel ch) {
-                    ch.pipeline().addLast(TrafficStats.getUdp());
-                    ch.pipeline().addLast(new ProtobufVarint32LengthFieldPrepender());
-                    ch.pipeline().addLast(new ProtobufVarint32FrameDecoder());
+                    // Use custom UDP message codec only; no protobuf length framing for discovery
                     ch.pipeline().addLast(new P2pPacketDecoder(p2pConfig));
                     MessageHandler messageHandler = new MessageHandler(ch, eventHandler);
                     eventHandler.setMessageSender(messageHandler);
@@ -112,6 +107,14 @@ public class DiscoverServer {
         channel = b.bind(port).sync().channel();
 
         log.info("Discovery server started, bind port {}", port);
+        // Notify event handler that the discovery channel is active
+        if (eventHandler != null) {
+          try {
+            eventHandler.channelActivated();
+          } catch (Throwable t) {
+            log.warn("Error on discovery channel activation callback", t);
+          }
+        }
 
         channel.closeFuture().sync();
         if (shutdown) {

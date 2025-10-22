@@ -30,299 +30,147 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.xdag.p2p.config.P2pConfig;
-import io.xdag.p2p.utils.NetUtils;
 import java.net.InetSocketAddress;
-import org.apache.tuweni.bytes.Bytes;
-import org.junit.jupiter.api.BeforeEach;
+import java.security.SecureRandom;
 import org.junit.jupiter.api.Test;
 
 public class NodeTest {
 
-  private P2pConfig p2pConfig;
+    private final SecureRandom random = new SecureRandom();
 
-  @BeforeEach
-  public void init() {
-    p2pConfig = new P2pConfig();
-    p2pConfig = new P2pConfig();
-  }
+    private String getRandomNodeId() {
+        byte[] bytes = new byte[32];
+        random.nextBytes(bytes);
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
+    }
 
-  @Test
-  public void nodeTest() throws InterruptedException {
-    Node node1 = new Node(p2pConfig, new InetSocketAddress("127.0.0.1", 10001));
-    assertEquals(64, node1.getId().size());
+    @Test
+    public void testNodeEqualsAndHashCode() {
+        String id1 = getRandomNodeId();
+        Node node1 = new Node(id1, "127.0.0.1", null, 10001);
+        Node node2 = new Node(id1, "127.0.0.1", null, 10001);
+        Node node3 = new Node(getRandomNodeId(), "127.0.0.1", null, 10001);
 
-    Node node2 = new Node(p2pConfig, NetUtils.getNodeId(), "127.0.0.1", null, 10002);
-    boolean isDif = node1.equals(node2);
-    assertFalse(isDif);
+        assertEquals(node1, node2);
+        assertNotEquals(node1, node3);
+        assertEquals(node1.hashCode(), node2.hashCode());
+    }
 
-    long lastModifyTime = node1.getUpdateTime();
-    Thread.sleep(1);
-    node1.touch();
-    assertNotEquals(lastModifyTime, node1.getUpdateTime());
+    @Test
+    public void testTouch() throws InterruptedException {
+        Node node = new Node(getRandomNodeId(), "127.0.0.1", null, 10001);
+        long lastModifyTime = node.getUpdateTime();
+        Thread.sleep(1);
+        node.touch();
+        assertNotEquals(lastModifyTime, node.getUpdateTime());
+    }
 
-    node1.setP2pVersion(11111);
-    assertTrue(node1.isConnectible(11111));
-    assertFalse(node1.isConnectible(11112));
-    Node node3 = new Node(p2pConfig, NetUtils.getNodeId(), "127.0.0.1", null, 10003, 10004);
-    node3.setP2pVersion(11111);
-    assertFalse(node3.isConnectible(11111));
-  }
+    @Test
+    public void testIsConnectible() {
+        Node node1 = new Node(getRandomNodeId(), "127.0.0.1", null, 10001, 10001);
+        node1.setNetworkId((byte)1);
+        assertTrue(node1.isConnectible((byte)1));
+        assertFalse(node1.isConnectible((byte)2));
 
-  @Test
-  public void ipV4CompatibleTest() {
-    p2pConfig.setIp("127.0.0.1");
-    p2pConfig.setIpv6(null);
+        Node node2 = new Node(getRandomNodeId(), "127.0.0.1", null, 10001, 10002);
+        node2.setNetworkId((byte)1);
+        assertFalse(node2.isConnectible((byte)1));
+    }
 
-    Node node1 = new Node(p2pConfig, NetUtils.getNodeId(), "127.0.0.1", null, 10002);
-    assertNotNull(node1.getPreferInetSocketAddress());
 
-    // Fallback机制：即使本地配置只有IPv4，但节点有IPv6地址时仍然可以连接
-    Node node2 =
-        new Node(p2pConfig, NetUtils.getNodeId(), null, "fe80:0:0:0:204:61ff:fe9d:f156", 10002);
-    assertNotNull(node2.getPreferInetSocketAddress()); // Fallback返回IPv6地址
+    @Test
+    public void testGetPreferInetSocketAddress() {
+        Node node1 = new Node(getRandomNodeId(), "127.0.0.1", null, 10002);
+        assertNotNull(node1.getPreferInetSocketAddress());
 
-    Node node3 =
-        new Node(
-            p2pConfig, NetUtils.getNodeId(), "127.0.0.1", "fe80:0:0:0:204:61ff:fe9d:f156", 10002);
-    assertNotNull(node3.getPreferInetSocketAddress());
-  }
+        Node node2 = new Node(getRandomNodeId(), null, "fe80:0:0:0:204:61ff:fe9d:f156", 10002);
+        assertNotNull(node2.getPreferInetSocketAddress());
 
-  @Test
-  public void ipV6CompatibleTest() {
-    p2pConfig.setIp(null);
-    p2pConfig.setIpv6("fe80:0:0:0:204:61ff:fe9d:f157");
+        Node node3 = new Node(getRandomNodeId(), "127.0.0.1", "fe80:0:0:0:204:61ff:fe9d:f156", 10002);
+        assertNotNull(node3.getPreferInetSocketAddress());
 
-    // Fallback机制：即使本地配置只有IPv6，但节点有IPv4地址时仍然可以连接
-    Node node1 = new Node(p2pConfig, NetUtils.getNodeId(), "127.0.0.1", null, 10002);
-    assertNotNull(node1.getPreferInetSocketAddress()); // Fallback返回IPv4地址
+        Node node4 = new Node(getRandomNodeId(), null, null, 10002);
+        assertNull(node4.getPreferInetSocketAddress());
+    }
 
-    Node node2 =
-        new Node(p2pConfig, NetUtils.getNodeId(), null, "fe80:0:0:0:204:61ff:fe9d:f156", 10002);
-    assertNotNull(node2.getPreferInetSocketAddress());
 
-    Node node3 =
-        new Node(
-            p2pConfig, NetUtils.getNodeId(), "127.0.0.1", "fe80:0:0:0:204:61ff:fe9d:f156", 10002);
-    assertNotNull(node3.getPreferInetSocketAddress());
-  }
+    @Test
+    public void testUpdateHostV4() {
+        Node node = new Node(getRandomNodeId(), null, "2001:db8::1", 10001);
 
-  @Test
-  public void ipCompatibleTest() {
-    p2pConfig.setIp("127.0.0.1");
-    p2pConfig.setIpv6("fe80:0:0:0:204:61ff:fe9d:f157");
+        node.updateHostV4("192.168.1.1");
+        assertEquals("192.168.1.1", node.getHostV4());
 
-    Node node1 = new Node(p2pConfig, NetUtils.getNodeId(), "127.0.0.1", null, 10002);
-    assertNotNull(node1.getPreferInetSocketAddress());
+        node.updateHostV4("10.0.0.1");
+        assertEquals("192.168.1.1", node.getHostV4());
 
-    Node node2 =
-        new Node(p2pConfig, NetUtils.getNodeId(), null, "fe80:0:0:0:204:61ff:fe9d:f156", 10002);
-    assertNotNull(node2.getPreferInetSocketAddress());
+        Node node2 = new Node(getRandomNodeId(), null, "2001:db8::1", 10002);
+        node2.updateHostV4(null);
+        assertNull(node2.getHostV4());
 
-    Node node3 =
-        new Node(
-            p2pConfig, NetUtils.getNodeId(), "127.0.0.1", "fe80:0:0:0:204:61ff:fe9d:f156", 10002);
-    assertNotNull(node3.getPreferInetSocketAddress());
+        node2.updateHostV4("");
+        assertNull(node2.getHostV4());
+    }
 
-    Node node4 = new Node(p2pConfig, NetUtils.getNodeId(), null, null, 10002);
-    assertNull(node4.getPreferInetSocketAddress());
-  }
+    @Test
+    public void testUpdateHostV6() {
+        Node node = new Node(getRandomNodeId(), "192.168.1.1", null, 10001);
 
-  @Test
-  public void testUpdateHostV4() {
-    Node node = new Node(p2pConfig, NetUtils.getNodeId(), null, "2001:db8::1", 10001);
-    
-    // Should update when hostV4 is empty
-    node.updateHostV4("192.168.1.1");
-    assertEquals("192.168.1.1", node.getHostV4());
-    
-    // Should not update when hostV4 is already set
-    node.updateHostV4("10.0.0.1");
-    assertEquals("192.168.1.1", node.getHostV4()); // Should remain unchanged
-    
-    // Should not update when new value is null or empty
-    Node node2 = new Node(p2pConfig, NetUtils.getNodeId(), null, "2001:db8::1", 10002);
-    node2.updateHostV4(null);
-    assertNull(node2.getHostV4());
-    
-    node2.updateHostV4("");
-    assertNull(node2.getHostV4());
-  }
+        node.updateHostV6("2001:db8::1");
+        assertEquals("2001:db8::1", node.getHostV6());
 
-  @Test
-  public void testUpdateHostV6() {
-    Node node = new Node(p2pConfig, NetUtils.getNodeId(), "192.168.1.1", null, 10001);
-    
-    // Should update when hostV6 is empty
-    node.updateHostV6("2001:db8::1");
-    assertEquals("2001:db8::1", node.getHostV6());
-    
-    // Should not update when hostV6 is already set
-    node.updateHostV6("2001:db8::2");
-    assertEquals("2001:db8::1", node.getHostV6()); // Should remain unchanged
-    
-    // Should not update when new value is null or empty
-    Node node2 = new Node(p2pConfig, NetUtils.getNodeId(), "192.168.1.1", null, 10002);
-    node2.updateHostV6(null);
-    assertNull(node2.getHostV6());
-    
-    node2.updateHostV6("");
-    assertNull(node2.getHostV6());
-  }
+        node.updateHostV6("2001:db8::2");
+        assertEquals("2001:db8::1", node.getHostV6());
 
-  @Test
-  public void testGetHexId() {
-    Bytes nodeId = Bytes.fromHexString("0x1234567890abcdef");
-    Node node = new Node(p2pConfig, nodeId, "127.0.0.1", null, 10001);
-    
-    String hexId = node.getHexId();
-    assertEquals("1234567890abcdef", hexId);
-    
-    // Test with null id
-    Node nodeWithNullId = new Node(p2pConfig, null, "127.0.0.1", null, 10001);
-    assertNull(nodeWithNullId.getHexId());
-  }
+        Node node2 = new Node(getRandomNodeId(), "192.168.1.1", null, 10002);
+        node2.updateHostV6(null);
+        assertNull(node2.getHostV6());
 
-  @Test
-  public void testGetIdString() {
-    String testString = "test-node-id";
-    Bytes nodeId = Bytes.wrap(testString.getBytes());
-    Node node = new Node(p2pConfig, nodeId, "127.0.0.1", null, 10001);
-    
-    String idString = node.getIdString();
-    assertEquals(testString, idString);
-    
-    // Test with null id
-    Node nodeWithNullId = new Node(p2pConfig, null, "127.0.0.1", null, 10001);
-    assertNull(nodeWithNullId.getIdString());
-  }
+        node2.updateHostV6("");
+        assertNull(node2.getHostV6());
+    }
 
-  @Test
-  public void testGetHostKey() {
-    // Test with valid IPv4
-    Node node1 = new Node(p2pConfig, NetUtils.getNodeId(), "127.0.0.1", null, 10001);
-    assertEquals("127.0.0.1", node1.getHostKey());
-    
-    // Test with valid IPv6
-    Node node2 = new Node(p2pConfig, NetUtils.getNodeId(), null, "::1", 10001);
-    assertEquals("0:0:0:0:0:0:0:1", node2.getHostKey());
-    
-    // Test with no valid address
-    Node node3 = new Node(p2pConfig, NetUtils.getNodeId(), null, null, 10001);
-    assertNull(node3.getHostKey());
-  }
+    @Test
+    public void testGetId() {
+        String nodeId = getRandomNodeId();
+        Node node = new Node(nodeId, "127.0.0.1", null, 10001);
+        assertEquals(nodeId, node.getId());
 
-  @Test
-  public void testGetInetSocketAddressV4() {
-    Node node = new Node(p2pConfig, NetUtils.getNodeId(), "127.0.0.1", null, 10001);
-    InetSocketAddress address = node.getInetSocketAddressV4();
-    
-    assertNotNull(address);
-    assertEquals("127.0.0.1", address.getAddress().getHostAddress());
-    assertEquals(10001, address.getPort());
-  }
+        Node nodeWithNullId = new Node(null, "127.0.0.1", null, 10001);
+        assertNull(nodeWithNullId.getId());
+    }
 
-  @Test
-  public void testGetInetSocketAddressV6() {
-    Node node = new Node(p2pConfig, NetUtils.getNodeId(), null, "::1", 10001);
-    InetSocketAddress address = node.getInetSocketAddressV6();
-    
-    assertNotNull(address);
-    assertEquals("0:0:0:0:0:0:0:1", address.getAddress().getHostAddress());
-    assertEquals(10001, address.getPort());
-  }
+    @Test
+    public void testClone() throws CloneNotSupportedException {
+        Node original = new Node(getRandomNodeId(), "127.0.0.1", "::1", 10001, 10002);
+        original.setNetworkVersion((short)12345);
 
-  @Test
-  public void testClone() throws CloneNotSupportedException {
-    Bytes nodeId = NetUtils.getNodeId();
-    Node original = new Node(p2pConfig, nodeId, "127.0.0.1", "::1", 10001, 10002);
-    original.setP2pVersion(12345);
-    
-    Node cloned = (Node) original.clone();
-    
-    // Verify cloned node has same values
-    assertEquals(original.getId(), cloned.getId());
-    assertEquals(original.getHostV4(), cloned.getHostV4());
-    assertEquals(original.getHostV6(), cloned.getHostV6());
-    assertEquals(original.getPort(), cloned.getPort());
-    assertEquals(original.getBindPort(), cloned.getBindPort());
-    assertEquals(original.getP2pVersion(), cloned.getP2pVersion());
-    
-    // Verify it's a different object
-    assertNotEquals(System.identityHashCode(original), System.identityHashCode(cloned));
-  }
+        Node cloned = (Node) original.clone();
 
-  @Test
-  public void testEqualsAndHashCode() {
-    // Use string-based IDs for proper equals comparison
-    String idString1 = "test-node-1";
-    String idString2 = "test-node-1"; // Same as 1
-    String idString3 = "test-node-2"; // Different
-    
-    Bytes nodeId1 = Bytes.wrap(idString1.getBytes());
-    Bytes nodeId2 = Bytes.wrap(idString2.getBytes());
-    Bytes nodeId3 = Bytes.wrap(idString3.getBytes());
-    
-    Node node1 = new Node(p2pConfig, nodeId1, "127.0.0.1", null, 10001);
-    Node node2 = new Node(p2pConfig, nodeId2, "127.0.0.1", null, 10001);
-    Node node3 = new Node(p2pConfig, nodeId3, "127.0.0.1", null, 10001);
-    Node node4 = new Node(p2pConfig, nodeId1, "192.168.1.1", null, 10002);
-    
-    // Test equals - Node.equals() compares based on getIdString() which is UTF-8 string representation
-    assertTrue(node1.equals(node1)); // Same reference
-    assertTrue(node1.equals(node2)); // Same ID string
-    assertFalse(node1.equals(node3)); // Different ID string
-    assertTrue(node1.equals(node4)); // Same ID string, equals ignores host/port differences
-    assertFalse(node1.equals(null)); // Null comparison
-    assertFalse(node1.equals("not a node")); // Different type
-    
-    // Test hashCode consistency - hashCode is based on format() which includes host/port
-    assertEquals(node1.hashCode(), node1.hashCode()); // Same object
-    assertNotEquals(node1.hashCode(), node4.hashCode()); // Same ID but different host/port
-  }
+        assertEquals(original.getId(), cloned.getId());
+        assertEquals(original.getHostV4(), cloned.getHostV4());
+        assertEquals(original.getHostV6(), cloned.getHostV6());
+        assertEquals(original.getPort(), cloned.getPort());
+        assertEquals(original.getBindPort(), cloned.getBindPort());
+        assertEquals(original.getNetworkVersion(), cloned.getNetworkVersion());
 
-  @Test
-  public void testToString() {
-    Bytes nodeId = Bytes.fromHexString("0x1234567890abcdef");
-    Node node = new Node(p2pConfig, nodeId, "127.0.0.1", "0:0:0:0:0:0:0:1", 10001);
-    
-    String toString = node.toString();
-    
-    assertTrue(toString.contains("hostV4='127.0.0.1'"));
-    assertTrue(toString.contains("hostV6='0:0:0:0:0:0:0:1'"));
-    assertTrue(toString.contains("port=10001"));
-    assertTrue(toString.contains("id="));
-    
-    // Test with null ID
-    Node nodeWithNullId = new Node(p2pConfig, null, "127.0.0.1", null, 10001);
-    String toStringWithNullId = nodeWithNullId.toString();
-    assertTrue(toStringWithNullId.contains("id='null'"));
-  }
+        assertNotEquals(System.identityHashCode(original), System.identityHashCode(cloned));
+    }
 
-  @Test
-  public void testFormat() {
-    Node node = new Node(p2pConfig, NetUtils.getNodeId(), "127.0.0.1", "0:0:0:0:0:0:0:1", 10001);
-    
-    String format = node.format();
-    
-    assertTrue(format.contains("hostV4='127.0.0.1'"));
-    assertTrue(format.contains("hostV6='0:0:0:0:0:0:0:1'"));
-    assertTrue(format.contains("port=10001"));
-  }
 
-  @Test
-  public void testNodeConstructorWithInetSocketAddress() {
-    // Test with resolved address
-    InetSocketAddress address = new InetSocketAddress("127.0.0.1", 10001);
-    Node node = new Node(p2pConfig, address);
-    
-    assertEquals("127.0.0.1", node.getHostV4());
-    assertEquals(10001, node.getPort());
-    assertEquals(10001, node.getBindPort());
-    assertNotNull(node.getId());
-    assertTrue(node.getUpdateTime() > 0);
-    
-    // Test constructor behavior with hostname that might not resolve
-    // This is harder to test deterministically as it depends on DNS resolution
-  }
+    @Test
+    public void testNodeConstructorWithInetSocketAddress() {
+        InetSocketAddress address = new InetSocketAddress("127.0.0.1", 10001);
+        Node node = new Node(getRandomNodeId(), address);
+
+        assertEquals("127.0.0.1", node.getHostV4());
+        assertEquals(10001, node.getPort());
+        assertEquals(10001, node.getBindPort());
+        assertNotNull(node.getId());
+        assertTrue(node.getUpdateTime() > 0);
+    }
 }

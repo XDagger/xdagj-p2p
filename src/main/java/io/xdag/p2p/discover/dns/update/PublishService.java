@@ -57,8 +57,7 @@ public class PublishService {
 
   /** Scheduled executor for DNS publishing tasks */
   private final ScheduledExecutorService publisher =
-      Executors.newSingleThreadScheduledExecutor(
-          new BasicThreadFactory.Builder().namingPattern("publishService").build());
+      Executors.newSingleThreadScheduledExecutor(BasicThreadFactory.builder().namingPattern("publishService").build());
 
   /** DNS publishing client instance */
   private Publish<?> publish;
@@ -73,7 +72,7 @@ public class PublishService {
    * schedule.
    */
   public void init() {
-    boolean supportV4 = p2pConfig.getIp() != null;
+    boolean supportV4 = p2pConfig.getIpV4() != null;
     PublishConfig publishConfig = p2pConfig.getPublishConfig();
     if (checkConfig(supportV4, publishConfig)) {
       try {
@@ -100,19 +99,10 @@ public class PublishService {
    * @throws Exception if client creation fails
    */
   private Publish<?> getPublish(PublishConfig config) throws Exception {
-    Publish<?> publish;
-    if (config.getDnsType() == DnsType.AliYun) {
-      publish =
-          new AliClient(
-              p2pConfig,
-              config.getAliDnsEndpoint(),
-              config.getAccessKeyId(),
-              config.getAccessKeySecret(),
-              config.getChangeThreshold());
-    } else {
+    Publish<?> publish = null;
+    if (config.getDnsType() == DnsType.AwsRoute53) {
       publish =
           new AwsClient(
-              p2pConfig,
               config.getAccessKeyId(),
               config.getAccessKeySecret(),
               config.getAwsHostZoneId(),
@@ -150,7 +140,6 @@ public class PublishService {
         if (staticAddress.getAddress() instanceof Inet4Address) {
           nodes.add(
               new Node(
-                  p2pConfig,
                   null,
                   staticAddress.getAddress().getHostAddress(),
                   null,
@@ -158,7 +147,6 @@ public class PublishService {
         } else {
           nodes.add(
               new Node(
-                  p2pConfig,
                   null,
                   null,
                   staticAddress.getAddress().getHostAddress(),
@@ -172,7 +160,7 @@ public class PublishService {
     List<DnsNode> dnsNodes = new ArrayList<>();
     for (Node node : nodes) {
       DnsNode dnsNode =
-          new DnsNode(p2pConfig, node.getId(), node.getHostV4(), node.getHostV6(), node.getPort());
+          new DnsNode(node.getId(), node.getHostV4(), node.getHostV6(), node.getPort());
       dnsNodes.add(dnsNode);
     }
     return Tree.merge(dnsNodes, config.getMaxMergeSize());
@@ -200,13 +188,6 @@ public class PublishService {
     }
     if (StringUtils.isEmpty(config.getDnsDomain())) {
       log.error("The dns domain must be specified when enabling the dns publishing service");
-      return false;
-    }
-    if (config.getDnsType() == DnsType.AliYun
-        && (StringUtils.isEmpty(config.getAccessKeyId())
-            || StringUtils.isEmpty(config.getAccessKeySecret())
-            || StringUtils.isEmpty(config.getAliDnsEndpoint()))) {
-      log.error("The configuration items related to the Aliyun dns server cannot be empty");
       return false;
     }
     if (config.getDnsType() == DnsType.AwsRoute53

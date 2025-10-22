@@ -91,19 +91,17 @@ public class RandomTest {
     assertDoesNotThrow(() -> {
       // Test creating a DnsNode with IPv4
       DnsNode dnsNodeV4 = new DnsNode(
-          p2pConfig,
-          Bytes.fromHexString("0x1234567890abcdef"),
+          Bytes.fromHexString("0x1234567890abcdef").toHexString(),
           "192.168.1.100",
           null,
           8080
       );
       assertNotNull(dnsNodeV4);
       assertNotNull(dnsNodeV4.format());
-      
+
       // Test creating a DnsNode with IPv6
       DnsNode dnsNodeV6 = new DnsNode(
-          p2pConfig,
-          Bytes.fromHexString("0xabcdef1234567890"),
+          Bytes.fromHexString("0xabcdef1234567890").toHexString(),
           null,
           "2001:db8::1",
           9090

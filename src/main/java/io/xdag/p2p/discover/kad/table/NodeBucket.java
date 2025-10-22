@@ -49,18 +49,15 @@ public class NodeBucket {
   }
 
   private NodeEntry getLastSeen() {
-    List<NodeEntry> sorted = nodes;
+    List<NodeEntry> sorted = new ArrayList<>(nodes);
     sorted.sort(new TimeComparator());
     return sorted.getFirst();
   }
 
   public synchronized void dropNode(NodeEntry entry) {
-    for (NodeEntry e : nodes) {
-      if (e.getId().equals(entry.getId())) {
-        nodes.remove(e);
-        break;
-      }
-    }
+    // Optimize: use removeIf to avoid ConcurrentModificationException
+    // and improve performance by avoiding manual iteration
+    nodes.removeIf(e -> e.getId().equals(entry.getId()));
   }
 
   public int getNodesCount() {

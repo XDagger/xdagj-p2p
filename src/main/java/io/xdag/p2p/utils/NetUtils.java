@@ -23,10 +23,10 @@
  */
 package io.xdag.p2p.utils;
 
+import io.xdag.p2p.Peer;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.config.P2pConstant;
 import io.xdag.p2p.discover.Node;
-import io.xdag.p2p.proto.Discover;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -42,7 +42,6 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
@@ -51,16 +50,23 @@ import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
-import org.apache.tuweni.bytes.Bytes;
 
 @Slf4j(topic = "net")
 public class NetUtils {
 
+  /** Pre-compiled IPv4 validation pattern for performance */
+  private static final Pattern IPV4_PATTERN = Pattern.compile(
+      "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$");
+
+  /** Pre-compiled IPv6 validation pattern for performance */
+  private static final Pattern IPV6_PATTERN = Pattern.compile("^[0-9a-fA-F:]+$");
+
   /**
-   * Validate IPv4 address using regex pattern to avoid DNS resolver dependency. More reliable for
+   * Validate IPv4 address using the regex pattern to avoid DNS resolver dependency. More reliable for
    * local testing with "127.0.0.1" type addresses.
    *
    * @param ip the IP address string to validate
@@ -71,11 +77,8 @@ public class NetUtils {
       return false;
     }
     try {
-      // Use regex pattern for basic IPv4 validation to avoid DNS resolver issues
-      String ipv4Pattern =
-          "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$";
-
-      if (!ip.matches(ipv4Pattern)) {
+      // Use pre-compiled regex pattern for better performance
+      if (!IPV4_PATTERN.matcher(ip).matches()) {
         return false;
       }
 
@@ -102,9 +105,8 @@ public class NetUtils {
         return false;
       }
 
-      // Simple check for IPv6 format (hex digits and colons)
-      String ipv6Pattern = "^[0-9a-fA-F:]+$";
-      if (!ip.matches(ipv6Pattern)) {
+      // Use pre-compiled regex pattern for better performance
+      if (!IPV6_PATTERN.matcher(ip).matches()) {
         return false;
       }
 
@@ -123,11 +125,9 @@ public class NetUtils {
       log.debug("Node validation failed: node or nodeId is null");
       return false;
     }
-    if (node.getId().size() != P2pConstant.NODE_ID_LEN) {
+    if (node.getId() == null || node.getId().isEmpty()) {
       log.debug(
-          "Node validation failed: nodeId length {} != expected {}",
-          node.getId().size(),
-          P2pConstant.NODE_ID_LEN);
+          "Node validation failed: nodeId is empty");
       return false;
     }
     if (StringUtils.isEmpty(node.getHostV4()) && StringUtils.isEmpty(node.getHostV6())) {
@@ -151,34 +151,30 @@ public class NetUtils {
     return true;
   }
 
-  public static Node getNode(P2pConfig p2pConfig, Discover.Endpoint endpoint) {
-    String hostV4 = BytesUtils.toStr(endpoint.getAddress().toByteArray());
-    String hostV6 = BytesUtils.toStr(endpoint.getAddressIpv6().toByteArray());
-
-    // If both hostV4 and hostV6 are null/empty, the node data in endpoint is incomplete
-    // This will be handled by the caller using UDP source address if needed
+  public static Node getNode(P2pConfig p2pConfig, Peer peer) {
+    // Peer now contains plain fields; adapt by using them directly
+    String hostV4 = peer.getIp();
+    String hostV6 = null;
     return new Node(
-        p2pConfig,
-        Bytes.wrap(endpoint.getNodeId().toByteArray()),
+        peer.getPeerId(),
         hostV4,
         hostV6,
-        endpoint.getPort());
+        peer.getPort());
   }
 
   /**
-   * Create node from endpoint with fallback to UDP source address. If the endpoint doesn't contain
+   * Create node from peer with fallback to UDP source address. If the peer doesn't contain
    * valid IP addresses, use the UDP source address.
    *
-   * @param endpoint the protobuf endpoint
+   * @param peer the protobuf peer
    * @param sourceAddress the UDP source address as fallback
    * @return Node with valid IP address
    */
   public static Node getNodeWithFallback(
-      P2pConfig p2pConfig, Discover.Endpoint endpoint, InetSocketAddress sourceAddress) {
-    String hostV4 = BytesUtils.toStr(endpoint.getAddress().toByteArray());
-    String hostV6 = BytesUtils.toStr(endpoint.getAddressIpv6().toByteArray());
+      P2pConfig p2pConfig, Peer peer, InetSocketAddress sourceAddress) {
+    String hostV4 = peer.getIp();
+    String hostV6 = null;
 
-    // If no IP addresses in endpoint, use source address
     if (StringUtils.isEmpty(hostV4) && StringUtils.isEmpty(hostV6)) {
       if (sourceAddress.getAddress() instanceof java.net.Inet4Address) {
         hostV4 = sourceAddress.getAddress().getHostAddress();
@@ -188,18 +184,10 @@ public class NetUtils {
     }
 
     return new Node(
-        p2pConfig,
-        Bytes.wrap(endpoint.getNodeId().toByteArray()),
+        peer.getPeerId(),
         hostV4,
         hostV6,
-        endpoint.getPort());
-  }
-
-  public static Bytes getNodeId() {
-    Random gen = new Random();
-    byte[] id = new byte[P2pConstant.NODE_ID_LEN];
-    gen.nextBytes(id);
-    return Bytes.wrap(id);
+        peer.getPort());
   }
 
   private static String getExternalIp(String url) {
@@ -230,7 +218,8 @@ public class NetUtils {
       if (in != null) {
         try {
           in.close();
-        } catch (IOException ignored) {
+        } catch (IOException e) {
+          log.debug("Failed to close BufferedReader: {}", e.getMessage());
         }
       }
     }
@@ -334,7 +323,7 @@ public class NetUtils {
   private static String getIp(List<String> multiSrcUrls) {
     ExecutorService executor =
         Executors.newCachedThreadPool(
-            new BasicThreadFactory.Builder().namingPattern("getIp").build());
+            BasicThreadFactory.builder().namingPattern("getIp").build());
     CompletionService<String> completionService = new ExecutorCompletionService<>(executor);
 
     List<Callable<String>> tasks = new ArrayList<>();
@@ -358,7 +347,7 @@ public class NetUtils {
     return result;
   }
 
-  public static String getLanIP() {
+  public static String getLanIpV4() {
     try {
       // Try to get the first non-loopback address
       Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();

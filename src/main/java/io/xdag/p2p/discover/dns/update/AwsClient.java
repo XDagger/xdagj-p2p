@@ -25,7 +25,6 @@ package io.xdag.p2p.discover.dns.update;
 
 import io.xdag.p2p.DnsException;
 import io.xdag.p2p.DnsException.TypeEnum;
-import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.dns.DnsNode;
 import io.xdag.p2p.discover.dns.tree.LinkEntry;
 import io.xdag.p2p.discover.dns.tree.NodesEntry;
@@ -70,8 +69,6 @@ import software.amazon.awssdk.services.route53.model.ResourceRecordSet;
 @Slf4j(topic = "net")
 public class AwsClient implements Publish<RecordSet> {
 
-  private final P2pConfig p2pConfig;
-
   /** Route53 change size limit (32k RDATA size) */
   public static final int route53ChangeSizeLimit = 32000;
 
@@ -103,24 +100,22 @@ public class AwsClient implements Publish<RecordSet> {
   private final double changeThreshold;
 
   /**
-   * Constructor for AWS Route53 DNS client.
+   * Constructor for the AWS Route53 DNS client.
    *
    * @param accessKey the AWS access key ID
    * @param accessKeySecret the AWS access key secret
-   * @param zoneId the Route53 hosted zone ID (can be null, will be auto-detected)
+   * @param zoneId the Route53 hosted zone ID (can be null will be auto-detected)
    * @param region the AWS region
    * @param changeThreshold the threshold for triggering DNS updates
    * @throws DnsException if client initialization fails
    */
   public AwsClient(
-      final P2pConfig p2pConfig,
       final String accessKey,
       final String accessKeySecret,
       final String zoneId,
       final String region,
       double changeThreshold)
       throws DnsException {
-    this.p2pConfig = p2pConfig;
     if (StringUtils.isEmpty(accessKey) || StringUtils.isEmpty(accessKeySecret)) {
       throw new DnsException(
           TypeEnum.DEPLOY_DOMAIN_FAILED, "Need Route53 Access Key ID and secret to proceed");
@@ -313,7 +308,7 @@ public class AwsClient implements Publish<RecordSet> {
         if (content.startsWith(io.xdag.p2p.discover.dns.tree.Entry.nodesPrefix)) {
           NodesEntry nodesEntry;
           try {
-            nodesEntry = NodesEntry.parseEntry(p2pConfig, content);
+            nodesEntry = NodesEntry.parseEntry(content);
             List<DnsNode> dnsNodes = nodesEntry.nodes();
             collectServerNodes.addAll(dnsNodes);
           } catch (DnsException e) {
@@ -437,7 +432,9 @@ public class AwsClient implements Publish<RecordSet> {
               RootEntry oldRoot = RootEntry.parseEntry(StringUtils.strip(preValue, symbol));
               RootEntry newRoot = RootEntry.parseEntry(StringUtils.strip(newValue, symbol));
               log.info(
-                  "Updating root from [{}] to [{}]", oldRoot.getDnsRoot(), newRoot.getDnsRoot());
+                  "Updating root from [eRoot={},lRoot={},seq={}] to [eRoot={},lRoot={},seq={}]",
+                  oldRoot.getERoot(), oldRoot.getLRoot(), oldRoot.getSeq(),
+                  newRoot.getERoot(), newRoot.getLRoot(), newRoot.getSeq());
             } catch (DnsException e) {
               // ignore
             }

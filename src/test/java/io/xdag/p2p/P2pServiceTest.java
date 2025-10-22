@@ -26,8 +26,6 @@ package io.xdag.p2p;
 import static org.junit.jupiter.api.Assertions.*;
 
 import io.xdag.p2p.config.P2pConfig;
-import io.xdag.p2p.config.P2pConstant;
-import io.xdag.p2p.stats.P2pStats;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,95 +55,27 @@ public class P2pServiceTest {
   @AfterEach
   void tearDown() {
     if (p2pService != null && !p2pService.isShutdown()) {
-      p2pService.close();
+      p2pService.stop();
     }
   }
 
   /** Test P2P service initialization and basic getters. */
   @Test
   void testServiceInitialization() {
-    assertNotNull(p2pService.getP2pConfig(), "P2P config should not be null");
+    assertNotNull(p2pService.getConfig(), "P2P config should not be null");
     assertNotNull(p2pService.getNodeManager(), "Node manager should not be null");
-    assertNotNull(p2pService.getDnsManager(), "DNS manager should not be null");
     assertNotNull(p2pService.getChannelManager(), "Channel manager should not be null");
-    assertNotNull(p2pService.getP2pStatsManager(), "Stats manager should not be null");
 
     // Service is not shutdown initially, it's just not started
     assertFalse(p2pService.isShutdown(), "Service should not be shutdown initially");
-    assertEquals(P2pConstant.version, p2pService.getVersion(), "Version should match constant");
   }
 
   /** Test P2P service configuration. */
   @Test
   void testServiceConfiguration() {
-    assertEquals(p2pConfig, p2pService.getP2pConfig(), "Config should match");
-    assertEquals(16783, p2pService.getP2pConfig().getPort(), "Port should match");
-    assertFalse(p2pService.getP2pConfig().isDiscoverEnable(), "Discovery should be disabled");
-  }
-
-  /** Test P2P event handler registration. */
-  @Test
-  void testEventHandlerRegistration() {
-    TestEventHandler handler1 = new TestEventHandler("handler1", (byte) 0x01);
-    TestEventHandler handler2 = new TestEventHandler("handler2", (byte) 0x02);
-
-    // Register first handler
-    try {
-      p2pService.register(handler1);
-    } catch (P2pException e) {
-      fail("First handler registration should succeed");
-    }
-
-    // Register second handler with different message type
-    try {
-      p2pService.register(handler2);
-    } catch (P2pException e) {
-      fail("Second handler registration should succeed");
-    }
-
-    // Verify handlers are registered in config
-    assertTrue(p2pConfig.getHandlerList().contains(handler1), "First handler should be registered");
-    assertTrue(
-        p2pConfig.getHandlerList().contains(handler2), "Second handler should be registered");
-    assertEquals(2, p2pConfig.getHandlerList().size(), "Should have exactly 2 handlers registered");
-  }
-
-  /** Test P2P event handler registration with duplicate message type. */
-  @Test
-  void testEventHandlerRegistrationDuplicate() {
-    TestEventHandler handler1 = new TestEventHandler("handler1", (byte) 0x01);
-    TestEventHandler handler2 = new TestEventHandler("handler2", (byte) 0x01); // Same type
-
-    // Register first handler
-    try {
-      p2pService.register(handler1);
-    } catch (P2pException e) {
-      fail("First handler registration should succeed");
-    }
-
-    // Register second handler with same message type should fail
-    try {
-      p2pService.register(handler2);
-      fail("Second handler registration with duplicate type should fail");
-    } catch (P2pException e) {
-      // Expected exception
-    }
-
-    // Verify only first handler is registered
-    assertTrue(p2pConfig.getHandlerList().contains(handler1), "First handler should be registered");
-    assertFalse(
-        p2pConfig.getHandlerList().contains(handler2), "Second handler should not be registered");
-    assertEquals(1, p2pConfig.getHandlerList().size(), "Should have exactly 1 handler registered");
-  }
-
-  /** Test P2P statistics functionality. */
-  @Test
-  void testP2pStats() {
-    P2pStats stats = p2pService.getP2pStats();
-    assertNotNull(stats, "P2P stats should not be null");
-
-    // Stats should be accessible even before service start
-    assertNotNull(stats.toString(), "Stats toString should not be null");
+    assertEquals(p2pConfig, p2pService.getConfig(), "Config should match");
+    assertEquals(16783, p2pService.getConfig().getPort(), "Port should match");
+    assertFalse(p2pService.getConfig().isDiscoverEnable(), "Discovery should be disabled");
   }
 
   /** Test node management functionality without starting service. */
@@ -153,9 +83,6 @@ public class P2pServiceTest {
   void testNodeManagementWithoutStart() {
     // Some methods may not work without initialization, so test basic structure
     assertNotNull(p2pService.getNodeManager(), "Node manager should not be null");
-
-    // Test that we can get stats without starting
-    assertNotNull(p2pService.getP2pStats(), "P2P stats should be accessible");
   }
 
   /** Test service shutdown state. */
@@ -163,12 +90,12 @@ public class P2pServiceTest {
   void testServiceShutdownState() {
     assertFalse(p2pService.isShutdown(), "Service should not be shutdown initially");
 
-    // Close the service
-    p2pService.close();
-    assertTrue(p2pService.isShutdown(), "Service should be shutdown after close");
+    // Stop the service
+    p2pService.stop();
+    assertTrue(p2pService.isShutdown(), "Service should be shutdown after stop");
 
-    // Multiple close calls should be safe
-    assertDoesNotThrow(() -> p2pService.close(), "Multiple close calls should be safe");
+    // Multiple stop calls should be safe
+    assertDoesNotThrow(() -> p2pService.stop(), "Multiple stop calls should be safe");
     assertTrue(p2pService.isShutdown(), "Service should remain shutdown");
   }
 
@@ -177,50 +104,22 @@ public class P2pServiceTest {
   void testServiceComponents() {
     // Test that all components are properly created
     assertNotNull(p2pService.getNodeManager(), "NodeManager should be created");
-    assertNotNull(p2pService.getDnsManager(), "DnsManager should be created");
     assertNotNull(p2pService.getChannelManager(), "ChannelManager should be created");
-    assertNotNull(p2pService.getP2pStatsManager(), "P2pStatsManager should be created");
 
     // Test that components have proper configuration
-    assertEquals(p2pConfig, p2pService.getP2pConfig(), "All components should use same config");
+    assertEquals(p2pConfig, p2pService.getConfig(), "All components should use same config");
   }
 
-  /** Test handler list management. */
+  /** Test connectable nodes retrieval. */
   @Test
-  void testHandlerListManagement() {
-    assertEquals(0, p2pConfig.getHandlerList().size(), "Handler list should be empty initially");
-
-    TestEventHandler handler = new TestEventHandler("test", (byte) 0x01);
-    try {
-      p2pService.register(handler);
-    } catch (P2pException e) {
-      fail("Handler registration should succeed");
-    }
-
-    assertEquals(1, p2pConfig.getHandlerList().size(), "Handler list should have one handler");
-    assertTrue(p2pConfig.getHandlerList().contains(handler), "Handler should be in list");
-  }
-
-  /** Test version information. */
-  @Test
-  void testVersionInfo() {
-    int version = p2pService.getVersion();
-    assertEquals(P2pConstant.version, version, "Version should match constant");
-  }
-
-  /** Test event handler implementation. */
-  private static class TestEventHandler extends P2pEventHandler {
-    private final String name;
-
-    public TestEventHandler(String name, byte messageType) {
-      this.name = name;
-      this.messageTypes = new java.util.HashSet<>();
-      this.messageTypes.add(messageType);
-    }
-
-    @Override
-    public String toString() {
-      return name;
-    }
+  void testGetConnectableNodes() {
+    // Note: getConnectableNodes requires DiscoverService which is only initialized
+    // when NodeManager.init() is called. This is done during p2pService.start().
+    // Without calling start(), this method will throw NullPointerException.
+    // We can test that the method exists but requires initialization.
+    assertThrows(
+        NullPointerException.class,
+        () -> p2pService.getConnectableNodes(),
+        "Should throw NPE when service not started");
   }
 }

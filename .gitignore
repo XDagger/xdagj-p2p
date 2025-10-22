@@ -133,3 +133,45 @@ Thumbs.db
 
 # Cursor IDE
 .cursor/ 
+# Test runtime data (generated during test runs, should not be committed)
+# These directories are created automatically when tests run and contain:
+# - logs: node runtime logs
+# - pids: process IDs
+# - data: node reputation data (KadService ReputationManager)
+# Clean these before each test run for fresh results
+
+# Discovery test runtime data
+test-nodes/discovery-test/discovery-results/
+test-nodes/discovery-test/logs/
+test-nodes/discovery-test/pids/
+test-nodes/discovery-test/data/
+
+# Performance test runtime data
+test-nodes/performance-test/logs/
+test-nodes/performance-test/pids/
+test-nodes/performance-test/data/
+
+# Summary documents (temporary reference only)
+docs/*_SUMMARY.md
+docs/*_REPORT.md
+docs/MIGRATION_*.md
+*_ANALYSIS.md
+*_CHECKLIST.md
+
+# Claude Code files
+.claude/
+.claudeignore  
+.clauderc
+
+# Optimization and performance analysis documents (local only)
+*OPTIMIZATION*.md
+*PERFORMANCE*.md
+*STAGE*_*.md
+*TPS_*.md
+
+# Optimization docs (internal use only)
+.optimization-docs/
+
+
+# Code review workspace (not committed)
+.review-workspace/

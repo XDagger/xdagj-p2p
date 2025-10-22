@@ -25,6 +25,7 @@ package io.xdag.p2p.channel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -36,12 +37,10 @@ import static org.mockito.Mockito.when;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
-import io.xdag.p2p.P2pException;
+import io.netty.util.Attribute;
+import io.netty.util.AttributeKey;
 import io.xdag.p2p.config.P2pConfig;
-import io.xdag.p2p.discover.Node;
-import io.xdag.p2p.message.node.HelloMessage;
-import io.xdag.p2p.message.node.Message;
-import java.io.IOException;
+import io.xdag.p2p.message.Message;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
@@ -75,18 +74,17 @@ class ChannelTest {
 
   @Mock private ChannelPipeline pipeline;
 
-  @Mock private Node node;
-
-  @Mock private HelloMessage handshakeMessage;
-
   @Mock private Message message;
+
+  @Mock private Attribute<Channel> channelAttribute;
 
   private Channel channel;
   private InetSocketAddress testAddress;
 
   @BeforeEach
   void setUp() {
-    channel = new Channel(p2pConfig, channelManager);
+    channel = new Channel(channelManager);
+    channel.setP2pConfig(p2pConfig);
     testAddress = new InetSocketAddress("127.0.0.1", 8080);
 
     // Mock basic netty channel behavior
@@ -96,6 +94,10 @@ class ChannelTest {
     when(nettyChannel.close()).thenReturn(channelFuture);
     when(ctx.writeAndFlush(any())).thenReturn(channelFuture);
     when(channelFuture.addListener(any())).thenReturn(channelFuture);
+
+    // Mock channel attribute for XdagFrameCodec
+    when(nettyChannel.attr(any(AttributeKey.class))).thenReturn(channelAttribute);
+    when(channelAttribute.get()).thenReturn(channel);
 
     // Mock P2pConfig
     when(p2pConfig.getTrustNodes()).thenReturn(new ArrayList<>());
@@ -108,11 +110,10 @@ class ChannelTest {
   @Test
   void testConstructor() {
     // Given & When
-    Channel newChannel = new Channel(p2pConfig, channelManager);
+    Channel newChannel = new Channel(channelManager);
 
     // Then
     assertNotNull(newChannel);
-    assertEquals(p2pConfig, newChannel.getP2pConfig());
     assertEquals(channelManager, newChannel.getChannelManager());
     assertFalse(newChannel.isDisconnect());
     assertFalse(newChannel.isFinishHandshake());
@@ -145,23 +146,6 @@ class ChannelTest {
   }
 
   @Test
-  void testSetHandshakeMessage() {
-    // Given
-    when(handshakeMessage.getFrom()).thenReturn(node);
-    when(handshakeMessage.getVersion()).thenReturn(1);
-    when(node.getHexId()).thenReturn("test-node-id");
-
-    // When
-    channel.setHandshakeMessage(handshakeMessage);
-
-    // Then
-    assertEquals(handshakeMessage, channel.getHandshakeMessage());
-    assertEquals(node, channel.getNode());
-    assertEquals("test-node-id", channel.getNodeId());
-    assertEquals(1, channel.getVersion());
-  }
-
-  @Test
   void testSendMessage() {
     // Given
     channel.setChannelHandlerContext(ctx);
@@ -170,7 +154,7 @@ class ChannelTest {
     channel.send(message);
 
     // Then
-    verify(ctx).writeAndFlush(any());
+    verify(nettyChannel).writeAndFlush(any());
     assertTrue(channel.getLastSendTime() > 0);
   }
 
@@ -184,7 +168,7 @@ class ChannelTest {
     channel.send(testData);
 
     // Then
-    verify(ctx).writeAndFlush(any());
+    verify(nettyChannel).writeAndFlush(any());
     assertTrue(channel.getLastSendTime() > 0);
   }
 
@@ -198,7 +182,7 @@ class ChannelTest {
     // When
     channel.send(testData);
 
-    // Then - should not send when disconnected
+    // Then - should not send when disconnected,
     // The method should return early and not call writeAndFlush
   }
 
@@ -233,67 +217,12 @@ class ChannelTest {
   }
 
   @Test
-  void testProcessExceptionWithIOException() {
-    // Given
-    channel.setChannelHandlerContext(ctx);
-    IOException exception = new IOException("Connection lost");
-
-    // When
-    channel.processException(exception);
-
-    // Then
-    assertTrue(channel.isDisconnect());
-    verify(ctx).close();
-  }
-
-  @Test
-  void testProcessExceptionWithP2pException() {
-    // Given
-    channel.setChannelHandlerContext(ctx);
-    P2pException exception = new P2pException(P2pException.TypeEnum.BAD_MESSAGE, "Bad message");
-
-    // When
-    channel.processException(exception);
-
-    // Then
-    assertTrue(channel.isDisconnect());
-    verify(ctx).close();
-  }
-
-  @Test
-  void testProcessExceptionWithGenericException() {
-    // Given
-    channel.setChannelHandlerContext(ctx);
-    RuntimeException exception = new RuntimeException("Generic error");
-
-    // When
-    channel.processException(exception);
-
-    // Then
-    assertTrue(channel.isDisconnect());
-    verify(ctx).close();
-  }
-
-  @Test
-  void testUpdateAvgLatency() {
-    // Given
-    long latency1 = 100L;
-    long latency2 = 200L;
-
-    // When
-    channel.updateAvgLatency(latency1);
-    channel.updateAvgLatency(latency2);
-
-    // Then
-    assertEquals(150L, channel.getAvgLatency()); // (100 + 200) / 2
-    assertEquals(2L, channel.getCount());
-  }
-
-  @Test
   void testEqualsAndHashCode() {
     // Given
-    Channel channel1 = new Channel(p2pConfig, channelManager);
-    Channel channel2 = new Channel(p2pConfig, channelManager);
+    Channel channel1 = new Channel(channelManager);
+    channel1.setP2pConfig(p2pConfig);
+    Channel channel2 = new Channel(channelManager);
+    channel2.setP2pConfig(p2pConfig);
 
     channel1.setChannelHandlerContext(ctx);
     channel2.setChannelHandlerContext(ctx);
@@ -332,7 +261,7 @@ class ChannelTest {
 
   @Test
   void testIsActiveWithNodeId() {
-    // Given - need to call init to set isActive properly
+    // Given - need it to call init to set isActive properly
     channel.init(pipeline, "test-node-id", false);
 
     // When & Then
@@ -391,69 +320,6 @@ class ChannelTest {
     assertFalse(channel.isActive());
   }
 
-  @Test
-  void testProcessExceptionWithReadTimeoutException() {
-    // Given
-    channel.setChannelHandlerContext(ctx);
-    when(ctx.close()).thenReturn(channelFuture);
-    io.netty.handler.timeout.ReadTimeoutException timeoutException = 
-        io.netty.handler.timeout.ReadTimeoutException.INSTANCE;
-
-    // When
-    channel.processException(timeoutException);
-
-    // Then
-    verify(ctx).close();
-    assertTrue(channel.isDisconnect());
-  }
-
-  @Test
-  void testProcessExceptionWithCorruptedFrameException() {
-    // Given
-    channel.setChannelHandlerContext(ctx);
-    when(ctx.close()).thenReturn(channelFuture);
-    io.netty.handler.codec.CorruptedFrameException frameException = 
-        new io.netty.handler.codec.CorruptedFrameException("Corrupted frame");
-
-    // When
-    channel.processException(frameException);
-
-    // Then
-    verify(ctx).close();
-    assertTrue(channel.isDisconnect());
-  }
-
-  @Test
-  void testProcessExceptionWithIllegalArgumentInCausalChain() {
-    // Given
-    channel.setChannelHandlerContext(ctx);
-    when(ctx.close()).thenReturn(channelFuture);
-    RuntimeException cause = new RuntimeException("Root cause");
-    IllegalArgumentException wrapper = new IllegalArgumentException("Loop detected", cause);
-
-    // When
-    channel.processException(wrapper);
-
-    // Then
-    verify(ctx).close();
-    assertTrue(channel.isDisconnect());
-  }
-
-  @Test
-  void testSendWithFinishedHandshakeAndVersionUpgrade() {
-    // Given
-    channel.setChannelHandlerContext(ctx);
-    channel.setFinishHandshake(true);
-    channel.setVersion(2);
-    Bytes testData = Bytes.wrap(new byte[]{1, 2, 3, 4});
-
-    // When
-    channel.send(testData);
-
-    // Then
-    verify(ctx).writeAndFlush(any());
-    assertTrue(channel.getLastSendTime() > 0);
-  }
 
   @Test
   void testSendMessageWithLogging() {
@@ -465,17 +331,16 @@ class ChannelTest {
     channel.send(message);
 
     // Then
-    verify(ctx).writeAndFlush(any());
+    verify(nettyChannel).writeAndFlush(any());
     verify(message).needToLog();
-    verify(message).getSendData();
+    // Note: getSendData is not called in Message send path, only in Bytes send path
   }
 
   @Test
   void testSendWithException() {
     // Given
     channel.setChannelHandlerContext(ctx);
-    when(ctx.writeAndFlush(any())).thenThrow(new RuntimeException("Send failed"));
-    when(nettyChannel.close()).thenReturn(channelFuture);
+    when(nettyChannel.writeAndFlush(any())).thenThrow(new RuntimeException("Send failed"));
     Bytes testData = Bytes.wrap("test".getBytes());
 
     // When
@@ -486,25 +351,13 @@ class ChannelTest {
   }
 
   @Test
-  void testMultipleLatencyUpdates() {
-    // When
-    channel.updateAvgLatency(100);
-    channel.updateAvgLatency(200);
-    channel.updateAvgLatency(300);
-
-    // Then
-    assertEquals(200, channel.getAvgLatency()); // (100 + 200 + 300) / 3
-    assertEquals(3, channel.getCount());
-  }
-
-  @Test
   void testEqualsWithDifferentClass() {
     // Given
     channel.setChannelHandlerContext(ctx);
     String notAChannel = "not a channel";
 
     // When & Then
-    assertFalse(channel.equals(notAChannel));
+    assertNotEquals(notAChannel, channel);
   }
 
   @Test
@@ -513,7 +366,7 @@ class ChannelTest {
     channel.setChannelHandlerContext(ctx);
 
     // When & Then
-    assertFalse(channel.equals(null));
+    assertNotEquals(null, channel);
   }
 
   @Test
@@ -522,7 +375,7 @@ class ChannelTest {
     channel.setChannelHandlerContext(ctx);
 
     // When & Then
-    assertTrue(channel.equals(channel));
+    assertEquals(channel, channel);
   }
 
   @Test
@@ -556,16 +409,6 @@ class ChannelTest {
   @Test
   void testGettersAndSetters() {
     // Test basic getters and setters
-    channel.setWaitForPong(true);
-    assertTrue(channel.isWaitForPong());
-
-    long pingTime = System.currentTimeMillis();
-    channel.setPingSent(pingTime);
-    assertEquals(pingTime, channel.getPingSent());
-
-    channel.setVersion(5);
-    assertEquals(5, channel.getVersion());
-
     long disconnectTime = System.currentTimeMillis();
     channel.setDisconnectTime(disconnectTime);
     assertEquals(disconnectTime, channel.getDisconnectTime());
@@ -579,5 +422,67 @@ class ChannelTest {
 
     // Test that startTime is set in constructor
     assertTrue(channel.getStartTime() > 0);
+  }
+
+  @Test
+  void testCloseWithoutBan() {
+    // Given
+    channel.setChannelHandlerContext(ctx);
+    assertFalse(channel.isDisconnect());
+
+    // When
+    channel.closeWithoutBan();
+
+    // Then
+    assertTrue(channel.isDisconnect());
+    assertTrue(channel.getDisconnectTime() > 0);
+    verify(ctx).close();
+  }
+
+  @Test
+  void testGetRemoteAddress() {
+    // Given
+    channel.setChannelHandlerContext(ctx);
+
+    // When
+    InetSocketAddress result = channel.getRemoteAddress();
+
+    // Then
+    assertNotNull(result);
+    assertEquals(testAddress, result);
+  }
+
+  @Test
+  void testSendBytesWithFailedFuture() {
+    // Given
+    channel.setChannelHandlerContext(ctx);
+    when(channelFuture.isSuccess()).thenReturn(false);
+    when(channelFuture.cause()).thenReturn(new RuntimeException("Send failed"));
+
+    Bytes testData = Bytes.wrap(new byte[]{0x01, 0x02, 0x03});
+
+    // When
+    channel.send(testData);
+
+    // Then
+    verify(nettyChannel).writeAndFlush(any());
+  }
+
+  @Test
+  void testFinishHandshakeFlag() {
+    // Test finishHandshake flag
+    assertFalse(channel.isFinishHandshake());
+
+    channel.setFinishHandshake(true);
+    assertTrue(channel.isFinishHandshake());
+  }
+
+  @Test
+  void testDiscoveryModeFlag() {
+    // Test discovery mode flag
+    assertFalse(channel.isDiscoveryMode());
+
+    channel.setDiscoveryMode(true);
+    assertTrue(channel.isDiscoveryMode());
   }
 }

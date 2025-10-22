@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.xdag.p2p.config.P2pConfig;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -43,8 +44,17 @@ public class NodeManagerTest {
   @BeforeEach
   public void setUp() {
     config = new P2pConfig();
+    // Generate nodeKey for testing - required for node ID generation
+    config.generateNodeKey();
     nodeManager = new NodeManager(config);
-    nodeManager.init(); // Initialize the discover service
+    nodeManager.init(); // Initialize the discovery service
+  }
+
+  @AfterEach
+  public void tearDown() {
+    if (nodeManager != null) {
+      nodeManager.close();
+    }
   }
 
   @Test
@@ -111,6 +121,8 @@ public class NodeManagerTest {
     // Test that NodeManager respects config settings
     P2pConfig customConfig = new P2pConfig();
     customConfig.setDiscoverEnable(false);
+    // Generate nodeKey for testing - required for node ID generation
+    customConfig.generateNodeKey();
 
     NodeManager customManager = new NodeManager(customConfig);
     customManager.init();
@@ -131,7 +143,7 @@ public class NodeManagerTest {
     assertNotNull(allNodes);
     assertNotNull(connectableNodes);
 
-    // Table nodes should be subset of all nodes
+    // Table nodes should be a subset of all nodes
     assertTrue(allNodes.size() >= tableNodes.size());
   }
 }

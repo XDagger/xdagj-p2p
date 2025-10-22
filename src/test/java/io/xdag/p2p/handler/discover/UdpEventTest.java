@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
 
-import io.xdag.p2p.message.discover.Message;
+import io.xdag.p2p.message.Message;
 import java.net.InetSocketAddress;
 import org.junit.jupiter.api.Test;
 

@@ -24,199 +24,82 @@
 package io.xdag.p2p.channel;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
 
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelPipeline;
-import io.netty.channel.socket.SocketChannelConfig;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.xdag.crypto.keys.ECKeyPair;
 import io.xdag.p2p.config.P2pConfig;
-import io.xdag.p2p.handler.node.NodeDetectHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
+import org.mockito.Mockito;
 
-/** Unit tests for P2pChannelInitializer class. Tests P2P channel initialization functionality. */
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class P2pChannelInitializerTest {
 
-  @Mock private P2pConfig p2pConfig;
+    private P2pConfig config;
+    private ChannelManager channelManager;
+    private ECKeyPair keyPair;
 
-  @Mock private ChannelManager channelManager;
-
-  @Mock private NioSocketChannel nioSocketChannel;
-
-  @Mock private ChannelPipeline channelPipeline;
-
-  @Mock private SocketChannelConfig channelConfig;
-
-  @Mock private ChannelFuture channelFuture;
-
-  @Mock private NodeDetectHandler nodeDetectHandler;
-
-  private P2pChannelInitializer channelInitializer;
-
-  @BeforeEach
-  void setUp() {
-    // Setup mocks
-    when(nioSocketChannel.pipeline()).thenReturn(channelPipeline);
-    when(nioSocketChannel.config()).thenReturn(channelConfig);
-    when(nioSocketChannel.closeFuture()).thenReturn(channelFuture);
-    when(channelManager.getNodeDetectHandler()).thenReturn(nodeDetectHandler);
-
-    // Create the initializer
-    channelInitializer =
-        new P2pChannelInitializer(p2pConfig, channelManager, "test-remote-id", false, true);
-  }
-
-  @Test
-  void testConstructor() {
-    // Given & When
-    P2pChannelInitializer initializer =
-        new P2pChannelInitializer(p2pConfig, channelManager, "remote-id", false, true);
-
-    // Then
-    assertNotNull(initializer);
-  }
-
-  @Test
-  void testConstructorWithDiscoveryMode() {
-    // Given & When
-    P2pChannelInitializer initializer =
-        new P2pChannelInitializer(p2pConfig, channelManager, "remote-id", true, false);
-
-    // Then
-    assertNotNull(initializer);
-  }
-
-  @Test
-  void testInitChannel() {
-    // When
-    channelInitializer.initChannel(nioSocketChannel);
-
-    // Then
-    verify(nioSocketChannel).pipeline();
-    verify(nioSocketChannel, atLeastOnce()).config();
-    verify(nioSocketChannel).closeFuture();
-    verify(channelConfig, atLeastOnce()).setRecvByteBufAllocator(any());
-    verify(channelConfig, atLeastOnce()).setOption(any(), any());
-    verify(channelFuture).addListener(any());
-  }
-
-  @Test
-  void testInitChannelWithDiscoveryMode() {
-    // Given
-    P2pChannelInitializer discoveryInitializer =
-        new P2pChannelInitializer(p2pConfig, channelManager, "remote-id", true, false);
-
-    // When
-    discoveryInitializer.initChannel(nioSocketChannel);
-
-    // Then
-    verify(nioSocketChannel).pipeline();
-    verify(nioSocketChannel, atLeastOnce()).config();
-    verify(nioSocketChannel).closeFuture();
-    verify(channelConfig, atLeastOnce()).setRecvByteBufAllocator(any());
-    verify(channelConfig, atLeastOnce()).setOption(any(), any());
-    verify(channelFuture).addListener(any());
-  }
-
-  @Test
-  void testInitChannelWithEmptyRemoteId() {
-    // Given
-    P2pChannelInitializer emptyIdInitializer =
-        new P2pChannelInitializer(p2pConfig, channelManager, "", false, true);
-
-    // When
-    emptyIdInitializer.initChannel(nioSocketChannel);
-
-    // Then
-    verify(nioSocketChannel).pipeline();
-    verify(nioSocketChannel, atLeastOnce()).config();
-    verify(nioSocketChannel).closeFuture();
-    verify(channelConfig, atLeastOnce()).setRecvByteBufAllocator(any());
-    verify(channelConfig, atLeastOnce()).setOption(any(), any());
-    verify(channelFuture).addListener(any());
-  }
-
-  @Test
-  void testInitChannelWithNullRemoteId() {
-    // Given
-    P2pChannelInitializer nullIdInitializer =
-        new P2pChannelInitializer(p2pConfig, channelManager, null, false, true);
-
-    // When
-    nullIdInitializer.initChannel(nioSocketChannel);
-
-    // Then
-    verify(nioSocketChannel).pipeline();
-    verify(nioSocketChannel, atLeastOnce()).config();
-    verify(nioSocketChannel).closeFuture();
-    verify(channelConfig, atLeastOnce()).setRecvByteBufAllocator(any());
-    verify(channelConfig, atLeastOnce()).setOption(any(), any());
-    verify(channelFuture).addListener(any());
-  }
-
-  @Test
-  void testInitChannelWithTriggerDisabled() {
-    // Given
-    P2pChannelInitializer noTriggerInitializer =
-        new P2pChannelInitializer(p2pConfig, channelManager, "remote-id", false, false);
-
-    // When
-    noTriggerInitializer.initChannel(nioSocketChannel);
-
-    // Then
-    verify(nioSocketChannel).pipeline();
-    verify(nioSocketChannel, atLeastOnce()).config();
-    verify(nioSocketChannel).closeFuture();
-    verify(channelConfig, atLeastOnce()).setRecvByteBufAllocator(any());
-    verify(channelConfig, atLeastOnce()).setOption(any(), any());
-    verify(channelFuture).addListener(any());
-  }
-
-  @Test
-  void testInitChannelWithAllParametersCombinations() {
-    // Test all combinations of boolean parameters
-    boolean[] discoveryModes = {true, false};
-    boolean[] triggers = {true, false};
-    String[] remoteIds = {"test-id", "", null};
-
-    for (boolean discoveryMode : discoveryModes) {
-      for (boolean trigger : triggers) {
-        for (String remoteId : remoteIds) {
-          // Given
-          P2pChannelInitializer testInitializer =
-              new P2pChannelInitializer(
-                  p2pConfig, channelManager, remoteId, discoveryMode, trigger);
-
-          // When
-          testInitializer.initChannel(nioSocketChannel);
-
-          // Then - should not throw any exception
-          // All combinations should be handled gracefully
-        }
-      }
+    @BeforeEach
+    void setUp() {
+        // Use real P2pConfig instead of mock for proper initialization
+        config = new P2pConfig();
+        config.setNetMaxFrameBodySize(1024 * 1024); // 1MB
+        channelManager = mock(ChannelManager.class);
+        keyPair = ECKeyPair.generate();
     }
-  }
 
-  @Test
-  void testInitChannelHandlesExceptions() {
-    // Given
-    when(nioSocketChannel.pipeline()).thenThrow(new RuntimeException("Test exception"));
+    @Test
+    void testInitChannel_Outbound() {
+        P2pChannelInitializer initializer = new P2pChannelInitializer(config, channelManager, keyPair, true);
 
-    // When
-    channelInitializer.initChannel(nioSocketChannel);
+        // Create a mock NioSocketChannel to test initialization
+        NioSocketChannel mockChannel = Mockito.mock(NioSocketChannel.class);
+        ChannelPipeline mockPipeline = Mockito.mock(ChannelPipeline.class);
 
-    // Then - should not throw any exception
-    // The method should handle exceptions gracefully and log them
-  }
+        Mockito.when(mockChannel.pipeline()).thenReturn(mockPipeline);
+        Mockito.when(mockPipeline.addLast(Mockito.anyString(), Mockito.any())).thenReturn(mockPipeline);
+        Mockito.when(mockPipeline.addLast(Mockito.any())).thenReturn(mockPipeline);
+        Mockito.when(mockChannel.config()).thenReturn(Mockito.mock(io.netty.channel.socket.SocketChannelConfig.class));
+
+        // Call initChannel
+        initializer.initChannel(mockChannel);
+
+        // Verify that handlers were added (at least 4 handlers)
+        Mockito.verify(mockPipeline).addLast(Mockito.eq("readTimeoutHandler"), Mockito.any());
+        Mockito.verify(mockPipeline).addLast(Mockito.eq("xdagFrameCodec"), Mockito.any(XdagFrameCodec.class));
+        Mockito.verify(mockPipeline).addLast(Mockito.eq("handshakeHandler"), Mockito.any(HandshakeHandler.class));
+    }
+
+    @Test
+    void testInitChannel_Inbound() {
+        P2pChannelInitializer initializer = new P2pChannelInitializer(config, channelManager, keyPair, false);
+
+        // Create a mock NioSocketChannel to test initialization
+        NioSocketChannel mockChannel = Mockito.mock(NioSocketChannel.class);
+        ChannelPipeline mockPipeline = Mockito.mock(ChannelPipeline.class);
+
+        Mockito.when(mockChannel.pipeline()).thenReturn(mockPipeline);
+        Mockito.when(mockPipeline.addLast(Mockito.anyString(), Mockito.any())).thenReturn(mockPipeline);
+        Mockito.when(mockPipeline.addLast(Mockito.any())).thenReturn(mockPipeline);
+        Mockito.when(mockChannel.config()).thenReturn(Mockito.mock(io.netty.channel.socket.SocketChannelConfig.class));
+
+        // Call initChannel
+        initializer.initChannel(mockChannel);
+
+        // Verify that handlers were added
+        Mockito.verify(mockPipeline).addLast(Mockito.eq("readTimeoutHandler"), Mockito.any());
+        Mockito.verify(mockPipeline).addLast(Mockito.eq("xdagFrameCodec"), Mockito.any(XdagFrameCodec.class));
+        Mockito.verify(mockPipeline).addLast(Mockito.eq("handshakeHandler"), Mockito.any(HandshakeHandler.class));
+    }
+
+    @Test
+    void testConstructor() {
+        // Test that initializer can be constructed with different configurations
+        P2pChannelInitializer outbound = new P2pChannelInitializer(config, channelManager, keyPair, true);
+        assertNotNull(outbound);
+
+        P2pChannelInitializer inbound = new P2pChannelInitializer(config, channelManager, keyPair, false);
+        assertNotNull(inbound);
+    }
 }

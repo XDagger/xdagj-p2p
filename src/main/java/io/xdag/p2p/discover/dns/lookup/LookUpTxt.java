@@ -98,7 +98,7 @@ public class LookUpTxt {
     long start = System.currentTimeMillis();
     while (times < maxRetryTimes) {
       String publicDns;
-      if (StringUtils.isNotEmpty(p2pConfig.getIp())) {
+      if (StringUtils.isNotEmpty(p2pConfig.getIpV4())) {
         publicDns = publicDnsV4[random.nextInt(publicDnsV4.length)];
       } else {
         publicDns = publicDnsV6[random.nextInt(publicDnsV6.length)];

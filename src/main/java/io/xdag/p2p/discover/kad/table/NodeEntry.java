@@ -38,7 +38,7 @@ public class NodeEntry {
   public NodeEntry(Bytes ownerId, Node n) {
     this.node = n;
     entryId = n.getHostKey();
-    distance = distance(ownerId, n.getId());
+    distance = distance(ownerId, n.getId() != null ? BytesUtils.fromHexString(n.getId()) : Bytes.EMPTY);
     touch();
   }
 
@@ -61,7 +61,7 @@ public class NodeEntry {
       return KademliaOptions.BINS;
     }
 
-    // Truncate to same length for XOR
+    // Truncate to the same length for XOR
     Bytes ownerTrunc = BytesUtils.take(ownerId, minLength);
     Bytes targetTrunc = BytesUtils.take(targetId, minLength);
 

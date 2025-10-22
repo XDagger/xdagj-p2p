@@ -23,77 +23,58 @@
  */
 package io.xdag.p2p.channel;
 
-import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.FixedRecvByteBufAllocator;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.timeout.ReadTimeoutHandler;
+import io.xdag.crypto.keys.ECKeyPair;
 import io.xdag.p2p.config.P2pConfig;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j(topic = "net")
 public class P2pChannelInitializer extends ChannelInitializer<NioSocketChannel> {
 
-  private final P2pConfig p2pConfig;
-  private final ChannelManager channelManager;
+    private final P2pConfig config;
+    private final ChannelManager channelManager;
+    private final ECKeyPair myKey;
+    private final boolean isOutbound;
 
-  private final String remoteId;
-
-  private final boolean
-      peerDiscoveryMode; // only be true when channel is activated by detect service
-
-  private final boolean trigger;
-
-  public P2pChannelInitializer(
-      P2pConfig p2pConfig,
-      ChannelManager channelManager,
-      String remoteId,
-      boolean peerDiscoveryMode,
-      boolean trigger) {
-    this.p2pConfig = p2pConfig;
-    this.channelManager = channelManager;
-
-    this.remoteId = remoteId;
-    this.peerDiscoveryMode = peerDiscoveryMode;
-    this.trigger = trigger;
-  }
-
-  @Override
-  public void initChannel(NioSocketChannel ch) {
-    try {
-      final Channel channel = new Channel(p2pConfig, channelManager);
-      channel.init(ch.pipeline(), remoteId, peerDiscoveryMode);
-
-      // Optimize network buffer sizes for better performance
-      ch.config().setRecvByteBufAllocator(new FixedRecvByteBufAllocator(4 * 1024 * 1024)); // 4MB receive buffer
-      ch.config().setOption(ChannelOption.SO_RCVBUF, 4 * 1024 * 1024); // 4MB socket receive buffer
-      ch.config().setOption(ChannelOption.SO_SNDBUF, 4 * 1024 * 1024); // 4MB socket send buffer
-      ch.config().setOption(ChannelOption.SO_BACKLOG, 1024);
-
-      // be aware of channel closing
-      ch.closeFuture()
-          .addListener(
-              (ChannelFutureListener)
-                  future -> {
-                    channel.setDisconnect(true);
-                    if (channel.isDiscoveryMode()) {
-                      channelManager.getNodeDetectHandler().notifyDisconnect(channel);
-                    } else {
-                      try {
-                        log.info("Close channel:{}", channel.getInetSocketAddress());
-                        channelManager.notifyDisconnect(channel);
-                      } finally {
-                        if (channel.getInetSocketAddress() != null
-                            && channel.isActive()
-                            && trigger) {
-                          channelManager.triggerConnect(channel.getInetSocketAddress());
-                        }
-                      }
-                    }
-                  });
-
-    } catch (Exception e) {
-      log.error("Unexpected initChannel error", e);
+    public P2pChannelInitializer(
+            P2pConfig config,
+            ChannelManager channelManager,
+            ECKeyPair myKey,
+            boolean isOutbound) {
+        this.config = config;
+        this.channelManager = channelManager;
+        this.myKey = myKey;
+        this.isOutbound = isOutbound;
     }
-  }
+
+    @Override
+    public void initChannel(NioSocketChannel ch) {
+        try {
+            // Optimize network buffer sizes for better performance
+            ch.config().setRecvByteBufAllocator(new FixedRecvByteBufAllocator(256 * 1024));
+            ch.config().setOption(ChannelOption.SO_RCVBUF, 256 * 1024);
+            ch.config().setOption(ChannelOption.SO_SNDBUF, 256 * 1024);
+            ch.config().setOption(ChannelOption.SO_BACKLOG, 1024);
+
+            // Add basic handlers
+            ch.pipeline().addLast("readTimeoutHandler", new ReadTimeoutHandler(60, TimeUnit.SECONDS));
+
+            // Add frame codec and handshake handler first; message handler will be added after handshake
+            ch.pipeline().addLast("xdagFrameCodec", new XdagFrameCodec(config));
+            ch.pipeline().addLast("handshakeHandler", new HandshakeHandler(config, channelManager, myKey, isOutbound));
+
+
+            // MessageHandler will be added dynamically after handshake is complete
+            // This can be done by listening to a custom user event fired by HandshakeHandler
+
+        } catch (Exception e) {
+            log.error("Unexpected initChannel error", e);
+            ch.close();
+        }
+    }
 }

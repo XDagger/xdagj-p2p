@@ -28,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import io.xdag.p2p.P2pEventHandler;
 import io.xdag.p2p.P2pException;
 import io.xdag.p2p.discover.dns.update.PublishConfig;
-import io.xdag.p2p.proto.Discover;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
@@ -36,7 +35,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.tuweni.bytes.Bytes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -55,6 +53,7 @@ public class P2pConfigTest {
   @BeforeEach
   void setUp() {
     p2pConfig = new P2pConfig();
+    p2pConfig.ensureNodeKey(); // Ensure node key is initialized for tests
   }
 
   /** Test default configuration values. */
@@ -62,24 +61,17 @@ public class P2pConfigTest {
   void testDefaultValues() {
     // Test default network settings
     assertEquals(16783, p2pConfig.getPort(), "Default port should be 16783");
-    assertEquals(1, p2pConfig.getNetworkId(), "Default network ID should be 1");
+    assertEquals((byte) 2, p2pConfig.getNetworkId(), "Default network ID should be 2");
 
     // Test default connection settings
     assertEquals(8, p2pConfig.getMinConnections(), "Default min connections should be 8");
     assertEquals(50, p2pConfig.getMaxConnections(), "Default max connections should be 50");
-    assertEquals(
-        2, p2pConfig.getMinActiveConnections(), "Default min active connections should be 2");
-    assertEquals(
-        2,
-        p2pConfig.getMaxConnectionsWithSameIp(),
-        "Default max connections with same IP should be 2");
 
     // Test default feature flags
     assertTrue(p2pConfig.isDiscoverEnable(), "Discovery should be enabled by default");
     assertFalse(
         p2pConfig.isDisconnectionPolicyEnable(),
         "Disconnection policy should be disabled by default");
-    assertFalse(p2pConfig.isNodeDetectEnable(), "Node detection should be disabled by default");
 
     // Test default collections
     assertNotNull(p2pConfig.getSeedNodes(), "Seed nodes list should not be null");
@@ -97,14 +89,14 @@ public class P2pConfigTest {
     assertTrue(p2pConfig.getHandlerMap().isEmpty(), "Handler map should be empty initially");
 
     // Test default objects
-    assertNotNull(p2pConfig.getNodeID(), "Node ID should not be null");
+    assertNotNull(p2pConfig.getNodeKey(), "Node key should be initialized");
     assertNotNull(p2pConfig.getPublishConfig(), "Publish config should not be null");
 
-    // Test IP addresses (may be null depending on network environment)
+    // Test IP addresses (maybe null depending on network environment)
     // These are environment-dependent, so we just check they don't throw exceptions
-    assertDoesNotThrow(() -> p2pConfig.getIp(), "Getting IP should not throw exception");
-    assertDoesNotThrow(() -> p2pConfig.getLanIp(), "Getting LAN IP should not throw exception");
-    assertDoesNotThrow(() -> p2pConfig.getIpv6(), "Getting IPv6 should not throw exception");
+    assertDoesNotThrow(() -> p2pConfig.getIpV4(), "Getting IP should not throw exception");
+    assertDoesNotThrow(() -> p2pConfig.getLanIpV4(), "Getting LAN IP should not throw exception");
+    assertDoesNotThrow(() -> p2pConfig.getIpV6(), "Getting IPv6 should not throw exception");
   }
 
   /** Test basic parameter setting and getting. */
@@ -115,46 +107,36 @@ public class P2pConfigTest {
     assertEquals(17000, p2pConfig.getPort(), "Port should be updated");
 
     // Test network ID setting
-    p2pConfig.setNetworkId(2);
-    assertEquals(2, p2pConfig.getNetworkId(), "Network ID should be updated");
+    p2pConfig.setNetworkId((byte) 2);
+    assertEquals((byte) 2, p2pConfig.getNetworkId(), "Network ID should be updated");
 
     // Test connection settings
     p2pConfig.setMinConnections(10);
     p2pConfig.setMaxConnections(100);
-    p2pConfig.setMinActiveConnections(5);
-    p2pConfig.setMaxConnectionsWithSameIp(3);
 
     assertEquals(10, p2pConfig.getMinConnections(), "Min connections should be updated");
     assertEquals(100, p2pConfig.getMaxConnections(), "Max connections should be updated");
-    assertEquals(
-        5, p2pConfig.getMinActiveConnections(), "Min active connections should be updated");
-    assertEquals(
-        3,
-        p2pConfig.getMaxConnectionsWithSameIp(),
-        "Max connections with same IP should be updated");
 
     // Test feature flags
     p2pConfig.setDiscoverEnable(false);
     p2pConfig.setDisconnectionPolicyEnable(true);
-    p2pConfig.setNodeDetectEnable(true);
 
     assertFalse(p2pConfig.isDiscoverEnable(), "Discovery should be disabled");
     assertTrue(p2pConfig.isDisconnectionPolicyEnable(), "Disconnection policy should be enabled");
-    assertTrue(p2pConfig.isNodeDetectEnable(), "Node detection should be enabled");
 
     // Test IP settings
-    p2pConfig.setIp("192.168.1.100");
-    p2pConfig.setLanIp("192.168.1.101");
-    p2pConfig.setIpv6("2001:db8::1");
+    p2pConfig.setIpV4("192.168.1.100");
+    p2pConfig.setLanIpV4("192.168.1.101");
+    p2pConfig.setIpV6("2001:db8::1");
 
-    assertEquals("192.168.1.100", p2pConfig.getIp(), "IP should be updated");
-    assertEquals("192.168.1.101", p2pConfig.getLanIp(), "LAN IP should be updated");
-    assertEquals("2001:db8::1", p2pConfig.getIpv6(), "IPv6 should be updated");
+    assertEquals("192.168.1.100", p2pConfig.getIpV4(), "IP should be updated");
+    assertEquals("192.168.1.101", p2pConfig.getLanIpV4(), "LAN IP should be updated");
+    assertEquals("2001:db8::1", p2pConfig.getIpV6(), "IPv6 should be updated");
 
-    // Test node ID setting
-    Bytes newNodeId = Bytes.fromHexString("0x1234567890abcdef");
-    p2pConfig.setNodeID(newNodeId);
-    assertEquals(newNodeId, p2pConfig.getNodeID(), "Node ID should be updated");
+    // Test node key management
+    assertNotNull(p2pConfig.getNodeKey(), "Node key should not be null initially");
+    p2pConfig.generateNodeKey();
+    assertNotNull(p2pConfig.getNodeKey(), "Node key should be regenerated");
   }
 
   /** Test seed nodes management. */
@@ -278,7 +260,7 @@ public class P2pConfigTest {
         "Handler map should map type 0x02 to handler2");
   }
 
-  /** Test event handler registration with duplicate message type. */
+  /** Test event handler registration with the duplicate message type. */
   @Test
   void testEventHandlerRegistrationDuplicate() throws P2pException {
     TestEventHandler handler1 = new TestEventHandler("handler1", (byte) 0x01);
@@ -287,7 +269,7 @@ public class P2pConfigTest {
     // Register first handler
     p2pConfig.addP2pEventHandle(handler1);
 
-    // Register second handler with same type should fail
+    // Register second handler with the same type should fail
     P2pException exception =
         assertThrows(
             P2pException.class,
@@ -321,44 +303,41 @@ public class P2pConfigTest {
     assertEquals(0, p2pConfig.getHandlerMap().size(), "Should have 0 handlers in map (no types)");
   }
 
-  /** Test home node endpoint generation. */
+  /** Test node key generation and management. */
   @Test
-  void testHomeNodeGeneration() {
-    // Set specific values for testing
-    p2pConfig.setPort(17000);
-    p2pConfig.setIp("192.168.1.100");
-    p2pConfig.setIpv6("2001:db8::1");
-    Bytes nodeId = Bytes.fromHexString("0x1234567890abcdef1234567890abcdef12345678");
-    p2pConfig.setNodeID(nodeId);
+  void testNodeKeyManagement() {
+    // Test node key generation
+    assertNotNull(p2pConfig.getNodeKey(), "Node key should be initialized");
 
-    Discover.Endpoint homeNode = p2pConfig.getHomeNode();
+    // Generate a new key
+    p2pConfig.generateNodeKey();
+    assertNotNull(p2pConfig.getNodeKey(), "Node key should be regenerated");
 
-    assertNotNull(homeNode, "Home node should not be null");
-    assertEquals(17000, homeNode.getPort(), "Home node port should match config");
-    assertArrayEquals(
-        nodeId.toArray(), homeNode.getNodeId().toByteArray(), "Home node ID should match config");
-
-    // Verify IP addresses are set (if not empty)
-    if (!p2pConfig.getIp().isEmpty()) {
-      assertFalse(homeNode.getAddress().isEmpty(), "Home node address should not be empty");
-    }
-    if (p2pConfig.getIpv6() != null && !p2pConfig.getIpv6().isEmpty()) {
-      assertFalse(
-          homeNode.getAddressIpv6().isEmpty(), "Home node IPv6 address should not be empty");
-    }
+    // Test ensureNodeKey (should not throw)
+    p2pConfig.ensureNodeKey();
+    assertNotNull(p2pConfig.getNodeKey(), "Node key should still exist after ensureNodeKey");
   }
 
-  /** Test home node generation with empty IP addresses. */
+  /** Test network configuration. */
   @Test
-  void testHomeNodeGenerationEmptyIps() {
-    p2pConfig.setIp("");
-    p2pConfig.setIpv6("");
+  void testNetworkConfiguration() {
+    // Test port configuration
+    p2pConfig.setPort(17000);
+    assertEquals(17000, p2pConfig.getPort(), "Port should be updated");
 
-    Discover.Endpoint homeNode = p2pConfig.getHomeNode();
+    // Test IP address configuration
+    p2pConfig.setIpV4("192.168.1.100");
+    p2pConfig.setIpV6("2001:db8::1");
 
-    assertNotNull(homeNode, "Home node should not be null even with empty IPs");
-    assertTrue(homeNode.getAddress().isEmpty(), "Address should be empty");
-    assertTrue(homeNode.getAddressIpv6().isEmpty(), "IPv6 address should be empty");
+    assertEquals("192.168.1.100", p2pConfig.getIpV4(), "IPv4 should be updated");
+    assertEquals("2001:db8::1", p2pConfig.getIpV6(), "IPv6 should be updated");
+
+    // Test network version and ID
+    p2pConfig.setNetworkVersion((short) 2);
+    p2pConfig.setNetworkId((byte) 3);
+
+    assertEquals(2, p2pConfig.getNetworkVersion(), "Network version should be updated");
+    assertEquals((byte) 3, p2pConfig.getNetworkId(), "Network ID should be updated");
   }
 
   /** Simple test event handler for testing registration. */

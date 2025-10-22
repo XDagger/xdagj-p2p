@@ -23,14 +23,12 @@
  */
 package io.xdag.p2p.handler.discover;
 
-import com.google.protobuf.InvalidProtocolBufferException;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.socket.DatagramPacket;
 import io.netty.handler.codec.MessageToMessageDecoder;
 import io.xdag.p2p.P2pException;
 import io.xdag.p2p.config.P2pConfig;
-import io.xdag.p2p.message.discover.Message;
 import io.xdag.p2p.utils.BytesUtils;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -62,10 +60,10 @@ public class P2pPacketDecoder extends MessageToMessageDecoder<DatagramPacket> {
     Bytes encodedBytes = Bytes.wrap(encoded);
 
     try {
-      UdpEvent event = new UdpEvent(Message.parse(p2pConfig, encodedBytes), packet.sender());
+      UdpEvent event = new UdpEvent(io.xdag.p2p.message.MessageFactory.parse(p2pConfig, encodedBytes), packet.sender());
       out.add(event);
-    } catch (P2pException pe) {
-      if (pe.getType().equals(P2pException.TypeEnum.BAD_MESSAGE)) {
+    } catch (Exception pe) {
+      if (pe instanceof P2pException pe1 && pe1.getType().equals(P2pException.TypeEnum.BAD_MESSAGE)) {
         log.error(
             "Message validation failed, type {}, len {}, address {}",
             encoded[0],
@@ -78,16 +76,7 @@ public class P2pPacketDecoder extends MessageToMessageDecoder<DatagramPacket> {
             encoded.length,
             packet.sender());
       }
-    } catch (InvalidProtocolBufferException e) {
-      log.warn(
-          "An exception occurred while parsing the message, type {}, len {}, address {}, "
-              + "data {}, cause: {}",
-          encoded[0],
-          encoded.length,
-          packet.sender(),
-          BytesUtils.toHexString(encodedBytes),
-          e.getMessage());
-    } catch (Exception e) {
+    } catch (Throwable e) {
       log.error(
           "An exception occurred while parsing the message, type {}, len {}, address {}, "
               + "data {}",

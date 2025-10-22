@@ -1,93 +1,70 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2020-2030 The XdagJ Developers
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 package io.xdag.p2p.message.node;
 
-import io.xdag.p2p.config.P2pConfig;
-import io.xdag.p2p.config.P2pConstant;
-import io.xdag.p2p.discover.Node;
-import io.xdag.p2p.proto.Connect;
-import io.xdag.p2p.proto.Discover;
-import io.xdag.p2p.utils.BytesUtils;
-import io.xdag.p2p.utils.NetUtils;
+import io.xdag.crypto.keys.ECKeyPair;
+import io.xdag.p2p.message.MessageCode;
+import java.util.Arrays;
 import org.apache.tuweni.bytes.Bytes;
 
-public class HelloMessage extends Message {
+public class HelloMessage extends HandshakeMessage {
 
-  private final Connect.HelloMessage helloMessage;
-
-  public HelloMessage(P2pConfig p2pConfig, Bytes data) throws Exception {
-    super(p2pConfig, MessageType.HANDSHAKE_HELLO, data);
-    this.helloMessage = Connect.HelloMessage.parseFrom(data.toArray());
-  }
-
-  public HelloMessage(P2pConfig p2pConfig, DisconnectCode code, long time) {
-    super(p2pConfig, MessageType.HANDSHAKE_HELLO, null);
-    Discover.Endpoint endpoint = p2pConfig.getHomeNode();
-    this.helloMessage =
-        Connect.HelloMessage.newBuilder()
-            .setFrom(endpoint)
-            .setNetworkId(p2pConfig.getNetworkId())
-            .setCode(code.getValue())
-            .setVersion(P2pConstant.version)
-            .setTimestamp(time)
-            .build();
-    this.data = BytesUtils.wrap(helloMessage.toByteArray());
-  }
-
-  public int getNetworkId() {
-    return this.helloMessage.getNetworkId();
-  }
-
-  public int getVersion() {
-    return this.helloMessage.getVersion();
-  }
-
-  public int getCode() {
-    return this.helloMessage.getCode();
-  }
-
-  public long getTimestamp() {
-    return this.helloMessage.getTimestamp();
-  }
-
-  public Node getFrom() {
-    return NetUtils.getNode(p2pConfig, helloMessage.getFrom());
-  }
-
-  @Override
-  public String toString() {
-    StringBuilder sb = new StringBuilder();
-    sb.append("[HelloMessage: {\n");
-    sb.append("  from: {\n");
-
-    // Format address
-    if (!helloMessage.getFrom().getAddress().isEmpty()) {
-      sb.append("    address: \"")
-          .append(new String(helloMessage.getFrom().getAddress().toByteArray()))
-          .append("\"\n");
+    public HelloMessage(
+            byte networkId,
+            short networkVersion,
+            String peerId,
+            int port,
+            String clientId,
+            String[] capabilities,
+            long latestBlockNumber,
+            byte[] secret,
+            ECKeyPair coinbase,
+            boolean isGenerateBlock,
+            String nodeTag
+    ) {
+        super(MessageCode.HANDSHAKE_HELLO, WorldMessage.class, networkId, networkVersion, peerId, port, clientId,
+                capabilities, latestBlockNumber, secret, coinbase, isGenerateBlock, nodeTag);
     }
 
-    // Format port
-    sb.append("    port: ").append(helloMessage.getFrom().getPort()).append("\n");
-
-    // Format nodeId as hex
-    if (!helloMessage.getFrom().getNodeId().isEmpty()) {
-      sb.append("    nodeId: \"")
-          .append(
-              BytesUtils.toHexString(Bytes.wrap(helloMessage.getFrom().getNodeId().toByteArray())))
-          .append("\"\n");
+    public HelloMessage(byte[] encoded) {
+        super(MessageCode.HANDSHAKE_HELLO, WorldMessage.class, encoded);
     }
 
-    sb.append("  }\n");
-    sb.append("  network_id: ").append(helloMessage.getNetworkId()).append("\n");
-    sb.append("  code: ").append(helloMessage.getCode()).append("\n");
-    sb.append("  timestamp: ").append(helloMessage.getTimestamp()).append("\n");
-    sb.append("  version: ").append(helloMessage.getVersion()).append("\n");
-    sb.append("}]");
-
-    return sb.toString();
-  }
-
-  @Override
-  public boolean valid() {
-    return NetUtils.validNode(getFrom());
-  }
+    @Override
+    public String toString() {
+        return "HelloMessage{" +
+                "  networkId=" + networkId +
+                ", networkVersion=" + networkVersion +
+                ", peerId='" + peerId + '\'' +
+                ", port=" + port +
+                ", clientId='" + clientId + '\'' +
+                ", capabilities=" + Arrays.toString(capabilities) +
+                ", latestBlockNumber=" + latestBlockNumber +
+                ", secret=" + Bytes.wrap(secret).toUnprefixedHexString() +
+                ", timestamp=" + timestamp +
+                ", generateBlock=" + isGenerateBlock +
+                ", nodeTag=" + nodeTag +
+                '}';
+    }
 }

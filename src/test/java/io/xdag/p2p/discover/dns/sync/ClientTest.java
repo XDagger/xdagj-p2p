@@ -24,6 +24,7 @@
 package io.xdag.p2p.discover.dns.sync;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -114,31 +115,24 @@ public class ClientTest {
     
     // This will attempt to sync but may fail due to DNS resolution
     // The important thing is that it doesn't throw unexpected exceptions
-    try {
-      client.startSync();
-    } catch (Exception e) {
-      // Expected behavior since we're not mocking DNS resolution
-      assertTrue(e instanceof RuntimeException || e.getCause() instanceof Exception);
-    }
-    
+    client.startSync();
+
     // Trees map should be populated even if sync fails
     assertEquals(1, client.getTrees().size());
   }
 
   @Test
-  void testResolveRootWithNullTxtRecord() throws Exception {
+  void testResolveRootWithNullTxtRecord() {
     LinkEntry linkEntry = mock(LinkEntry.class);
     when(linkEntry.domain()).thenReturn("test.domain.com");
     
     // This will fail because we can't mock the static LookUpTxt.lookUpTxt method easily
     // So we expect a DnsException
-    assertThrows(Exception.class, () -> {
-      client.resolveRoot(linkEntry);
-    });
+    assertThrows(Exception.class, () -> client.resolveRoot(linkEntry));
   }
 
   @Test
-  void testResolveEntryWithCachedResult() throws Exception {
+  void testResolveEntryWithCachedResult() {
     // This test focuses on the caching behavior
     // Since we can't easily mock the internal cache, we test the method signature
     try {
@@ -178,31 +172,31 @@ public class ClientTest {
   }
 
   @Test
-  void testSyncTreeWithNullClientTree() throws Exception {
+  void testSyncTreeWithNullClientTree() {
     String urlScheme = "enrtree://test@test.example.com";
     Tree tree = new Tree(p2pConfig);
-    
+
     // This will fail due to DNS resolution but should test the null clientTree handling
     try {
       client.syncTree(urlScheme, null, tree);
     } catch (Exception e) {
       // Expected behavior since we're testing with invalid URL and no DNS mocking
-      assertTrue(e instanceof Exception);
+      assertInstanceOf(Exception.class, e);
     }
   }
 
   @Test
-  void testSyncTreeWithExistingClientTree() throws Exception {
+  void testSyncTreeWithExistingClientTree() {
     String urlScheme = "enrtree://test@test.example.com";
     ClientTree clientTree = new ClientTree(client);
     Tree tree = new Tree(p2pConfig);
-    
+
     // This will fail due to DNS resolution
     try {
       client.syncTree(urlScheme, clientTree, tree);
     } catch (Exception e) {
       // Expected behavior since we're testing with invalid URL and no DNS mocking
-      assertTrue(e instanceof Exception);
+      assertInstanceOf(Exception.class, e);
     }
   }
 

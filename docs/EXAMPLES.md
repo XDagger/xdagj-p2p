@@ -78,10 +78,10 @@ publishExample.start();
 
 ```bash
 # Basic startup
-java -jar xdagj-p2p-0.1.0-jar-with-dependencies.jar -s 127.0.0.1:16783
+java -jar xdagj-p2p-0.1.2-jar-with-dependencies.jar -s 127.0.0.1:16783
 
 # DNS publishing
-java -jar xdagj-p2p-0.1.0-jar-with-dependencies.jar \
+java -jar xdagj-p2p-0.1.2-jar-with-dependencies.jar \
   -publish \
   --dns-private your-private-key \
   --domain nodes.example.org
@@ -98,7 +98,7 @@ ExampleConfig.builder()
     .discoverEnable(true)               // Enable discovery
     .minConnections(8)                  // Minimum connections
     .minActiveConnections(2)            // Minimum active connections
-    .maxConnections(30)                 // Maximum connections (default 30, not 50)
+    .maxConnections(30)                 // Maximum connections (default: 50, production recommended: 30)
     .maxConnectionsWithSameIp(2)        // Max connections with same IP
     .seedNodes(seedList)                // Seed nodes
     .activeNodes(activeList)            // Active nodes

@@ -86,7 +86,7 @@ public class P2pEventHandlerTest {
   @Test
   public void testMessageTypesInitialization() {
     TestEventHandler handler = new TestEventHandler();
-    // Initially messageTypes might be null
+    // Initially, messageTypes might be null
     handler.setMessageTypes(new HashSet<>());
     assertNotNull(handler.getMessageTypes());
     assertEquals(0, handler.getMessageTypes().size());

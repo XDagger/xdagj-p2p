@@ -27,13 +27,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import com.google.protobuf.InvalidProtocolBufferException;
 import io.xdag.p2p.DnsException;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.dns.tree.Entry;
 import io.xdag.p2p.discover.dns.tree.Tree;
 import io.xdag.p2p.discover.dns.update.PublishConfig;
-import io.xdag.p2p.utils.CryptoUtils;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,22 +47,22 @@ public class TreeTest {
 
   public static DnsNode[] sampleNode() throws UnknownHostException {
     return new DnsNode[] {
-      new DnsNode(p2pConfig, null, "192.168.0.1", null, 10000),
-      new DnsNode(p2pConfig, null, "192.168.0.2", null, 10000),
-      new DnsNode(p2pConfig, null, "192.168.0.3", null, 10000),
-      new DnsNode(p2pConfig, null, "192.168.0.4", null, 10000),
-      new DnsNode(p2pConfig, null, "192.168.0.5", null, 10000),
-      new DnsNode(p2pConfig, null, "192.168.0.6", null, 10001),
-      new DnsNode(p2pConfig, null, "192.168.0.6", null, 10002),
-      new DnsNode(p2pConfig, null, "192.168.0.6", null, 10003),
-      new DnsNode(p2pConfig, null, "192.168.0.6", null, 10004),
-      new DnsNode(p2pConfig, null, "192.168.0.6", null, 10005),
-      new DnsNode(p2pConfig, null, "192.168.0.10", "fe80::0001", 10005),
-      new DnsNode(p2pConfig, null, "192.168.0.10", "fe80::0002", 10005),
-      new DnsNode(p2pConfig, null, null, "fe80::0001", 10000),
-      new DnsNode(p2pConfig, null, null, "fe80::0002", 10000),
-      new DnsNode(p2pConfig, null, null, "fe80::0003", 10001),
-      new DnsNode(p2pConfig, null, null, "fe80::0004", 10001),
+      new DnsNode(null, "192.168.0.1", null, 10000),
+      new DnsNode(null, "192.168.0.2", null, 10000),
+      new DnsNode(null, "192.168.0.3", null, 10000),
+      new DnsNode(null, "192.168.0.4", null, 10000),
+      new DnsNode(null, "192.168.0.5", null, 10000),
+      new DnsNode(null, "192.168.0.6", null, 10001),
+      new DnsNode(null, "192.168.0.6", null, 10002),
+      new DnsNode(null, "192.168.0.6", null, 10003),
+      new DnsNode(null, "192.168.0.6", null, 10004),
+      new DnsNode(null, "192.168.0.6", null, 10005),
+      new DnsNode(null, "192.168.0.10", "fe80::0001", 10005),
+      new DnsNode(null, "192.168.0.10", "fe80::0002", 10005),
+      new DnsNode(null, null, "fe80::0001", 10000),
+      new DnsNode(null, null, "fe80::0002", 10000),
+      new DnsNode(null, null, "fe80::0003", 10001),
+      new DnsNode(null, null, "fe80::0004", 10001),
     };
   }
 
@@ -76,13 +74,9 @@ public class TreeTest {
     int maxMergeSize = new PublishConfig().getMaxMergeSize();
     List<String> enrs = Tree.merge(nodeList, maxMergeSize);
     int total = 0;
-    for (int i = 0; i < enrs.size(); i++) {
+    for (String enr : enrs) {
       List<DnsNode> subList = null;
-      try {
-        subList = DnsNode.decompress(p2pConfig, enrs.get(i).substring(Entry.nodesPrefix.length()));
-      } catch (InvalidProtocolBufferException e) {
-        fail();
-      }
+      subList = DnsNode.decompress(enr.substring(Entry.nodesPrefix.length()));
       assertTrue(subList.size() <= maxMergeSize);
       total += subList.size();
     }
@@ -95,46 +89,46 @@ public class TreeTest {
 
     DnsNode[] dnsNodes =
         new DnsNode[] {
-          new DnsNode(p2pConfig, null, "192.168.0.1", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.2", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.3", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.4", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.5", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.6", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.7", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.8", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.9", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.10", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.11", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.12", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.13", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.14", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.15", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.16", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.17", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.18", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.19", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.20", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.21", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.22", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.23", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.24", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.25", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.26", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.27", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.28", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.29", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.30", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.31", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.32", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.33", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.34", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.35", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.36", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.37", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.38", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.39", null, 10000),
-          new DnsNode(p2pConfig, null, "192.168.0.40", null, 10000),
+          new DnsNode(null, "192.168.0.1", null, 10000),
+          new DnsNode(null, "192.168.0.2", null, 10000),
+          new DnsNode(null, "192.168.0.3", null, 10000),
+          new DnsNode(null, "192.168.0.4", null, 10000),
+          new DnsNode(null, "192.168.0.5", null, 10000),
+          new DnsNode(null, "192.168.0.6", null, 10000),
+          new DnsNode(null, "192.168.0.7", null, 10000),
+          new DnsNode(null, "192.168.0.8", null, 10000),
+          new DnsNode(null, "192.168.0.9", null, 10000),
+          new DnsNode(null, "192.168.0.10", null, 10000),
+          new DnsNode(null, "192.168.0.11", null, 10000),
+          new DnsNode(null, "192.168.0.12", null, 10000),
+          new DnsNode(null, "192.168.0.13", null, 10000),
+          new DnsNode(null, "192.168.0.14", null, 10000),
+          new DnsNode(null, "192.168.0.15", null, 10000),
+          new DnsNode(null, "192.168.0.16", null, 10000),
+          new DnsNode(null, "192.168.0.17", null, 10000),
+          new DnsNode(null, "192.168.0.18", null, 10000),
+          new DnsNode(null, "192.168.0.19", null, 10000),
+          new DnsNode(null, "192.168.0.20", null, 10000),
+          new DnsNode(null, "192.168.0.21", null, 10000),
+          new DnsNode(null, "192.168.0.22", null, 10000),
+          new DnsNode(null, "192.168.0.23", null, 10000),
+          new DnsNode(null, "192.168.0.24", null, 10000),
+          new DnsNode(null, "192.168.0.25", null, 10000),
+          new DnsNode(null, "192.168.0.26", null, 10000),
+          new DnsNode(null, "192.168.0.27", null, 10000),
+          new DnsNode(null, "192.168.0.28", null, 10000),
+          new DnsNode(null, "192.168.0.29", null, 10000),
+          new DnsNode(null, "192.168.0.30", null, 10000),
+          new DnsNode(null, "192.168.0.31", null, 10000),
+          new DnsNode(null, "192.168.0.32", null, 10000),
+          new DnsNode(null, "192.168.0.33", null, 10000),
+          new DnsNode(null, "192.168.0.34", null, 10000),
+          new DnsNode(null, "192.168.0.35", null, 10000),
+          new DnsNode(null, "192.168.0.36", null, 10000),
+          new DnsNode(null, "192.168.0.37", null, 10000),
+          new DnsNode(null, "192.168.0.38", null, 10000),
+          new DnsNode(null, "192.168.0.39", null, 10000),
+          new DnsNode(null, "192.168.0.40", null, 10000),
         };
 
     String[] enrs = new String[dnsNodes.length];
@@ -147,17 +141,14 @@ public class TreeTest {
 
     String[] links = new String[] {};
 
-    String linkBranch0 = "tree-branch:";
-    String enrBranch1 =
-        "tree-branch:OX22LN2ZUGOPGIPGBUQH35KZU4,XTGCXXQHPK3VUZPQHC6CGJDR3Q,BQLJLB6P5CRXHI37BRVWBWWACY,X4FURUK4SHXW3GVE6XBO3DFD5Y,SIUYMSVBYYXCE6HVW5TSGOFKVQ,2RKY3FUYIQBV4TFIDU7S42EIEU,KSEEGRTUGR4GCCBQ4TYHAWDKME,YGWDS6F6KLTFCC7T3AMAJHXI2A,K4HMVDEHRKOGOFQZXBJ2PSVIMM,NLLRMPWOTS6SP4D7YLCQA42IQQ,BBDLEDOZYAX5CWM6GNAALRVUXY,7NMT4ZISY5F4U6B6CQML2C526E,NVDRYMFHIERJEVGW5TE7QEAS2A";
-    String enrBranch2 =
-        "tree-branch:5ELKMY4HVAV5CBY6KDMXWOFSN4,7PHYT72EXSZJ6MT2IQ7VGUFQHI,AM6BJFCERRNKBG4A5X3MORBDZU,2WOYKPVTNYAY3KVDTDY4CEVOJM,PW5BHSJMPEHVJKRF5QTRXQB4LU,IS4YMOJGD4XPODBAMHZOUTIVMI,NSEE5WE57FWG2EERXI5TBBD32E,GOLZDJTTQ7V2MO2BG45O3Q22XI,4VL7USGBWKW576WM4TX7XIXS4A,GZQSPHDZYS7FXURGOQU3RIDUK4,T7L645CJJKCQVQMUADDO44EGOM,ATPMZZZB4RGYKC6K7QDFC22WIE,57KNNYA4WOKVZAODRCFYK64MBA";
-    String enrBranch3 =
-        "tree-branch:BJF5S37KVATG2SYHO6M7APDCNU,OUB3BDKUZQWXXFX5OSF5JCB6BA,6JZEHDWM6WWQYIEYVZN5QVMUXA,LXNNOBVTTZBPD3N5VTOCPVG7JE,LMWLKDCBT2U3CGSHKR2PYJNV5I,K2SSCP4ZIF7TQI4MRVLELFAQQE,MKR7II3GYETKN7MSCUQOF6MBQ4,FBJ5VFCV37SGUOEYA2SPGO3TLA,6SHSDL7PJCJAER3OS53NYPNDFI,KYU2OQJBU6AU3KJFCUSLOJWKVE,3N6XKDWY3WTBOSBS22YPUAHCFQ,IPEWOISXUGOL7ORZIOXBD24SPI,PCGDGGVEQQQFL4U2FYRXVHVMUM";
-    String enrBranch4 =
-        "tree-branch:WHCXLEQB3467BFATRY5SMIV62M,LAHEXJDXOPZSS2TDVXTJACCB6Q,QR4HMFZU3STBJEXOZIXPDRQTGM,JZUKVXBOLBPXCELWIE5G6E6UUU";
+    // Expected branch hash values - updated for SimpleCodec serialization
+    String branch0 = "tree-branch:BTEO6672SIATDLTRLSR3FZHVUE,KVWOVYARSND2N2GFXADWOKUJDU,FHULNSAGBBLZKTXD3ZUTFETQVQ,2BT32SRCVYHR6KDXKR5UZX7EUQ,A6XQD65SEK5UXRVVXMVJWIZEX4,JU6AEAFRXQRZ7DZU7QZKBW22YM,5IPSDTWXPJ2DQWYPDJKUPV3YCY,SUFA6JX2QYWXZOIKQ4OKJ6VCBA,O45QBMP3TOYFFVWDHNFRMZHW6A,LPDPPHKFZBPYGGTY24YUFIDVYM,KFGZ7XTXNOSV3HMHI6SWBW3G24,QBFFGT3UCEKZ355RV5HPFS7HUI,OMLDRHNX36K7ZEPVHOZLRECDPM";
+    String branch1 = "tree-branch:";
+    String branch2 = "tree-branch:ZVVWI7MQIQYRGP5TSDZOIFLNRA,3EAYOUW4W6DTUIGZFN3NMJP5IY,D6L3OQVLMLI3UBLBQAC4JJLJ7A,COQUJTM3E7QLY62VWNPPMY65MU,VQE3OHR6RG55WCG4PPS45MEESY,MCLTT65ZBIZ6NQHS4YER5O3FBI,SDELZDR46FLNXPITJO3FVD6E2Q,NRNRZKKXMKOZHZQO6HEYEGPSCA,T4LWZMTNHZUQ6VWL4ZEPEG4FTA,2GGURLZVDRN7FVP6VQWZWBD3SQ,X6VA4KWGRWKPQTYTSMAUBCYSLI,L33LMGDXMK5DQF54VSOHKWZE2M,UBHNVTCWUCL7JQC2BQXD6GER6M";
+    String branch3 = "tree-branch:ECIRFXBJBLA4N63SMXF3CBXR3Q,K4DASN5MW2ITXFHWFYH4IVJ2UI,RVFJISVHGKCOGCNHOPOQP6EM4Y,OD575NVTP7U263RBRQ6CGIEGR4";
+    String branch4 = "tree-branch:7T7KQQYWO45Y7HTDEV5SMZWDBM,JBCF625RWEACWT25PLDDJXZVGU,XB6YD3BCSJ7VKC33PP2YCO4HKM,BMD4IWDDHKGHSVHBX7XLK63ECI,2Q4QUYXSWWRA7BU6LHQ2IFTZVE,OAZCDFUHAS24VFL7MFGXA4YXO4,OVDB3ML57234YWGWS6ZVTAY544,XLD3UCDVEXMQU4IZR6TUIXUFJE,DY2SUXB3NYWJOESSETAPPVE2ZA,3NA2ETBGW6H7CWVWT6TAXMADTA,7BRNWV3ENXYYZXL7VAT6YEUPME,X7FMMDIPLIV2WCHLBBOKL6LOOA,5KHAZSMEFCKT33346KAAORRNJ4";
 
-    String[] branches = new String[] {linkBranch0, enrBranch1, enrBranch2, enrBranch3, enrBranch4};
+    String[] branches = new String[] {branch0, branch1, branch2, branch3, branch4};
 
     List<String> branchList = Arrays.asList(branches);
     List<String> enrList = Arrays.asList(enrs);
@@ -171,14 +162,15 @@ public class TreeTest {
     }
 
     /*
-                                  b  r  a  n  c  h  4
-                   /                 /           \          \
-                /                  /               \           \
-             /                    /                   \            \
-          branch1               branch2              branch3          \
-        /      \              /       \             /       \           \
-      node:-01 ~ node:-13  node:-14 ~ node:-26   node:-27 ~ node:-39  node:-40
-    */
+     * Tree structure with SimpleCodec serialization:
+     *                                  b  r  a  n  c  h  4
+     *                   /                 /           \          \
+     *                /                  /               \           \
+     *             /                    /                   \            \
+     *          branch0 (root)        branch2              branch3        branch1 (empty)
+     *        /      \              /       \             /       \
+     *      node:01-13            node:14-26           node:27-39          node:40
+     */
 
     assertEquals(branchList.size() + enrList.size() + linkList.size(), tree.getEntries().size());
     assertEquals(branchList.size(), tree.getBranchesEntry().size());
@@ -186,7 +178,7 @@ public class TreeTest {
     assertEquals(linkList.size(), tree.getLinksEntry().size());
 
     for (String branch : tree.getBranchesEntry()) {
-      assertTrue(branchList.contains(branch));
+      assertTrue(branchList.contains(branch), "Branch not found: " + branch);
     }
     for (String nodeEntry : tree.getNodesEntry()) {
       assertTrue(enrList.contains(nodeEntry));
@@ -195,8 +187,9 @@ public class TreeTest {
       assertTrue(linkList.contains(link));
     }
 
-    assertEquals(CryptoUtils.encode32AndTruncate(enrBranch4), tree.getRootEntry().getERoot());
-    assertEquals(CryptoUtils.encode32AndTruncate(linkBranch0), tree.getRootEntry().getLRoot());
+    // Root hash assertions - these are the actual generated hash values for SimpleCodec serialization
+    assertEquals("75VCAFX6SKFKXYC6TDY3IEHHHM", tree.getRootEntry().getERoot());
+    assertEquals("G763M53MOPYWUVJSW6CGE27GE4", tree.getRootEntry().getLRoot());
     assertEquals(seq, tree.getSeq());
   }
 
@@ -219,7 +212,7 @@ public class TreeTest {
         continue;
       }
       ipSet.add(ip);
-      dnsNodes.add(new DnsNode(p2pConfig, null, ip, null, 10000));
+      dnsNodes.add(new DnsNode(null, ip, null, 10000));
     }
     Set<String> enrSet1 = new HashSet<>(Tree.merge(dnsNodes, maxMergeSize));
     System.out.println("srcSize:" + enrSet1.size());
@@ -246,7 +239,7 @@ public class TreeTest {
         continue;
       }
       ipSet.add(ip);
-      dnsNodes.add(new DnsNode(p2pConfig, null, ip, null, 10000));
+      dnsNodes.add(new DnsNode(null, ip, null, 10000));
     }
     Set<String> enrSet2 = new HashSet<>(Tree.merge(dnsNodes, maxMergeSize));
 

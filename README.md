@@ -3,205 +3,52 @@
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://openjdk.java.net/)
 [![Maven](https://img.shields.io/badge/Maven-3.6+-blue.svg)](https://maven.apache.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-518%20Total-brightgreen.svg)](#testing)
-[![Coverage](https://img.shields.io/badge/Coverage-71%25-green.svg)](#testing)
+[![Tests](https://img.shields.io/badge/Tests-859%20Total-brightgreen.svg)](#testing)
+[![Coverage](https://img.shields.io/badge/Coverage-76%25-brightgreen.svg)](#testing)
 
-> **🚀 Powering the Future of XDAG Network**  
-> *Next-generation P2P networking library designed to make XDAG blockchain faster, stronger, and more decentralized*
+High-performance Java P2P networking library for the XDAG blockchain ecosystem, built with modern Java technologies and comprehensive testing.
 
-**High-performance Java P2P networking library for the XDAG blockchain ecosystem - actively developed and continuously optimized**
+**Key Features:** Kademlia DHT discovery • Persistent reputation system • Graduated ban management • Layered network statistics • Production-ready with 859 tests
 
-XDAGJ-P2P is an innovative peer-to-peer networking library designed specifically for the XDAG blockchain network. Built with modern Java technologies and comprehensive testing, it provides robust node discovery, efficient connection management, and scalable network topology. As an actively developed project, it aims to make XDAG stronger and more resilient through continuous optimization and feature enhancement.
+---
 
-## ⚡ Performance at a Glance
+## What's New in v0.1.3
 
-### 🚀 **Speed Metrics** (Actual Performance)
-```
-Message Creation:    1.3M-8M ops/sec
-Network Processing:  0.8M-2M ops/sec  
-Serialization:       4M-22M ops/sec
-Data Access:         98M-206M ops/sec
-Concurrent Scale:    19M ops/sec (4 threads)
-P2P Network Tests:   1500-2000 messages/min (20 nodes)
-Network Latency:     1-8ms (Professional stress tests)
-Status:             v0.1.0 - Production Ready
-```
+### Test Coverage Expansion (v0.1.3)
+- **Massive Test Suite Growth**: 503 → 859 tests (+356 tests, +71%)
+- **Coverage Improvement**: 75% → 76% instruction coverage
+- **DNS Module Tests**: Added comprehensive tests for dns.tree, dns.sync, dns.update modules
+  - TreeTest: 30 tests, Tree class coverage 59% → 82%
+  - ClientTreeTest: 21 tests for ClientTree functionality
+  - LinkCacheTest: 22 tests for link cache management
+  - PublishConfigTest: 17 tests for DNS publishing configuration
+- **All Tests Passing**: 859/859 tests with zero flaky tests
 
-### 🔧 **Tech Stack**
-```
-Core:        Java 21 + Netty 4.2.1
-Protocol:    Kademlia DHT + EIP-1459 DNS
-Serialization: Protocol Buffers 4.31.1
-Crypto:      Hyperledger Besu + BouncyCastle 1.80
-Testing:     JUnit 5.12.2 + Mockito 5.12.0 + 518 tests
-Build:       Maven + JaCoCo + Protobuf Plugin
-```
+### Previous Features (v0.1.2)
 
-## 🎯 Why XDAGJ-P2P?
+### Breaking Change: Node ID Migration
+- Migrated from 520-bit to **160-bit Node ID** format (XDAG address-based)
+- Perfect Kademlia DHT compliance (BitTorrent DHT standard)
+- 69% storage reduction per node (65 bytes → 20 bytes)
+- ⚠️ Not compatible with v0.1.0/0.1.1 nodes
 
-### 🔥 **Core Features**
-```
-Kademlia DHT:       Distributed hash table
-Netty Powered:      Async I/O + Zero-copy
-EIP-1459 DNS:       Reliable fallback protocol
-Quality Focus:      518 comprehensive tests
-```
+### New Features
+- **Reputation System Persistence**: Automatic disk-based saves with time-based decay
+- **Simplified Ban Management**: Graduated durations and whitelist support
+- **Enhanced Monitoring**: LayeredStats for network and application layer metrics
+- **Improved Test Coverage**: 88.9% for XdagMessageHandler, 57.2% for P2pPacketDecoder
 
-### 💎 **XDAG Network Impact**
-```
-Network Speed:      8M+ messages/sec (Revolutionary Performance)
-Processing Power:   206M+ ops/sec (Industry Leading)
-P2P Testing:        Enterprise-grade 30-node stress testing
-Real-World Tests:   1400+ messages/node, 1-8ms latency
-Professional Tools: Automated benchmarks + Analysis suite
-Status:            v0.1.0 Production Ready - Powering Next-Gen XDAG
-```
+### Code Quality
+- Removed 2,277 lines of dead code following extreme simplicity principles
+- Simplified statistics system (5 classes → 1 class, -72% code)
+- Added 368+ new tests (859 total, all passing)
+- Overall coverage improved: 62.9% → 76% (+13.1%)
 
-## 🎯 Technology Stack
+See [CHANGELOG.md](CHANGELOG.md) for complete release notes.
 
-### 🚀 **Core Technologies**
-```
-Java Runtime:       Java 21 LTS
-Network Engine:     Netty 4.2.1
-Message Protocol:   Protocol Buffers 4.31.1
-Packet Processing:  ConsenSys Tuweni 2.7.0
-```
+---
 
-### 🔐 **Security & Infrastructure**
-```
-Cryptography:       Hyperledger Besu 25.5.0
-Crypto Provider:    BouncyCastle 1.80
-Cloud DNS:          AWS Route53 2.31.52
-Testing Framework:  JUnit 5.12.2 + 518 tests
-```
-
-## ⚡ Performance Features
-
-### 🚀 **High-Performance Processing**
-```
-Zero-Copy Buffers:  Direct memory access
-Smart Messaging:    Custom extensible schemas
-Virtual Threads:    Lightweight concurrency
-Event-Driven I/O:   Non-blocking operations
-```
-
-### 🎯 **Network Optimization**
-```
-Discovery Protocol: Kademlia DHT + DNS fallback
-Connection Pool:    Adaptive limits + Auto-recovery
-Message Routing:    Type-safe + Backward compatible
-Performance Tests:  Real-world benchmarks + Monitoring
-```
-
-## 📊 Network Performance Visualization
-
-### 🎯 **Live Testing Results**
-Real-world P2P network testing with 20 nodes demonstrating production-level performance and reliability.
-
-<div align="center">
-
-#### 🌐 Network Topology Analysis
-![Network Topology](docs/images/clean_network_topology.png)
-*Professional P2P network visualization showing distributed node connections and network diameter of 5 hops*
-
-#### ⚡ Node Performance Comparison  
-![Node Performance](docs/images/node_performance.png)
-*Real-time performance metrics across all nodes with consistent sub-10ms latency*
-
-#### 📈 Connection Statistics
-![Connection Statistics](docs/images/connection_statistics.png)
-*Comprehensive connection analysis showing network health and load distribution*
-
-#### 🚀 Message Latency Distribution
-![Latency Distribution](docs/images/latency_distribution.png)
-*Message latency distribution demonstrating 95% of messages under 8ms response time*
-
-</div>
-
-### 🏆 **Key Testing Achievements**
-```
-Network Scale:       20 distributed nodes
-Total Connections:   108 successful P2P links
-Network Diameter:    5 hops maximum
-Average Path:        2.38 hops 
-Message Latency:     1-8ms (95% under 8ms)
-Connection Success:  >99% reliability
-Network Health:      Fully connected mesh
-Load Balancing:      Even distribution across nodes
-```
-
-> **🔬 Testing Environment**: MacOS with Java 21, professional stress testing suite with comprehensive network analysis tools
-
-## 🏗️ Architecture Overview
-
-```mermaid
-graph TB
-    subgraph "🌐 Application Layer"
-        A["XDAG Blockchain Nodes"]
-    end
-    
-    subgraph "🔗 P2P Network Layer"
-        B["XDAGJ-P2P Library"]
-    end
-    
-    subgraph "🛠️ Core Components"
-        C["Discovery"] 
-        D["Connection"]
-        E["Messaging"]
-    end
-    
-    A --> B
-    B --> C
-    B --> D  
-    B --> E
-    
-    style A fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    style B fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-    style C fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
-    style D fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
-    style E fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
-```
-
-### 🎯 Component Details
-
-### 🔍 **Discovery Engine**
-```
-Kademlia DHT:       Distributed hash table protocol
-EIP-1459 DNS:       Reliable DNS discovery fallback
-Smart Peer Finding: Lightning-fast node discovery
-Network Coverage:   Multi-region optimization
-```
-
-### ⚡ **Connection Hub**
-```
-Netty Engine:       Async I/O + Event loops
-Zero-Copy Buffers:  Direct memory access
-Connection Pool:    Adaptive limits + Auto-recovery
-High Performance:   Sub-millisecond processing
-```
-
-### 📨 **Message Router**
-```
-Protocol Buffers:   Custom extensible schemas
-Type Safety:        Strongly-typed definitions
-Smart Routing:      Efficient message delivery
-Backward Compatible: Schema evolution support
-```
-
-## 🎯 Use Cases
-
-### 🏆 XDAG Blockchain Network
-- **🔍 Node Discovery**: Lightning-fast peer finding for XDAG blockchain nodes
-- **📡 Block Propagation**: Instant block and transaction broadcasting across XDAG network  
-- **🤝 Consensus Support**: Rock-solid communication for XDAG consensus mechanisms
-- **💪 Network Strengthening**: Enhanced connectivity makes XDAG more robust and decentralized
-
-### 🌍 Beyond XDAG
-- **⛓️ Blockchain Networks**: Universal P2P solution for any blockchain project
-- **🏗️ Distributed Systems**: Service discovery and data replication at scale
-- **🌐 IoT Networks**: Self-organizing mesh networks for IoT devices
-
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - **Java 21+** (Latest LTS with Virtual Threads support)
@@ -212,294 +59,371 @@ Backward Compatible: Schema evolution support
 <dependency>
     <groupId>io.xdag</groupId>
     <artifactId>xdagj-p2p</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.3</version>
 </dependency>
 ```
 
-> **💡 Note**: This library leverages Java 21 features including Virtual Threads and Preview APIs for optimal performance.
+> **⚠️ Breaking Change**: Node ID format changed from 520-bit to 160-bit XDAG address. Not compatible with v0.1.0/0.1.1 nodes.
 
 ### Basic Usage
+
 ```java
-// Configure P2P service
+// 1. Configure P2P service
 P2pConfig config = new P2pConfig();
 config.setPort(16783);
 config.setDiscoverEnable(true);
 config.setSeedNodes(Arrays.asList(
-    new InetSocketAddress("bootstrap.xdag.io", 16783)
+    new InetSocketAddress("<SEED_NODE_IP>", 16783)
 ));
 
-// Implement event handler
+// 2. Implement event handler
 public class MyEventHandler extends P2pEventHandler {
     @Override
     public void onConnect(Channel channel) {
-        System.out.println("Connected to: " + channel.getRemoteAddress());
+        System.out.println("Connected: " + channel.getRemoteAddress());
     }
-    
+
     @Override
     public void onMessage(Channel channel, Bytes data) {
         // Process incoming messages
     }
 }
 
-// Start P2P service
+// 3. Start P2P service
 P2pService p2pService = new P2pService();
 p2pService.register(new MyEventHandler());
 p2pService.start(config);
 ```
 
-### Custom Message Example
-```java
-// 1. Define your message in proto file
-message CustomBlockMessage {
-    bytes blockHash = 1;
-    int64 blockNumber = 2;
-    repeated bytes transactions = 3;
-    int64 timestamp = 4;
-}
+### Run Standalone Node
 
-// 2. Use generated Java classes
-CustomBlockMessage blockMsg = CustomBlockMessage.newBuilder()
-    .setBlockHash(ByteString.copyFrom(hash))
-    .setBlockNumber(12345)
-    .addTransactions(ByteString.copyFrom(tx1))
-    .addTransactions(ByteString.copyFrom(tx2))
-    .setTimestamp(System.currentTimeMillis())
-    .build();
-
-// 3. Send via P2P channel
-channel.send(Bytes.wrap(blockMsg.toByteArray()));
-
-// 4. Receive and parse
-@Override
-public void onMessage(Channel channel, Bytes data) {
-    try {
-        CustomBlockMessage received = CustomBlockMessage.parseFrom(data.toArray());
-        System.out.println("Received block: " + received.getBlockNumber());
-    } catch (InvalidProtocolBufferException e) {
-        log.error("Failed to parse custom message", e);
-    }
-}
-```
-
-### Standalone Execution
 ```bash
 # Build the project
 mvn clean package -DskipTests
 
-# Run single P2P node
-java -jar target/xdagj-p2p-0.1.0-jar-with-dependencies.jar \
+# Run P2P node
+java -jar target/xdagj-p2p-0.1.3-jar-with-dependencies.jar \
   -p 16783 \
-  -s bootstrap.xdag.io:16783 \
-  -d 1
+  -s <SEED_NODE_IP>:16783
 ```
 
-### Professional Network Testing
+**See [docs/EXAMPLES.md](docs/EXAMPLES.md) for more examples including custom message implementation.**
+
+---
+
+## Core Features
+
+### Kademlia DHT Discovery
+- **160-bit Node ID** based on XDAG address
+- Distributed hash table protocol for decentralized peer discovery
+- UDP-based PING/PONG for liveness detection
+- Recursive node discovery via FIND_NODE/NEIGHBORS
+- Self-healing network topology
+
+### Node Reputation System
+- Persistent disk-based scoring (0-200 range)
+- Time-based reputation decay (5 points/day towards neutral)
+- Automatic save with atomic file operations
+- Thread-safe concurrent operations
+
+### Ban Management
+- Graduated ban durations for repeat offenders (2x per offense, max 30 days)
+- Whitelist support for trusted nodes
+- Automatic expiry and cleanup
+
+### Layered Statistics
+- **Network Layer**: TCP/Netty frame-level metrics (messages sent/received, bytes transferred)
+- **Application Layer**: Business logic metrics (processed, duplicated, forwarded messages)
+- Per-channel statistics tracking
+- Zero external dependencies
+
+**See [docs/NODE_DISCOVERY.md](docs/NODE_DISCOVERY.md) for detailed discovery configuration.**
+
+---
+
+## Performance
+
+### Benchmark Results
+```
+Message Processing:     1.3M - 8M ops/sec
+Network I/O:            0.8M - 2M ops/sec
+Serialization:          4M - 22M ops/sec
+Data Access:            98M - 206M ops/sec
+Concurrent (4 threads): 19M ops/sec
+
+Network Throughput:     17,000+ msg/sec (6-node cluster)
+Message Latency:        1-8ms (95% under 8ms)
+Error Rate:            0% (7M+ messages tested)
+```
+
+### Test Coverage
+```
+Tests:          859 test cases (100% pass rate)
+Instructions:   76% (12,162 / 15,810)
+Branches:       64% (911 / 1,409)
+Lines:          77% (2,851 / 3,669)
+Execution:      ~30 seconds, zero flaky tests
+```
+
+**See [docs/PERFORMANCE.md](docs/PERFORMANCE.md) for detailed benchmark methodology and results.**
+
+---
+
+## Architecture
+
+```mermaid
+graph TB
+    subgraph "Application Layer"
+        A["XDAG Blockchain Nodes"]
+    end
+
+    subgraph "P2P Network Layer"
+        B["XDAGJ-P2P Library"]
+    end
+
+    subgraph "Core Components"
+        C["Discovery<br/>(Kademlia DHT)"]
+        D["Connection<br/>(Netty + Pools)"]
+        E["Messaging<br/>(SimpleCodec)"]
+    end
+
+    A --> B
+    B --> C
+    B --> D
+    B --> E
+
+    style A fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style B fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style C fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    style D fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    style E fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+```
+
+### Components
+
+**Discovery Engine**
+- Kademlia DHT for distributed peer discovery
+- K-bucket routing table (k=16, 160 buckets)
+- Automatic stale node detection and replacement
+
+**Connection Manager**
+- Netty async I/O with event loops
+- Connection pool with adaptive limits
+- Automatic recovery from failures
+
+**Message Router**
+- Custom SimpleCodec encoding (extensible, backward-compatible)
+- Type-safe message definitions
+- Efficient message delivery with batching
+
+---
+
+## Technology Stack
+
+### Core
+- **Java 21 LTS**: Virtual threads and modern APIs
+- **Netty 4.2.6.Final**: Async I/O framework with zero-copy buffers
+- **Custom SimpleCodec**: High-performance binary encoding
+
+### Cryptography
+- **Hyperledger Besu 25.5.0**: Crypto primitives
+- **BouncyCastle 1.80**: Crypto provider
+- **Tuweni 2.7.0**: Packet processing utilities
+
+### Testing
+- **JUnit 5.12.2 + Mockito 5.14.2**: 859 comprehensive tests
+- **JaCoCo**: 76% instruction coverage
+- **Professional test suite**: Multi-node network testing
+
+---
+
+## Network Performance Visualization
+
+Real-world P2P network testing with 20 nodes demonstrating production-level performance.
+
+<div align="center">
+
+#### Network Topology Analysis
+![Network Topology](docs/images/clean_network_topology.png)
+*Distributed node connections with network diameter of 5 hops*
+
+#### Node Performance Comparison
+![Node Performance](docs/images/node_performance.png)
+*Consistent sub-10ms latency across all nodes*
+
+#### Connection Statistics
+![Connection Statistics](docs/images/connection_statistics.png)
+*Network health and load distribution*
+
+#### Message Latency Distribution
+![Latency Distribution](docs/images/latency_distribution.png)
+*95% of messages under 8ms response time*
+
+</div>
+
+**Key Metrics:**
+```
+Network Scale:       20 distributed nodes
+Total Connections:   108 P2P links
+Network Diameter:    5 hops maximum
+Average Path:        2.38 hops
+Connection Success:  >99% reliability
+```
+
+---
+
+## Testing
+
+### Run Unit Tests
 ```bash
-# Multi-node network testing
-cd test-nodes
-chmod +x *.sh
-
-# Quick test: 10 nodes with real-time monitoring
-./start-multi-nodes.sh 10
-./monitor-nodes.sh
-
-# Professional benchmark: Full test suite
-./benchmark-network.sh
-
-# Advanced analysis with Python tools
-python3 analyze-network-performance.py --logs-dir logs
-```
-
-## 🧪 Testing & Performance
-
-XDAGJ-P2P delivers **production-ready performance** with comprehensive benchmarking achieving million+ ops/sec across all operations.
-
-### 🧪 **Test Suite Overview**
-
-- **518 Unit Tests**: Comprehensive coverage with 71% code coverage
-- **Integration Tests**: End-to-end network scenarios  
-- **Performance Tests**: Real-world benchmarks with million+ ops/sec
-- **Stress Tests**: High-load and failure scenarios
-- **🎯 Professional P2P Testing Suite**: Enterprise-level network testing tools
-
-### 📊 **Test Coverage Statistics**
-
-```
-📈 Coverage Metrics (Latest Report):
-  Code Lines:      71% (9,508 / 13,368 lines)
-  Branches:        58% (721 / 1,227 branches)
-  Methods:         85.7% (568 / 663 methods)
-  Classes:         98.7% (77 / 78 classes)
-  
-🚀 Test Execution:
-  Total Tests:     518 test cases
-  Success Rate:    100% pass rate
-  Execution Time:  ~40.7 seconds
-  Stability:       Zero flaky tests
-
-🎯 Module Coverage Highlights:
-  Core Messaging:  96% (message.discover.kad)
-  Configuration:   94% (config)
-  Utilities:       91% (utils)
-  Node Discovery:  89% (discover)
-  Channel Mgmt:    78% (channel)
-```
-
-### 🎯 **Professional Network Testing**
-
-XDAGJ-P2P includes a comprehensive **professional testing suite** for enterprise-grade P2P network evaluation:
-
-```bash
-# Quick functional testing (10 nodes)
-cd test-nodes
-./start-multi-nodes.sh 10
-./monitor-nodes.sh
-
-# Professional benchmark testing (5-30 nodes)
-./benchmark-network.sh --nodes 5,10,20,30 --duration 300
-
-# Stress testing (30 nodes, 10 minutes)
-./benchmark-network.sh --type stress --nodes 30 --duration 600
-
-# Deep performance analysis
-python3 analyze-network-performance.py --logs-dir logs
-```
-
-**🚀 Professional Test Capabilities:**
-- **17 Message Types**: Comprehensive test coverage (latency, throughput, stability, topology analysis)
-- **High-Intensity Testing**: 1500-2000 messages/minute per 20-node network
-- **Multi-Scale Benchmarks**: Automated 5-30 node scaling tests
-- **Real-Time Monitoring**: Live performance metrics and network topology
-- **Professional Reports**: Automated analysis with visualizations and CSV export
-
-**📊 Stress Test Results (20-node network):**
-```
-Message Throughput:    1400+ messages/node (5 minutes)
-Network Latency:       1-8ms average
-Forward Efficiency:    72-82% message forwarding
-Network Stability:     Long-term stable operation
-Scalability:          Tested up to 30 nodes
-```
-
-### 📊 **Performance Benchmark Results**
-
-Latest performance test results (Apple M-series, Java 21):
-
-```
-📨 P2P Message Processing:
-⚡ HelloMessage Creation:     1,323,399 ops/sec
-⚡ PingMessage Creation:      7,521,059 ops/sec  
-⚡ PongMessage Creation:      7,963,686 ops/sec
-
-🔗 Network I/O Performance:
-⚡ HelloMessage Pipeline:       826,556 ops/sec
-⚡ PingMessage Pipeline:      1,997,124 ops/sec
-
-📦 Serialization Performance:
-⚡ HelloMessage Encoding:     4,576,701 ops/sec
-⚡ PingMessage Encoding:     21,863,658 ops/sec
-⚡ StatusMessage Encoding:    5,002,451 ops/sec
-
-🚀 Data Access Performance:
-⚡ HelloMessage Access:      98,661,168 ops/sec
-⚡ PingMessage Access:      206,509,169 ops/sec
-
-🔄 Concurrent Processing:
-⚡ 1 Thread:                 10,560,130 ops/sec
-⚡ 2 Threads:                15,631,619 ops/sec
-⚡ 4 Threads:                18,960,347 ops/sec (optimal)
-⚡ 8 Threads:                 8,190,847 ops/sec
-```
-
-### 🏃 **Running Tests**
-
-```bash
-# Unit and integration tests (518 test cases)
+# All 859 tests
 mvn test
 
 # Generate coverage report
 mvn clean test jacoco:report
+open target/site/jacoco/index.html
+```
 
-# Performance benchmarks
-mvn test -Dtest=P2pPerformanceTest
-
-# Professional P2P network testing
+### Professional Network Testing
+```bash
 cd test-nodes
-chmod +x *.sh
 
-# Basic network test (recommended)
-./start-multi-nodes.sh 10       # Start 10 nodes
-./monitor-nodes.sh              # Monitor performance
-./stop-nodes.sh                 # Clean shutdown
+# Quick test: 6 nodes
+./start-p2p-network.sh 6
+./monitor-nodes.sh
 
-# Comprehensive benchmark suite
-./benchmark-network.sh           # Full benchmark (5-30 nodes)
-./benchmark-network.sh --help    # See all options
-
-# Network analysis (requires Python 3.7+)
-pip3 install matplotlib pandas networkx
+# Stress test: 20 nodes
+./start-p2p-network.sh 20
+sleep 300
 python3 analyze-network-performance.py --logs-dir logs
+
+# Stop all nodes
+./stop-nodes.sh
 ```
 
-### 📊 **Testing Tools Overview**
+**Test Capabilities:**
+- 17 message types for comprehensive coverage
+- Automated 5-30 node scaling tests
+- Real-time monitoring and visualization
+- Professional reports with CSV export
 
-#### 🔧 **Core Testing Scripts**
-- `start-multi-nodes.sh`: Launch multiple P2P nodes (5-30 nodes)
-- `monitor-nodes.sh`: Real-time network monitoring and statistics
-- `benchmark-network.sh`: Professional benchmark testing suite
-- `analyze-network-performance.py`: Advanced Python data analysis tool
+**See [test-nodes/README.md](test-nodes/README.md) for detailed testing guide.**
 
-#### 🎯 **Test Message Types**
-```
-Basic Tests:        latency_test, throughput_test, coverage_test
-Pressure Tests:     burst_test, pressure_test, size_test
-Stability Tests:    stability_test, reliability_test, resilience_test
-Analysis Tests:     topology_scan, benchmark_test, route_efficiency
-Advanced Tests:     route_discovery, congestion_test, endurance_test
-```
+---
 
-#### 📈 **Analysis Outputs**
-- **Network Topology Graphs**: Visual network structure analysis
-- **Performance Reports**: Comprehensive Markdown reports with metrics
-- **CSV Data Export**: Raw data for external analysis tools
-- **Real-time Dashboards**: Live monitoring with connection stats
+## Use Cases
 
-### 📊 **Performance Reports**
+### XDAG Blockchain Network
+- Peer discovery for XDAG blockchain nodes
+- Block and transaction propagation
+- Consensus mechanism communication
+- Enhanced network connectivity and decentralization
 
-After running tests, you can view detailed results:
+### General Purpose
+- Blockchain networks (universal P2P solution)
+- Distributed systems (service discovery, data replication)
+- IoT networks (self-organizing mesh networks)
 
-- **📈 Console Output**: Real-time performance data with TPS metrics
-- **📄 Test Reports**: Detailed logs in `target/surefire-reports/`
-- **🎯 Professional Reports**: Network analysis in `benchmark_results/`
-- **📊 Visualizations**: Network topology and performance charts
-- **🔍 Coverage Reports**: JaCoCo HTML reports in `target/site/jacoco/`
+---
+
+## Node Discovery
+
+XDAGJ-P2P uses **Kademlia DHT** for fully decentralized peer-to-peer discovery.
+
+### Current Method (v0.1.3)
 
 ```bash
-# View unit test output (518 tests)
-mvn test
-
-# Generate and view coverage report  
-mvn clean test jacoco:report
-open target/site/jacoco/index.html
-
-# Run specific optimized tests
-cat target/surefire-reports/io.xdag.p2p.performance.P2pPerformanceTest-output.txt
-
-# View network benchmark results
-ls -la test-nodes/benchmark_results/
-cat test-nodes/benchmark_results/*/BENCHMARK_REPORT.md
+# Start node with seed nodes
+java -jar xdagj-p2p-0.1.3.jar \
+  -p 16783 \
+  -s <SEED_NODE_IP_1>:16783,<SEED_NODE_IP_2>:16783
 ```
 
-## 📄 License
+**How it works:**
+1. Connect to seed nodes via TCP
+2. Exchange UDP PING/PONG for liveness detection
+3. Recursive peer discovery via FIND_NODE/NEIGHBORS
+4. Build network topology with 160-bit Node IDs
+5. Maintain routing table with active nodes
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+**Advantages:**
+- Fully decentralized (no central authority)
+- Self-organizing network topology
+- No single point of failure
+- Real-time node discovery
 
-## 🤝 Contributing
+### Configuration Examples
+
+**Production (24/7 nodes):**
+```bash
+java -jar xdagj-p2p-0.1.3.jar \
+  -p 16783 \
+  -s <SEED_NODE_IP_1>:16783,<SEED_NODE_IP_2>:16783,<SEED_NODE_IP_3>:16783
+```
+
+**Development/Testing:**
+```bash
+java -jar xdagj-p2p-0.1.3.jar \
+  -p 16783 \
+  -s 127.0.0.1:10000,192.168.1.100:16783
+```
+
+**Private Networks:**
+```bash
+java -jar xdagj-p2p-0.1.3.jar \
+  -p 16783 \
+  -s 10.0.1.10:16783,10.0.1.11:16783
+```
+
+**See [docs/NODE_DISCOVERY.md](docs/NODE_DISCOVERY.md) for technical details, best practices, and future DNS discovery plans.**
+
+---
+
+## Documentation
+
+- **[User Guide](docs/USER_GUIDE.md)** - Complete usage guide
+- **[Examples](docs/EXAMPLES.md)** - Code examples and use cases
+- **[Node Discovery](docs/NODE_DISCOVERY.md)** - Discovery mechanisms and configuration
+- **[DNS Configuration](docs/DNS_CONFIGURATION.md)** - EIP-1459 DNS discovery setup with AWS Route53
+- **[Reputation System](docs/REPUTATION.md)** - Node credit scoring and persistence
+- **[Performance](docs/PERFORMANCE.md)** - Benchmark methodology and results
+- **[Roadmap](docs/ROADMAP.md)** - Development roadmap and planned features
+- **[Migration Guide](NODE_ID_MIGRATION_PLAN.md)** - 520-bit to 160-bit migration
+- **[Testing Guide](test-nodes/README.md)** - Professional network testing
+- **[Change Log](CHANGELOG.md)** - Version history
+
+---
+
+## Contributing
 
 We welcome contributions! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
 
-## 📞 Support
+### Development
+```bash
+# Build
+mvn clean package
+
+# Run tests
+mvn test
+
+# Run coverage
+mvn clean test jacoco:report
+```
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## Support
 
 - **GitHub Issues**: [Report bugs or request features](https://github.com/XDagger/xdagj-p2p/issues)
-- **Documentation**: [Complete user guide](docs/USER_GUIDE.md)
-- **Examples**: [Sample implementations](docs/EXAMPLES.md)
+- **XDAG Community**: Join the XDAG network community for discussions
+- **Documentation**: See [docs/](docs/) for comprehensive guides
+
+---
+
+**Status:** v0.1.3 Production-Ready | **Tests:** 859 passing | **Coverage:** 76%

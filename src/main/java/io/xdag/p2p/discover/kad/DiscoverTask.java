@@ -25,13 +25,13 @@ package io.xdag.p2p.discover.kad;
 
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.discover.kad.table.KademliaOptions;
-import io.xdag.p2p.utils.NetUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 import org.apache.tuweni.bytes.Bytes;
 
@@ -40,7 +40,7 @@ public class DiscoverTask {
 
   private final ScheduledExecutorService discoverer =
       Executors.newSingleThreadScheduledExecutor(
-          new BasicThreadFactory.Builder().namingPattern("discover-task").build());
+          BasicThreadFactory.builder().namingPattern("discover-task").build());
 
   private final KadService kadService;
 
@@ -55,13 +55,7 @@ public class DiscoverTask {
     discoverer.scheduleWithFixedDelay(
         () -> {
           try {
-            loopNum++;
-            if (loopNum % KademliaOptions.MAX_LOOP_NUM == 0) {
-              loopNum = 0;
-              nodeId = Bytes.wrap(kadService.getPublicHomeNode().getId());
-            } else {
-              nodeId = Bytes.wrap(NetUtils.getNodeId());
-            }
+            nodeId = nextTargetId();
             discover(nodeId, 0, new ArrayList<>());
           } catch (Exception e) {
             log.error("DiscoverTask fails to be executed", e);
@@ -70,7 +64,19 @@ public class DiscoverTask {
         1,
         KademliaOptions.DISCOVER_CYCLE,
         TimeUnit.MILLISECONDS);
-    log.debug("DiscoverTask started");
+    log.info("DiscoverTask initialized and scheduled with {}ms interval", KademliaOptions.DISCOVER_CYCLE);
+  }
+
+  Bytes nextTargetId() {
+    loopNum++;
+    if (loopNum % KademliaOptions.MAX_LOOP_NUM == 0) {
+      loopNum = 0;
+      String idHex = kadService.getPublicHomeNode().getId();
+      return StringUtils.isNotEmpty(idHex)
+          ? Bytes.fromHexStringLenient(idHex)
+          : Bytes.random(20);  // 20 bytes = 160 bits (Kademlia standard)
+    }
+    return Bytes.random(20);  // 20 bytes = 160 bits (Kademlia standard)
   }
 
   private void discover(Bytes nodeId, int round, List<Node> prevTriedNodes) {

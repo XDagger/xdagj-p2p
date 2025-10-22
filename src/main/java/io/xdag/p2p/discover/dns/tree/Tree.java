@@ -23,17 +23,18 @@
  */
 package io.xdag.p2p.discover.dns.tree;
 
-import com.google.protobuf.InvalidProtocolBufferException;
+import io.xdag.crypto.hash.HashUtils;
+import io.xdag.crypto.keys.ECKeyPair;
+import io.xdag.crypto.keys.PublicKey;
+import io.xdag.crypto.keys.Signature;
+import io.xdag.crypto.keys.Signer;
 import io.xdag.p2p.DnsException;
 import io.xdag.p2p.DnsException.TypeEnum;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.dns.DnsNode;
-import io.xdag.p2p.discover.dns.update.AliClient;
 import io.xdag.p2p.utils.BytesUtils;
-import io.xdag.p2p.utils.CryptoUtils;
-import java.math.BigInteger;
+import io.xdag.p2p.utils.EncodeUtils;
 import java.net.UnknownHostException;
-import java.security.SignatureException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -45,6 +46,7 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.tuweni.bytes.Bytes;
+import org.apache.tuweni.bytes.Bytes32;
 
 @Getter
 @Setter
@@ -76,7 +78,7 @@ public class Tree {
     if (leafs.size() <= MaxChildren) {
       String[] children = new String[leafs.size()];
       for (int i = 0; i < leafs.size(); i++) {
-        String subDomain = CryptoUtils.encode32AndTruncate(leafs.get(i).toString());
+        String subDomain = EncodeUtils.encode32AndTruncate(leafs.get(i).toString());
         children[i] = subDomain;
         this.entries.put(subDomain, leafs.get(i));
       }
@@ -93,7 +95,7 @@ public class Tree {
       leafs = leafs.subList(n, total);
       subtrees.add(branch);
 
-      String subDomain = CryptoUtils.encode32AndTruncate(branch.toString());
+      String subDomain = EncodeUtils.encode32AndTruncate(branch.toString());
       this.entries.put(subDomain, branch);
     }
     return build(subtrees);
@@ -103,7 +105,7 @@ public class Tree {
       throws DnsException {
     List<Entry> nodesEntryList = new ArrayList<>();
     for (String enr : enrs) {
-      nodesEntryList.add(NodesEntry.parseEntry(p2pConfig, enr));
+      nodesEntryList.add(NodesEntry.parseEntry(enr));
     }
 
     List<Entry> linkEntryList = new ArrayList<>();
@@ -114,11 +116,11 @@ public class Tree {
     init();
 
     Entry eRoot = build(nodesEntryList);
-    String eRootStr = CryptoUtils.encode32AndTruncate(eRoot.toString());
+    String eRootStr = EncodeUtils.encode32AndTruncate(eRoot.toString());
     entries.put(eRootStr, eRoot);
 
     Entry lRoot = build(linkEntryList);
-    String lRootStr = CryptoUtils.encode32AndTruncate(lRoot.toString());
+    String lRootStr = EncodeUtils.encode32AndTruncate(lRoot.toString());
     entries.put(lRootStr, lRoot);
 
     setRootEntry(new RootEntry(eRootStr, lRootStr, seq));
@@ -133,28 +135,22 @@ public class Tree {
     if (StringUtils.isEmpty(privateKey)) {
       return;
     }
-    Bytes sig =
-        CryptoUtils.sigData(rootEntry.toString(), privateKey); // message don't include prefix
-    rootEntry.setSignature(sig);
 
-    BigInteger publicKeyInt =
-        CryptoUtils.generateKeyPair(privateKey).getPublicKey().getEncodedBytes().toBigInteger();
-    String unCompressPublicKey = BytesUtils.toHexString(Bytes.wrap(publicKeyInt.toByteArray()));
+    ECKeyPair keyPair = ECKeyPair.fromHex(privateKey);
+    Bytes32 hash = HashUtils.sha256(BytesUtils.fromString(rootEntry.toString()));
+    Signature sig = Signer.sign(hash, keyPair);
+    PublicKey pubkey = keyPair.getPublicKey();
+
+    rootEntry.setSignature(sig.encodedBytes());
 
     // verify ourselves
-    boolean verified;
-    try {
-      verified =
-          CryptoUtils.verifySignature(
-              unCompressPublicKey, rootEntry.toString(), rootEntry.getSignature());
-    } catch (SignatureException e) {
-      throw new DnsException(TypeEnum.INVALID_SIGNATURE, e);
-    }
+    boolean verified = Signer.verify(hash, sig, pubkey);
     if (!verified) {
       throw new DnsException(TypeEnum.INVALID_SIGNATURE, "");
     }
-    String hexPub = CryptoUtils.compressPubKey(publicKeyInt);
-    this.base32PublicKey = CryptoUtils.encode32(Bytes.fromHexString(hexPub));
+
+    String hexPub = pubkey.toUnprefixedHex();
+    this.base32PublicKey = EncodeUtils.encode32(Bytes.fromHexString(hexPub));
   }
 
   public static List<String> merge(List<DnsNode> nodes, int maxMergeSize) {
@@ -181,8 +177,6 @@ public class Tree {
     Map<String, String> dnsRecords = new HashMap<>();
     if (StringUtils.isNoneEmpty(rootDomain)) {
       dnsRecords.put(rootDomain, rootEntry.toFormat());
-    } else {
-      dnsRecords.put(AliClient.aliyunRoot, rootEntry.toFormat());
     }
     for (Map.Entry<String, Entry> item : entries.entrySet()) {
       String hash = item.getKey();
@@ -246,7 +240,7 @@ public class Tree {
     return nodesMap;
   }
 
-  /** get nodes from entries dynamically. when sync first time, entries change as time */
+  /** get nodes from entries dynamically. when sync-first time, entries change as time */
   public List<DnsNode> getDnsNodes() {
     List<String> nodesEntryList = getNodesEntry();
     List<DnsNode> nodes = new ArrayList<>();
@@ -254,8 +248,8 @@ public class Tree {
       String joinStr = nodesEntry.substring(Entry.nodesPrefix.length());
       List<DnsNode> subNodes;
       try {
-        subNodes = DnsNode.decompress(p2pConfig, joinStr);
-      } catch (InvalidProtocolBufferException | UnknownHostException e) {
+        subNodes = DnsNode.decompress(joinStr);
+      } catch (UnknownHostException e) {
         log.error("", e);
         continue;
       }

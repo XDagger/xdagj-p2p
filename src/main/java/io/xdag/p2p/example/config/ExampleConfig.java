@@ -41,26 +41,20 @@ public class ExampleConfig {
 
   // Default values
   private static final int DEFAULT_PORT = 16783;
-  private static final int DEFAULT_NETWORK_ID = 11111;
+  private static final byte DEFAULT_NETWORK_ID = (byte) 2;
   private static final int DEFAULT_MIN_CONNECTIONS = 8;
-  private static final int DEFAULT_MIN_ACTIVE_CONNECTIONS = 2;
   private static final int DEFAULT_MAX_CONNECTIONS = 30;
-  private static final int DEFAULT_MAX_CONNECTIONS_SAME_IP = 2;
 
   // Basic P2P configuration
   @Builder.Default private int port = DEFAULT_PORT;
 
-  @Builder.Default private int networkId = DEFAULT_NETWORK_ID;
+  @Builder.Default private byte networkId = DEFAULT_NETWORK_ID;
 
   @Builder.Default private boolean discoverEnable = true;
 
   @Builder.Default private int minConnections = DEFAULT_MIN_CONNECTIONS;
 
-  @Builder.Default private int minActiveConnections = DEFAULT_MIN_ACTIVE_CONNECTIONS;
-
   @Builder.Default private int maxConnections = DEFAULT_MAX_CONNECTIONS;
-
-  @Builder.Default private int maxConnectionsWithSameIp = DEFAULT_MAX_CONNECTIONS_SAME_IP;
 
   // Node lists
   private List<InetSocketAddress> seedNodes;
@@ -115,9 +109,7 @@ public class ExampleConfig {
     config.setNetworkId(networkId);
     config.setDiscoverEnable(discoverEnable);
     config.setMinConnections(minConnections);
-    config.setMinActiveConnections(minActiveConnections);
     config.setMaxConnections(maxConnections);
-    config.setMaxConnectionsWithSameIp(maxConnectionsWithSameIp);
 
     if (seedNodes != null) {
       config.setSeedNodes(seedNodes);
