@@ -86,7 +86,7 @@ public class BytesUtilsTest {
   @Test
   public void testToHexStringBytes() {
     Bytes bytes = Bytes.fromHexString("0x1234abcd");
-    String result = bytes.toUnprefixedHexString(); // 直接调用Bytes的方法避免歧义
+    String result = bytes.toUnprefixedHexString(); // Directly call Bytes method to avoid ambiguity
 
     assertEquals("1234abcd", result);
   }

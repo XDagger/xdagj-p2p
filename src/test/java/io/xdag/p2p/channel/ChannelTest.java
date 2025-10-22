@@ -423,4 +423,66 @@ class ChannelTest {
     // Test that startTime is set in constructor
     assertTrue(channel.getStartTime() > 0);
   }
+
+  @Test
+  void testCloseWithoutBan() {
+    // Given
+    channel.setChannelHandlerContext(ctx);
+    assertFalse(channel.isDisconnect());
+
+    // When
+    channel.closeWithoutBan();
+
+    // Then
+    assertTrue(channel.isDisconnect());
+    assertTrue(channel.getDisconnectTime() > 0);
+    verify(ctx).close();
+  }
+
+  @Test
+  void testGetRemoteAddress() {
+    // Given
+    channel.setChannelHandlerContext(ctx);
+
+    // When
+    InetSocketAddress result = channel.getRemoteAddress();
+
+    // Then
+    assertNotNull(result);
+    assertEquals(testAddress, result);
+  }
+
+  @Test
+  void testSendBytesWithFailedFuture() {
+    // Given
+    channel.setChannelHandlerContext(ctx);
+    when(channelFuture.isSuccess()).thenReturn(false);
+    when(channelFuture.cause()).thenReturn(new RuntimeException("Send failed"));
+
+    Bytes testData = Bytes.wrap(new byte[]{0x01, 0x02, 0x03});
+
+    // When
+    channel.send(testData);
+
+    // Then
+    verify(nettyChannel).writeAndFlush(any());
+  }
+
+  @Test
+  void testFinishHandshakeFlag() {
+    // Test finishHandshake flag
+    assertFalse(channel.isFinishHandshake());
+
+    channel.setFinishHandshake(true);
+    assertTrue(channel.isFinishHandshake());
+  }
+
+  @Test
+  void testDiscoveryModeFlag() {
+    // Test discovery mode flag
+    assertFalse(channel.isDiscoveryMode());
+
+    channel.setDiscoveryMode(true);
+    assertTrue(channel.isDiscoveryMode());
+  }
 }

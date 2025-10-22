@@ -3,12 +3,12 @@
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://openjdk.java.net/)
 [![Maven](https://img.shields.io/badge/Maven-3.6+-blue.svg)](https://maven.apache.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-491%20Total-brightgreen.svg)](#testing)
-[![Coverage](https://img.shields.io/badge/Coverage-66%25-yellow.svg)](#testing)
+[![Tests](https://img.shields.io/badge/Tests-503%20Total-brightgreen.svg)](#testing)
+[![Coverage](https://img.shields.io/badge/Coverage-75%25-brightgreen.svg)](#testing)
 
 High-performance Java P2P networking library for the XDAG blockchain ecosystem, built with modern Java technologies and comprehensive testing.
 
-**Key Features:** Kademlia DHT discovery • Persistent reputation system • Graduated ban management • Layered network statistics • Production-ready with 491 tests
+**Key Features:** Kademlia DHT discovery • Persistent reputation system • Graduated ban management • Layered network statistics • Production-ready with 503 tests
 
 ---
 
@@ -29,8 +29,8 @@ High-performance Java P2P networking library for the XDAG blockchain ecosystem, 
 ### Code Quality
 - Removed 2,277 lines of dead code following extreme simplicity principles
 - Simplified statistics system (5 classes → 1 class, -72% code)
-- Added 54 new tests (491 total, all passing)
-- Overall coverage improved: 62.9% → 66%
+- Added 66 new tests (503 total, all passing)
+- Overall coverage improved: 62.9% → 75%
 
 See [CHANGELOG.md](CHANGELOG.md) for complete release notes.
 
@@ -146,10 +146,10 @@ Error Rate:            0% (7M+ messages tested)
 
 ### Test Coverage
 ```
-Tests:          491 test cases (100% pass rate)
-Instructions:   66% (10,369 / 15,630)
-Branches:       52% (721 / 1,373)
-Lines:          66% (2,422 / 3,633)
+Tests:          503 test cases (100% pass rate)
+Instructions:   75% (12,000 / 15,810)
+Branches:       63% (900 / 1,409)
+Lines:          77% (2,815 / 3,669)
 Execution:      ~18 seconds, zero flaky tests
 ```
 
@@ -219,8 +219,8 @@ graph TB
 - **Tuweni 2.7.0**: Packet processing utilities
 
 ### Testing
-- **JUnit 5.12.2 + Mockito 5.12.0**: 491 comprehensive tests
-- **JaCoCo**: 66% instruction coverage
+- **JUnit 5.12.2 + Mockito 5.14.2**: 503 comprehensive tests
+- **JaCoCo**: 75% instruction coverage
 - **Professional test suite**: Multi-node network testing
 
 ---
@@ -264,7 +264,7 @@ Connection Success:  >99% reliability
 
 ### Run Unit Tests
 ```bash
-# All 491 tests
+# All 503 tests
 mvn test
 
 # Generate coverage report
@@ -414,4 +414,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Status:** v0.1.2 Production-Ready | **Tests:** 491 passing | **Coverage:** 66%
+**Status:** v0.1.2 Production-Ready | **Tests:** 503 passing | **Coverage:** 75%

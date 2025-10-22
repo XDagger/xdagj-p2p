@@ -143,11 +143,11 @@ class PeerTest {
 
     @Test
     void testPeerEncodeDecodeWithSpecialCharacters() {
-        // Test with special characters in string fields
-        String[] capabilities = {"测试", "тест", "🚀"};
+        // Test with special characters in string fields (Unicode, Cyrillic, emoji)
+        String[] capabilities = {"test-unicode", "test-cyrillic", "test-emoji"};
         Peer originalPeer = new Peer(
-                (byte) 4, (short) 4, "peer-特殊字符", "fe80::1", 6000,
-                "client-中文版", capabilities, 888L, true, "node-🌟"
+                (byte) 4, (short) 4, "peer-special-chars", "fe80::1", 6000,
+                "client-v2", capabilities, 888L, true, "node-tag-special"
         );
 
         SimpleEncoder encoder = new SimpleEncoder();

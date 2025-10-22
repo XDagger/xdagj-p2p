@@ -146,4 +146,351 @@ class HandshakeHandlerTest {
         assertNull(serverChannel.pipeline().get(HandshakeHandler.class),
                    "Server HandshakeHandler should be removed after handshake");
     }
+
+    // ==================== Test invalid INIT message ====================
+
+    @Test
+    void testInvalidInitMessage() {
+        // Given - server-side handler
+        HandshakeHandler handler = new HandshakeHandler(serverConfig, channelManager, serverKey, false);
+        EmbeddedChannel ch = new EmbeddedChannel(handler);
+
+        // When - send invalid INIT message (empty body)
+        XdagFrame invalidInitFrame = new XdagFrame(
+            XdagFrame.VERSION,
+            XdagFrame.COMPRESS_NONE,
+            MessageCode.HANDSHAKE_INIT.toByte(),
+            0,
+            0,
+            0,
+            new byte[0]
+        );
+        ch.writeInbound(invalidInitFrame);
+
+        // Then - channel should be closed, no HELLO response
+        assertNull(ch.readOutbound(), "Should not send HELLO for invalid INIT");
+    }
+
+    // ==================== Test client receives INIT message ====================
+
+    @Test
+    void testClientReceivesInitMessage() {
+        // Given - client handler (isOutbound = true)
+        HandshakeHandler handler = new HandshakeHandler(clientConfig, channelManager, clientKey, true);
+        EmbeddedChannel ch = new EmbeddedChannel(handler);
+
+        // Clear initial INIT message
+        ch.readOutbound();
+
+        // When - client receives INIT message (should not happen)
+        InitMessage init = new InitMessage(new byte[32], System.currentTimeMillis());
+        XdagFrame initFrame = new XdagFrame(
+            XdagFrame.VERSION,
+            XdagFrame.COMPRESS_NONE,
+            init.getCode().toByte(),
+            0,
+            init.getBody().length,
+            init.getBody().length,
+            init.getBody()
+        );
+        ch.writeInbound(initFrame);
+
+        // Then - should ignore, no response
+        assertNull(ch.readOutbound(), "Client should ignore INIT message");
+    }
+
+    // ==================== Test server receives HELLO message ====================
+
+    @Test
+    void testServerReceivesHelloMessage() {
+        // Given - server-side handler (isOutbound = false)
+        HandshakeHandler handler = new HandshakeHandler(serverConfig, channelManager, serverKey, false);
+        EmbeddedChannel ch = new EmbeddedChannel(handler);
+
+        // When - server receives HELLO message (should not happen)
+        byte[] secret = new byte[32];
+        SECURE_RANDOM.nextBytes(secret);
+        io.xdag.p2p.message.node.HelloMessage hello = new io.xdag.p2p.message.node.HelloMessage(
+            (byte)1, (short)1, "peerId", 8080, "client", new String[]{"xdag/1"}, 0, secret, clientKey, false, "test"
+        );
+        XdagFrame helloFrame = new XdagFrame(
+            XdagFrame.VERSION,
+            XdagFrame.COMPRESS_NONE,
+            hello.getCode().toByte(),
+            0,
+            hello.getBody().length,
+            hello.getBody().length,
+            hello.getBody()
+        );
+        ch.writeInbound(helloFrame);
+
+        // Then - should ignore, no response
+        assertNull(ch.readOutbound(), "Server should ignore HELLO message");
+    }
+
+    // ==================== Test client receives WORLD message ====================
+
+    @Test
+    void testClientReceivesWorldMessage() {
+        // Given - client handler (isOutbound = true)
+        HandshakeHandler handler = new HandshakeHandler(clientConfig, channelManager, clientKey, true);
+        EmbeddedChannel ch = new EmbeddedChannel(handler);
+
+        // Clear initial INIT message
+        ch.readOutbound();
+
+        // When - client receives WORLD message (should not happen)
+        byte[] secret = new byte[32];
+        SECURE_RANDOM.nextBytes(secret);
+        io.xdag.p2p.message.node.WorldMessage world = new io.xdag.p2p.message.node.WorldMessage(
+            (byte)1, (short)1, "peerId", 8080, "client", new String[]{"xdag/1"}, 0, secret, serverKey, false, "test"
+        );
+        XdagFrame worldFrame = new XdagFrame(
+            XdagFrame.VERSION,
+            XdagFrame.COMPRESS_NONE,
+            world.getCode().toByte(),
+            0,
+            world.getBody().length,
+            world.getBody().length,
+            world.getBody()
+        );
+        ch.writeInbound(worldFrame);
+
+        // Then - should ignore, no response
+        assertNull(ch.readOutbound(), "Client should ignore WORLD message");
+    }
+
+    // ==================== Test HELLO message with mismatched secret ====================
+
+    @Test
+    void testHelloMessageWithMismatchedSecret() {
+        // Given - setup client channel and send INIT
+        HandshakeHandler clientHandler = new HandshakeHandler(clientConfig, channelManager, clientKey, true);
+        EmbeddedChannel clientChannel = new EmbeddedChannel(clientHandler);
+
+        XdagFrame initFrame = clientChannel.readOutbound();
+        assertNotNull(initFrame);
+
+        // When - server sends HELLO but secret mismatches
+        byte[] wrongSecret = new byte[32];
+        SECURE_RANDOM.nextBytes(wrongSecret);
+        io.xdag.p2p.message.node.HelloMessage hello = new io.xdag.p2p.message.node.HelloMessage(
+            (byte)1, (short)1, "peerId", 8080, "client", new String[]{"xdag/1"}, 0, wrongSecret, serverKey, false, "test"
+        );
+        XdagFrame helloFrame = new XdagFrame(
+            XdagFrame.VERSION,
+            XdagFrame.COMPRESS_NONE,
+            hello.getCode().toByte(),
+            0,
+            hello.getBody().length,
+            hello.getBody().length,
+            hello.getBody()
+        );
+        clientChannel.writeInbound(helloFrame);
+
+        // Then - should close connection, no WORLD sent
+        assertNull(clientChannel.readOutbound(), "Should not send WORLD for mismatched secret");
+    }
+
+    // ==================== Test WORLD message with mismatched secret ====================
+
+    @Test
+    void testWorldMessageWithMismatchedSecret() {
+        // Given - setup server channel
+        HandshakeHandler serverHandler = new HandshakeHandler(serverConfig, channelManager, serverKey, false);
+        EmbeddedChannel serverChannel = new EmbeddedChannel(serverHandler);
+
+        // Server receives INIT and sends HELLO
+        byte[] secret = new byte[32];
+        SECURE_RANDOM.nextBytes(secret);
+        InitMessage init = new InitMessage(secret, System.currentTimeMillis());
+        XdagFrame initFrame = new XdagFrame(
+            XdagFrame.VERSION,
+            XdagFrame.COMPRESS_NONE,
+            init.getCode().toByte(),
+            0,
+            init.getBody().length,
+            init.getBody().length,
+            init.getBody()
+        );
+        serverChannel.writeInbound(initFrame);
+        XdagFrame helloFrame = serverChannel.readOutbound();
+        assertNotNull(helloFrame);
+
+        // When - client sends WORLD but secret mismatches
+        byte[] wrongSecret = new byte[32];
+        SECURE_RANDOM.nextBytes(wrongSecret);
+        io.xdag.p2p.message.node.WorldMessage world = new io.xdag.p2p.message.node.WorldMessage(
+            (byte)1, (short)1, "peerId", 8080, "client", new String[]{"xdag/1"}, 0, wrongSecret, clientKey, false, "test"
+        );
+        XdagFrame worldFrame = new XdagFrame(
+            XdagFrame.VERSION,
+            XdagFrame.COMPRESS_NONE,
+            world.getCode().toByte(),
+            0,
+            world.getBody().length,
+            world.getBody().length,
+            world.getBody()
+        );
+        serverChannel.writeInbound(worldFrame);
+
+        // Then - handshake should fail, connection closed
+        // Note: when validation fails, handler closes connection, EmbeddedChannel does not auto-remove handler
+        // We verify no further output messages
+        assertNull(serverChannel.readOutbound(), "Should not send further messages after failed validation");
+    }
+
+    // ==================== Test unknown message type ====================
+
+    @Test
+    void testUnknownMessageCode() {
+        // Given
+        HandshakeHandler handler = new HandshakeHandler(serverConfig, channelManager, serverKey, false);
+        EmbeddedChannel ch = new EmbeddedChannel(handler);
+
+        // When - send unknown message type (using PING message code)
+        XdagFrame unknownFrame = new XdagFrame(
+            XdagFrame.VERSION,
+            XdagFrame.COMPRESS_NONE,
+            MessageCode.PING.toByte(),
+            0,
+            0,
+            0,
+            new byte[0]
+        );
+        ch.writeInbound(unknownFrame);
+
+        // Then - should close connection
+        assertNull(ch.readOutbound(), "Should not send response for unknown message");
+    }
+
+    // ==================== Test non-XdagFrame message ====================
+
+    @Test
+    void testNonXdagFrameMessage() {
+        // Given
+        HandshakeHandler handler = new HandshakeHandler(serverConfig, channelManager, serverKey, false);
+        EmbeddedChannel ch = new EmbeddedChannel(handler);
+
+        // When - send non-XdagFrame message
+        String nonFrameMessage = "not a frame";
+        ch.writeInbound(nonFrameMessage);
+
+        // Then - message should be passed to next handler (fireChannelRead)
+        Object receivedMsg = ch.readInbound();
+        assertEquals(nonFrameMessage, receivedMsg, "Non-frame message should be passed through");
+    }
+
+    // ==================== Test message pass-through after handshake ====================
+
+    @Test
+    void testMessagePassThroughAfterHandshake() {
+        // Given - complete handshake
+        HandshakeHandler clientHandler = new HandshakeHandler(clientConfig, channelManager, clientKey, true);
+        EmbeddedChannel clientChannel = new EmbeddedChannel(clientHandler);
+
+        HandshakeHandler serverHandler = new HandshakeHandler(serverConfig, channelManager, serverKey, false);
+        EmbeddedChannel serverChannel = new EmbeddedChannel(serverHandler);
+
+        // Complete handshake flow
+        XdagFrame initFrame = clientChannel.readOutbound();
+        serverChannel.writeInbound(initFrame);
+        XdagFrame helloFrame = serverChannel.readOutbound();
+        clientChannel.writeInbound(helloFrame);
+        XdagFrame worldFrame = clientChannel.readOutbound();
+        serverChannel.writeInbound(worldFrame);
+
+        // When - send message after handshake complete
+        io.xdag.p2p.message.node.PingMessage ping = new io.xdag.p2p.message.node.PingMessage(new byte[4]);
+        XdagFrame pingFrame = new XdagFrame(
+            XdagFrame.VERSION,
+            XdagFrame.COMPRESS_NONE,
+            ping.getCode().toByte(),
+            0,
+            ping.getBody().length,
+            ping.getBody().length,
+            ping.getBody()
+        );
+        serverChannel.writeInbound(pingFrame);
+
+        // Then - message should be passed to business handler
+        // Since businessHandler is added to pipeline, it will handle this message
+        // EmbeddedChannel behavior: if no handler reads message, readInbound returns null
+        // This is normal, because businessHandler handled message but may not produce inbound data
+        // We verify handler is indeed removed
+        assertNull(serverChannel.pipeline().get(HandshakeHandler.class),
+                   "HandshakeHandler should be removed after successful handshake");
+    }
+
+    // ==================== Test handshake timeout ====================
+
+    @Test
+    void testHandshakeTimeout() throws InterruptedException {
+        // Given - set very short timeout
+        P2pConfig timeoutConfig = new P2pConfig();
+        timeoutConfig.setNetHandshakeExpiry(100L); // 100ms timeout
+        timeoutConfig.setNetworkId((byte)1);
+        timeoutConfig.setNetworkVersion((short)1);
+        timeoutConfig.setPort(8080);
+        timeoutConfig.setClientId("test-client");
+        timeoutConfig.setCapabilities(new String[]{"xdag/1"});
+
+        HandshakeHandler handler = new HandshakeHandler(timeoutConfig, channelManager, clientKey, true);
+        EmbeddedChannel ch = new EmbeddedChannel(handler);
+
+        // Clear initial INIT message
+        ch.readOutbound();
+
+        // When - wait for timeout
+        Thread.sleep(200);
+        ch.runScheduledPendingTasks(); // Trigger scheduled task
+
+        // Then - channel should be closed
+        assertNull(ch.readOutbound(), "No further messages after timeout");
+    }
+
+    // ==================== Test HELLO message with invalid network version ====================
+
+    @Test
+    void testHelloMessageWithInvalidNetworkVersion() {
+        // Given - client sends INIT
+        HandshakeHandler clientHandler = new HandshakeHandler(clientConfig, channelManager, clientKey, true);
+        EmbeddedChannel clientChannel = new EmbeddedChannel(clientHandler);
+
+        XdagFrame initFrame = clientChannel.readOutbound();
+        assertNotNull(initFrame);
+
+        // When - server sends HELLO but network version mismatches
+        byte[] secret = new byte[32];
+        // Extract secret from initFrame (need to parse InitMessage)
+        InitMessage parsedInit = new InitMessage(initFrame.getBody());
+        secret = parsedInit.getSecret();
+
+        io.xdag.p2p.message.node.HelloMessage hello = new io.xdag.p2p.message.node.HelloMessage(
+            (byte)99,  // Wrong network ID
+            (short)99, // Wrong network version
+            "peerId",
+            8080,
+            "client",
+            new String[]{"xdag/1"},
+            0,
+            secret,
+            serverKey,
+            false,
+            "test"
+        );
+        XdagFrame helloFrame = new XdagFrame(
+            XdagFrame.VERSION,
+            XdagFrame.COMPRESS_NONE,
+            hello.getCode().toByte(),
+            0,
+            hello.getBody().length,
+            hello.getBody().length,
+            hello.getBody()
+        );
+        clientChannel.writeInbound(helloFrame);
+
+        // Then - should close connection, no WORLD sent
+        assertNull(clientChannel.readOutbound(), "Should not send WORLD for invalid network version");
+    }
 }

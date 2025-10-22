@@ -81,4 +81,112 @@ class InitMessageTest {
         InitMessage invalidMsg3 = new InitMessage(validSecret, 0);
         assertFalse(invalidMsg3.validate());
     }
+
+    @Test
+    void testToString() {
+        // Given
+        byte[] secret = new byte[32];
+        new Random().nextBytes(secret);
+        long timestamp = System.currentTimeMillis();
+        InitMessage msg = new InitMessage(secret, timestamp);
+
+        // When
+        String str = msg.toString();
+
+        // Then
+        assertNotNull(str, "toString should not be null");
+        assertTrue(str.contains("InitMessage"), "toString should contain class name");
+        assertTrue(str.contains("secret="), "toString should contain secret field");
+        assertTrue(str.contains("timestamp="), "toString should contain timestamp field");
+        assertTrue(str.contains(String.valueOf(timestamp)), "toString should contain timestamp value");
+    }
+
+    @Test
+    void testEncodeMethod() {
+        // Given
+        byte[] secret = new byte[32];
+        new Random().nextBytes(secret);
+        long timestamp = System.currentTimeMillis();
+        InitMessage msg = new InitMessage(secret, timestamp);
+
+        // When
+        io.xdag.p2p.utils.SimpleEncoder enc = new io.xdag.p2p.utils.SimpleEncoder();
+        msg.encode(enc);
+        byte[] encoded = enc.toBytes();
+
+        // Then
+        assertNotNull(encoded, "Encoded bytes should not be null");
+        assertTrue(encoded.length >= 40, "Encoded bytes should contain secret (32 bytes) + timestamp (8 bytes)");
+
+        // Verify decode produces same values
+        InitMessage decoded = new InitMessage(encoded);
+        assertArrayEquals(secret, decoded.getSecret(), "Decoded secret should match");
+        assertEquals(timestamp, decoded.getTimestamp(), "Decoded timestamp should match");
+    }
+
+    @Test
+    void testBodyNotNull() {
+        // Given
+        byte[] secret = new byte[32];
+        new Random().nextBytes(secret);
+        InitMessage msg = new InitMessage(secret, System.currentTimeMillis());
+
+        // When
+        byte[] body = msg.getBody();
+
+        // Then
+        assertNotNull(body, "Message body should not be null");
+        assertTrue(body.length > 0, "Message body should not be empty");
+    }
+
+    @Test
+    void testSecretLength() {
+        // Verify SECRET_LENGTH constant
+        assertEquals(32, InitMessage.SECRET_LENGTH, "SECRET_LENGTH should be 32");
+    }
+
+    @Test
+    void testMessageCodeType() {
+        // Given
+        byte[] secret = new byte[32];
+        new Random().nextBytes(secret);
+        InitMessage msg = new InitMessage(secret, System.currentTimeMillis());
+
+        // When/Then
+        assertEquals(MessageCode.HANDSHAKE_INIT, msg.getType(), "Message type should be HANDSHAKE_INIT");
+    }
+
+    @Test
+    void testNegativeTimestamp() {
+        // Given
+        byte[] secret = new byte[32];
+        new Random().nextBytes(secret);
+        InitMessage msg = new InitMessage(secret, -1);
+
+        // When/Then
+        assertFalse(msg.validate(), "Validation should fail for negative timestamp");
+    }
+
+    @Test
+    void testEmptySecretArray() {
+        // Given
+        byte[] emptySecret = new byte[0];
+        InitMessage msg = new InitMessage(emptySecret, System.currentTimeMillis());
+
+        // When/Then
+        assertFalse(msg.validate(), "Validation should fail for empty secret");
+    }
+
+    @Test
+    void testLargeTimestamp() {
+        // Given
+        byte[] secret = new byte[32];
+        new Random().nextBytes(secret);
+        long largeTimestamp = Long.MAX_VALUE;
+        InitMessage msg = new InitMessage(secret, largeTimestamp);
+
+        // When/Then
+        assertTrue(msg.validate(), "Validation should pass for large valid timestamp");
+        assertEquals(largeTimestamp, msg.getTimestamp(), "Timestamp should be preserved");
+    }
 }

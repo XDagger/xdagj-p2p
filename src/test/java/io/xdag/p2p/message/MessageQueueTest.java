@@ -24,6 +24,7 @@
 
 package io.xdag.p2p.message;
 
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.xdag.p2p.channel.Channel;
 import io.xdag.p2p.config.P2pConfig;
@@ -65,6 +66,11 @@ class MessageQueueTest {
         MockitoAnnotations.openMocks(this);
         config = new P2pConfig();
         queue = new MessageQueue(config, channel);
+
+        // Configure mock to return ChannelFuture for writeAndFlush calls
+        ChannelFuture mockFuture = mock(ChannelFuture.class);
+        when(ctx.writeAndFlush(any())).thenReturn(mockFuture);
+        when(mockFuture.addListener(any())).thenReturn(mockFuture);
     }
 
     @Test
@@ -124,11 +130,341 @@ class MessageQueueTest {
         Thread.sleep(20);
 
         queue.deactivate();
-        
+
         Field timerField = MessageQueue.class.getDeclaredField("timerThread");
         timerField.setAccessible(true);
         Thread timerThread = (Thread) timerField.get(queue);
         assertTrue(timerThread.isInterrupted());
+    }
+
+    @Test
+    void testDisconnect() throws InterruptedException {
+        queue.activate(ctx);
+        Thread.sleep(20);
+
+        queue.disconnect(ReasonCode.BAD_NETWORK);
+
+        assertTrue(queue.isClosed());
+        verify(ctx).writeAndFlush(any(io.xdag.p2p.message.node.DisconnectMessage.class));
+    }
+
+    @Test
+    void testDisconnectMultipleTimes() throws InterruptedException {
+        queue.activate(ctx);
+        Thread.sleep(20);
+
+        // First disconnect should work
+        queue.disconnect(ReasonCode.BAD_NETWORK);
+        assertTrue(queue.isClosed());
+
+        // Second disconnect should not send another message (isClosed is already true)
+        queue.disconnect(ReasonCode.BAD_NETWORK);
+
+        // Verify only one disconnect message was sent
+        verify(ctx, times(1)).writeAndFlush(any(io.xdag.p2p.message.node.DisconnectMessage.class));
+    }
+
+    // Test removed - HandshakeInitMessage doesn't exist
+    // @Test
+    // void testSendMessageWithPrioritizedCode() throws InterruptedException {
+    //     queue.activate(ctx);
+    //     Message prioritizedMsg = new io.xdag.p2p.message.node.HelloMessage(...);
+    //     queue.sendMessage(prioritizedMsg);
+    //     assertEquals(1, queue.size());
+    //     Thread.sleep(100);
+    //     queue.deactivate();
+    // }
+
+    @Test
+    void testSendMessageWithNormalCode() throws InterruptedException {
+        queue.activate(ctx);
+
+        // Send normal message (PingMessage is not prioritized)
+        Message normalMsg = new PingMessage(new byte[0]);
+        queue.sendMessage(normalMsg);
+
+        assertEquals(1, queue.size());
+
+        Thread.sleep(100);
+        queue.deactivate();
+    }
+
+    // Test removed - HandshakeInitMessage doesn't exist
+    // @Test
+    // void testSizeWithBothQueues() throws InterruptedException {
+    //     queue.activate(ctx);
+    //     queue.sendMessage(new PingMessage(new byte[0]));
+    //     Message prioritizedMsg = new io.xdag.p2p.message.node.HelloMessage(...);
+    //     queue.sendMessage(prioritizedMsg);
+    //     assertTrue(queue.size() >= 1, "Queue size should be at least 1");
+    //     Thread.sleep(100);
+    //     queue.deactivate();
+    // }
+
+    @Test
+    void testIsClosedInitiallyFalse() {
+        assertFalse(queue.isClosed());
+    }
+
+    @Test
+    void testIsClosedAfterDeactivate() throws InterruptedException {
+        queue.activate(ctx);
+        Thread.sleep(20);
+
+        queue.deactivate();
+
+        assertTrue(queue.isClosed());
+    }
+
+    @Test
+    void testIsClosedAfterDisconnect() throws InterruptedException {
+        queue.activate(ctx);
+        Thread.sleep(20);
+
+        queue.disconnect(ReasonCode.BAD_PEER);
+
+        assertTrue(queue.isClosed());
+    }
+
+    @Test
+    void testConstructor() {
+        assertNotNull(queue);
+        assertEquals(0, queue.size());
+        assertFalse(queue.isClosed());
+    }
+
+    @Test
+    void testActivateCreatesTimerThread() throws InterruptedException, NoSuchFieldException, IllegalAccessException {
+        queue.activate(ctx);
+
+        Field timerField = MessageQueue.class.getDeclaredField("timerThread");
+        timerField.setAccessible(true);
+        Thread timerThread = (Thread) timerField.get(queue);
+
+        assertNotNull(timerThread);
+        assertTrue(timerThread.isAlive());
+
+        queue.deactivate();
+    }
+
+    @Test
+    void testMultipleActivateCalls() throws InterruptedException {
+        queue.activate(ctx);
+        Thread.sleep(20);
+
+        // Second activate should handle gracefully
+        queue.activate(ctx);
+        Thread.sleep(20);
+
+        assertNotNull(queue.getTimerThread());
+
+        queue.deactivate();
+    }
+
+    @Test
+    void testDeactivateWithoutActivate() {
+        // Should handle deactivate without activate gracefully
+        queue.deactivate();
+        assertTrue(queue.isClosed());
+    }
+
+    @Test
+    void testDisconnectWithDifferentReasonCodes() throws InterruptedException {
+        queue.activate(ctx);
+        Thread.sleep(20);
+
+        queue.disconnect(ReasonCode.BAD_NETWORK_VERSION);
+        assertTrue(queue.isClosed());
+
+        queue.deactivate();
+    }
+
+    @Test
+    void testQueueProcessingWithDelay() throws InterruptedException {
+        queue.activate(ctx);
+
+        // Send multiple messages
+        for (int i = 0; i < 10; i++) {
+            queue.sendMessage(new PingMessage(new byte[0]));
+        }
+
+        int initialSize = queue.size();
+        assertTrue(initialSize > 0);
+
+        // Wait for some processing
+        Thread.sleep(200);
+
+        // Queue should have processed some messages
+        int afterSize = queue.size();
+        assertTrue(afterSize < initialSize || afterSize == 0,
+                  "Expected queue to process messages");
+
+        queue.deactivate();
+    }
+
+    @Test
+    void testDisconnectCallbackExecuted() throws InterruptedException {
+        ChannelFuture mockFuture = mock(ChannelFuture.class);
+        when(ctx.writeAndFlush(any())).thenReturn(mockFuture);
+        when(mockFuture.addListener(any())).thenAnswer(invocation -> {
+            io.netty.channel.ChannelFutureListener listener = invocation.getArgument(0);
+            listener.operationComplete(mockFuture);
+            return mockFuture;
+        });
+
+        queue.activate(ctx);
+        Thread.sleep(20);
+
+        queue.disconnect(ReasonCode.BAD_NETWORK);
+
+        // Verify the disconnect message was sent and callback executed
+        verify(ctx).writeAndFlush(any(io.xdag.p2p.message.node.DisconnectMessage.class));
+        verify(ctx).close();
+    }
+
+    @Test
+    void testNudgeQueueWithNetworkStats() throws InterruptedException {
+        io.xdag.p2p.stats.LayeredStats mockLayeredStats = mock(io.xdag.p2p.stats.LayeredStats.class);
+        io.xdag.p2p.stats.LayeredStats.NetworkLayer mockNetworkStats = mock(io.xdag.p2p.stats.LayeredStats.NetworkLayer.class);
+        when(channel.getLayeredStats()).thenReturn(mockLayeredStats);
+        when(mockLayeredStats.getNetwork()).thenReturn(mockNetworkStats);
+
+        ChannelFuture mockWriteFuture = mock(ChannelFuture.class);
+        when(mockWriteFuture.isSuccess()).thenReturn(true);
+        when(ctx.write(any())).thenAnswer(invocation -> {
+            // Simulate immediate callback execution
+            return mockWriteFuture;
+        });
+        when(mockWriteFuture.addListener(any())).thenAnswer(invocation -> {
+            io.netty.util.concurrent.GenericFutureListener listener = invocation.getArgument(0);
+            listener.operationComplete(mockWriteFuture);
+            return mockWriteFuture;
+        });
+
+        queue.activate(ctx);
+
+        // Send a message
+        queue.sendMessage(new PingMessage(new byte[10]));
+
+        // Wait for processing
+        Thread.sleep(100);
+
+        queue.deactivate();
+
+        // Verify network stats were recorded
+        verify(mockNetworkStats, atLeastOnce()).recordMessageSent(anyInt());
+    }
+
+    @Test
+    void testNudgeQueueWithFailedWrite() throws InterruptedException {
+        ChannelFuture mockWriteFuture = mock(ChannelFuture.class);
+        when(mockWriteFuture.isSuccess()).thenReturn(false);
+        when(ctx.write(any())).thenReturn(mockWriteFuture);
+        when(mockWriteFuture.addListener(any())).thenAnswer(invocation -> {
+            io.netty.util.concurrent.GenericFutureListener listener = invocation.getArgument(0);
+            listener.operationComplete(mockWriteFuture);
+            return mockWriteFuture;
+        });
+
+        queue.activate(ctx);
+
+        // Send a message
+        queue.sendMessage(new PingMessage(new byte[10]));
+
+        // Wait for processing
+        Thread.sleep(100);
+
+        queue.deactivate();
+
+        // Verify write was attempted
+        verify(ctx, atLeastOnce()).write(any());
+    }
+
+    @Test
+    void testSendMessageInterruptedException() throws Exception {
+        // Use reflection to set queue capacity to 1 to force blocking
+        Field queueField = MessageQueue.class.getDeclaredField("queue");
+        queueField.setAccessible(true);
+        java.util.concurrent.BlockingQueue<Message> blockingQueue =
+            new java.util.concurrent.LinkedBlockingQueue<>(1);
+        queueField.set(queue, blockingQueue);
+
+        // Fill the queue first
+        blockingQueue.put(new PingMessage(new byte[0]));
+
+        // Create a thread that will be interrupted while trying to add to full queue
+        Thread testThread = new Thread(() -> {
+            try {
+                queue.sendMessage(new PingMessage(new byte[0]));
+                fail("Expected RuntimeException due to InterruptedException");
+            } catch (RuntimeException e) {
+                assertTrue(e.getCause() instanceof InterruptedException,
+                          "Expected InterruptedException as cause");
+            }
+        });
+
+        testThread.start();
+        Thread.sleep(50);
+        testThread.interrupt();
+        testThread.join(1000);
+    }
+
+    @Test
+    void testNudgeQueueWithNullChannelStats() throws InterruptedException {
+        // Set channel to return null for getLayeredStats()
+        when(channel.getLayeredStats()).thenReturn(null);
+
+        ChannelFuture mockWriteFuture = mock(ChannelFuture.class);
+        when(mockWriteFuture.isSuccess()).thenReturn(true);
+        when(ctx.write(any())).thenReturn(mockWriteFuture);
+        when(mockWriteFuture.addListener(any())).thenAnswer(invocation -> {
+            io.netty.util.concurrent.GenericFutureListener listener = invocation.getArgument(0);
+            listener.operationComplete(mockWriteFuture);
+            return mockWriteFuture;
+        });
+
+        queue.activate(ctx);
+
+        // Send a message
+        queue.sendMessage(new PingMessage(new byte[10]));
+
+        // Wait for processing
+        Thread.sleep(100);
+
+        queue.deactivate();
+
+        // Should not throw exception even with null stats
+        verify(ctx, atLeastOnce()).write(any());
+    }
+
+    @Test
+    void testNudgeQueueMessageSizeCalculation() throws InterruptedException {
+        io.xdag.p2p.stats.LayeredStats mockLayeredStats = mock(io.xdag.p2p.stats.LayeredStats.class);
+        io.xdag.p2p.stats.LayeredStats.NetworkLayer mockNetworkStats = mock(io.xdag.p2p.stats.LayeredStats.NetworkLayer.class);
+        when(channel.getLayeredStats()).thenReturn(mockLayeredStats);
+        when(mockLayeredStats.getNetwork()).thenReturn(mockNetworkStats);
+
+        ChannelFuture mockWriteFuture = mock(ChannelFuture.class);
+        when(mockWriteFuture.isSuccess()).thenReturn(true);
+        when(ctx.write(any())).thenReturn(mockWriteFuture);
+        when(mockWriteFuture.addListener(any())).thenAnswer(invocation -> {
+            io.netty.util.concurrent.GenericFutureListener listener = invocation.getArgument(0);
+            listener.operationComplete(mockWriteFuture);
+            return mockWriteFuture;
+        });
+
+        queue.activate(ctx);
+
+        // Send message with 15-byte body
+        queue.sendMessage(new PingMessage(new byte[15]));
+
+        // Wait for processing
+        Thread.sleep(100);
+
+        queue.deactivate();
+
+        // Verify correct size was calculated: 1 (type) + 15 (body) + 20 (frame) = 36 bytes
+        verify(mockNetworkStats, atLeastOnce()).recordMessageSent(36);
     }
 
     // JMH Benchmark

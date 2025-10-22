@@ -24,7 +24,10 @@
 package io.xdag.p2p.message.node;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.xdag.p2p.message.MessageCode;
 import io.xdag.p2p.message.ReasonCode;
@@ -105,5 +108,99 @@ public class DisconnectMessageTest {
 
     DisconnectMessage badPeer = new DisconnectMessage(ReasonCode.BAD_PEER);
     assertEquals(ReasonCode.BAD_PEER, badPeer.getReason());
+  }
+
+  @Test
+  void testEncodeMethod() {
+    // Given
+    ReasonCode reason = ReasonCode.INVALID_HANDSHAKE;
+    DisconnectMessage msg = new DisconnectMessage(reason);
+
+    // When
+    io.xdag.p2p.utils.SimpleEncoder enc = new io.xdag.p2p.utils.SimpleEncoder();
+    msg.encode(enc);
+    byte[] encoded = enc.toBytes();
+
+    // Then
+    assertNotNull(encoded, "Encoded bytes should not be null");
+    assertTrue(encoded.length > 0, "Encoded bytes should not be empty");
+
+    // Verify decode produces same reason
+    DisconnectMessage decoded = new DisconnectMessage(encoded);
+    assertEquals(reason, decoded.getReason(), "Decoded reason should match");
+  }
+
+  @Test
+  void testGetSendData() {
+    // Given
+    DisconnectMessage msg = new DisconnectMessage(ReasonCode.BAD_NETWORK_VERSION);
+
+    // When
+    org.apache.tuweni.bytes.Bytes sendData = msg.getSendData();
+
+    // Then
+    assertNotNull(sendData, "Send data should not be null");
+    assertTrue(sendData.size() > 0, "Send data should not be empty");
+    assertEquals(MessageCode.DISCONNECT.toByte(), sendData.get(0), "First byte should be message code");
+  }
+
+  @Test
+  void testGetBody() {
+    // Given
+    DisconnectMessage msg = new DisconnectMessage(ReasonCode.TOO_MANY_PEERS);
+
+    // When
+    byte[] body = msg.getBody();
+
+    // Then
+    assertNotNull(body, "Body should not be null");
+    assertTrue(body.length > 0, "Body should not be empty");
+  }
+
+  @Test
+  void testMessageCodeIsDisconnect() {
+    // Given
+    DisconnectMessage msg = new DisconnectMessage(ReasonCode.BAD_PEER);
+
+    // When/Then
+    assertEquals(MessageCode.DISCONNECT, msg.getCode(), "Message code should be DISCONNECT");
+    assertEquals(MessageCode.DISCONNECT, msg.getType(), "Message type should be DISCONNECT");
+  }
+
+  @Test
+  void testResponseMessageClassIsNull() {
+    // Given
+    DisconnectMessage msg = new DisconnectMessage(ReasonCode.BAD_NETWORK);
+
+    // When/Then
+    assertNull(msg.getResponseMessageClass(), "Disconnect message should have no response class");
+  }
+
+  @Test
+  void testDifferentReasonsProduceDifferentMessages() {
+    // Given
+    DisconnectMessage msg1 = new DisconnectMessage(ReasonCode.BAD_NETWORK);
+    DisconnectMessage msg2 = new DisconnectMessage(ReasonCode.TOO_MANY_PEERS);
+
+    // When
+    byte[] body1 = msg1.getBody();
+    byte[] body2 = msg2.getBody();
+
+    // Then - bodies should be different for different reasons
+    assertFalse(java.util.Arrays.equals(body1, body2), "Different reasons should produce different encoded messages");
+  }
+
+  @Test
+  void testToStringContainsReason() {
+    // Test multiple reason codes to ensure toString includes them
+    for (ReasonCode reason : new ReasonCode[]{
+        ReasonCode.BAD_NETWORK,
+        ReasonCode.INVALID_HANDSHAKE,
+        ReasonCode.DUPLICATED_PEER_ID}) {
+      DisconnectMessage msg = new DisconnectMessage(reason);
+      String str = msg.toString();
+      assertTrue(str.contains(reason.toString()),
+        "toString should contain reason: " + reason);
+    }
   }
 }

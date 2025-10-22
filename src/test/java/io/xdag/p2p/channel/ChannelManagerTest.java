@@ -479,4 +479,310 @@ public class ChannelManagerTest {
     channelManager.onChannelInactive(mockChannel);
     assertEquals(0, channelManager.getActivePeersCount());
   }
+
+  @Test
+  public void testOnChannelActiveWithNodeId() {
+    // Test onChannelActive with a channel that has a Node ID
+    Channel mockChannel = mock(Channel.class);
+    when(mockChannel.getRemoteAddress()).thenReturn(a1);
+    when(mockChannel.getInetAddress()).thenReturn(a1.getAddress());
+    when(mockChannel.isActive()).thenReturn(true);
+    when(mockChannel.getNodeId()).thenReturn("test-node-id-123");
+    when(mockChannel.getStartTime()).thenReturn(System.currentTimeMillis());
+
+    channelManager.onChannelActive(mockChannel);
+
+    assertEquals(1, channelManager.getChannels().size());
+    assertEquals(1, channelManager.getActivePeersCount());
+  }
+
+  @Test
+  public void testOnChannelActiveDuplicateNodeId() {
+    // Test duplicate connection detection by Node ID
+    String nodeId = "duplicate-node-id";
+
+    // First channel
+    Channel mockChannel1 = mock(Channel.class);
+    when(mockChannel1.getRemoteAddress()).thenReturn(a1);
+    when(mockChannel1.getInetAddress()).thenReturn(a1.getAddress());
+    when(mockChannel1.isActive()).thenReturn(true);
+    when(mockChannel1.getNodeId()).thenReturn(nodeId);
+    when(mockChannel1.getStartTime()).thenReturn(System.currentTimeMillis());
+
+    // Create a mock ChannelHandlerContext for the first channel
+    io.netty.channel.ChannelHandlerContext mockCtx1 = mock(io.netty.channel.ChannelHandlerContext.class);
+    io.netty.channel.Channel mockNettyChannel1 = mock(io.netty.channel.Channel.class);
+    when(mockCtx1.channel()).thenReturn(mockNettyChannel1);
+    when(mockNettyChannel1.isActive()).thenReturn(true);
+    when(mockChannel1.getCtx()).thenReturn(mockCtx1);
+
+    channelManager.onChannelActive(mockChannel1);
+    assertEquals(1, channelManager.getChannels().size());
+
+    // Second channel with same Node ID - should be rejected
+    Channel mockChannel2 = mock(Channel.class);
+    when(mockChannel2.getRemoteAddress()).thenReturn(a2);
+    when(mockChannel2.getInetAddress()).thenReturn(a2.getAddress());
+    when(mockChannel2.isActive()).thenReturn(true);
+    when(mockChannel2.getNodeId()).thenReturn(nodeId);
+    when(mockChannel2.getStartTime()).thenReturn(System.currentTimeMillis());
+
+    channelManager.onChannelActive(mockChannel2);
+
+    // Should still have only 1 channel (second was rejected)
+    assertEquals(1, channelManager.getChannels().size());
+  }
+
+  @Test
+  public void testOnChannelActiveWithEmptyNodeId() {
+    // Test channel with empty Node ID
+    Channel mockChannel = mock(Channel.class);
+    when(mockChannel.getRemoteAddress()).thenReturn(a1);
+    when(mockChannel.getInetAddress()).thenReturn(a1.getAddress());
+    when(mockChannel.isActive()).thenReturn(true);
+    when(mockChannel.getNodeId()).thenReturn("");
+    when(mockChannel.getStartTime()).thenReturn(System.currentTimeMillis());
+
+    channelManager.onChannelActive(mockChannel);
+
+    assertEquals(1, channelManager.getChannels().size());
+    assertEquals(1, channelManager.getActivePeersCount());
+  }
+
+  @Test
+  public void testOnChannelInactiveWithNodeId() {
+    // Test that Node ID is removed when channel becomes inactive
+    String nodeId = "test-node-id-456";
+
+    Channel mockChannel = mock(Channel.class);
+    when(mockChannel.getRemoteAddress()).thenReturn(a1);
+    when(mockChannel.getInetAddress()).thenReturn(a1.getAddress());
+    when(mockChannel.isActive()).thenReturn(true);
+    when(mockChannel.getNodeId()).thenReturn(nodeId);
+    when(mockChannel.getStartTime()).thenReturn(System.currentTimeMillis());
+
+    channelManager.onChannelActive(mockChannel);
+    assertEquals(1, channelManager.getChannels().size());
+
+    channelManager.onChannelInactive(mockChannel);
+    assertEquals(0, channelManager.getChannels().size());
+  }
+
+  @Test
+  public void testFormatDurationSeconds() throws Exception {
+    // Use reflection to test private formatDuration method
+    java.lang.reflect.Method method = ChannelManager.class.getDeclaredMethod("formatDuration", long.class);
+    method.setAccessible(true);
+
+    // Test seconds
+    assertEquals("30s", method.invoke(channelManager, 30000L));
+    assertEquals("59s", method.invoke(channelManager, 59000L));
+  }
+
+  @Test
+  public void testFormatDurationMinutes() throws Exception {
+    // Use reflection to test private formatDuration method
+    java.lang.reflect.Method method = ChannelManager.class.getDeclaredMethod("formatDuration", long.class);
+    method.setAccessible(true);
+
+    // Test minutes
+    assertEquals("1m", method.invoke(channelManager, 60000L));
+    assertEquals("45m", method.invoke(channelManager, 45 * 60000L));
+  }
+
+  @Test
+  public void testFormatDurationHours() throws Exception {
+    // Use reflection to test private formatDuration method
+    java.lang.reflect.Method method = ChannelManager.class.getDeclaredMethod("formatDuration", long.class);
+    method.setAccessible(true);
+
+    // Test hours
+    assertEquals("1h", method.invoke(channelManager, 60 * 60000L));
+    assertEquals("12h", method.invoke(channelManager, 12 * 60 * 60000L));
+  }
+
+  @Test
+  public void testFormatDurationDays() throws Exception {
+    // Use reflection to test private formatDuration method
+    java.lang.reflect.Method method = ChannelManager.class.getDeclaredMethod("formatDuration", long.class);
+    method.setAccessible(true);
+
+    // Test days
+    assertEquals("1d", method.invoke(channelManager, 24 * 60 * 60000L));
+    assertEquals("30d", method.invoke(channelManager, 30 * 24 * 60 * 60000L));
+  }
+
+  @Test
+  public void testConnectAsyncWithNode() {
+    // Create a mock PeerClient
+    PeerClient mockPeerClient = mock(PeerClient.class);
+    io.netty.channel.ChannelFuture mockFuture = mock(io.netty.channel.ChannelFuture.class);
+
+    // Setup mock to return a future
+    when(mockPeerClient.connect(
+        org.mockito.ArgumentMatchers.any(io.xdag.p2p.discover.Node.class),
+        org.mockito.ArgumentMatchers.any(io.netty.channel.ChannelFutureListener.class)))
+        .thenReturn(mockFuture);
+
+    channelManager.start(mockPeerClient);
+
+    // Create a test node using Node(String id, InetSocketAddress address)
+    io.xdag.p2p.discover.Node testNode = new io.xdag.p2p.discover.Node(
+        "test-node-id",
+        a1
+    );
+
+    // Call connectAsync
+    io.netty.channel.ChannelFuture result = channelManager.connectAsync(testNode, false);
+
+    // Verify the result is not null
+    assertNotNull(result);
+
+    // Clean up
+    channelManager.stop();
+  }
+
+  @Test
+  public void testConnectAsyncWithNodeHostV4V6() {
+    // Create a mock PeerClient
+    PeerClient mockPeerClient = mock(PeerClient.class);
+    io.netty.channel.ChannelFuture mockFuture = mock(io.netty.channel.ChannelFuture.class);
+
+    when(mockPeerClient.connect(
+        org.mockito.ArgumentMatchers.any(io.xdag.p2p.discover.Node.class),
+        org.mockito.ArgumentMatchers.any(io.netty.channel.ChannelFutureListener.class)))
+        .thenReturn(mockFuture);
+
+    channelManager.start(mockPeerClient);
+
+    // Create a node using Node(String id, String hostV4, String hostV6, int port)
+    io.xdag.p2p.discover.Node testNode = new io.xdag.p2p.discover.Node(
+        "test-node-id",
+        a1.getAddress().getHostAddress(),
+        null,
+        a1.getPort()
+    );
+
+    // Call connectAsync - should handle gracefully
+    io.netty.channel.ChannelFuture result = channelManager.connectAsync(testNode, true);
+
+    assertNotNull(result);
+
+    channelManager.stop();
+  }
+
+  @Test
+  public void testStartWithDisconnectionPolicyEnabled() {
+    // Enable disconnection policy
+    p2pConfig.setDisconnectionPolicyEnable(true);
+
+    ChannelManager cm = new ChannelManager(p2pConfig, nodeManager);
+    PeerClient mockPeerClient = mock(PeerClient.class);
+
+    cm.start(mockPeerClient);
+    assertFalse(cm.isShutdown());
+
+    cm.stop();
+    assertTrue(cm.isShutdown());
+  }
+
+  @Test
+  public void testStartWithDisconnectionPolicyDisabled() {
+    // Disable disconnection policy
+    p2pConfig.setDisconnectionPolicyEnable(false);
+
+    ChannelManager cm = new ChannelManager(p2pConfig, nodeManager);
+    PeerClient mockPeerClient = mock(PeerClient.class);
+
+    cm.start(mockPeerClient);
+    assertFalse(cm.isShutdown());
+
+    cm.stop();
+    assertTrue(cm.isShutdown());
+  }
+
+  @Test
+  public void testOnChannelInactiveWithEmptyNodeId() {
+    // Test channel with empty Node ID during inactive
+    Channel mockChannel = mock(Channel.class);
+    when(mockChannel.getRemoteAddress()).thenReturn(a1);
+    when(mockChannel.getInetAddress()).thenReturn(a1.getAddress());
+    when(mockChannel.isActive()).thenReturn(true);
+    when(mockChannel.getNodeId()).thenReturn("");
+    when(mockChannel.getStartTime()).thenReturn(System.currentTimeMillis());
+
+    channelManager.onChannelActive(mockChannel);
+    assertEquals(1, channelManager.getChannels().size());
+
+    channelManager.onChannelInactive(mockChannel);
+    assertEquals(0, channelManager.getChannels().size());
+  }
+
+  @Test
+  public void testBanNodeGraduatedDurationMax30Days() {
+    InetAddress address = a1.getAddress();
+    long baseDuration = 1000L; // 1 second
+
+    // Ban multiple times to trigger graduated duration
+    for (int i = 0; i < 20; i++) {
+      channelManager.unbanNode(address);
+      channelManager.banNode(address, baseDuration);
+    }
+
+    // Verify still banned (max should be capped at 30 days)
+    assertTrue(channelManager.isBanned(address));
+    BanInfo banInfo = channelManager.getBanInfo(address);
+    assertNotNull(banInfo);
+    // Ban count should be high
+    assertTrue(banInfo.banCount() >= 10);
+  }
+
+  @Test
+  public void testGetAllBannedNodesFiltersExpired() {
+    InetAddress address1 = a1.getAddress();
+    InetAddress address2 = a2.getAddress();
+
+    // Ban one node with very short duration
+    channelManager.banNode(address1, 1); // 1ms - will expire immediately
+    // Ban another node with longer duration
+    channelManager.banNode(address2, 10000L);
+
+    // Wait a moment for first ban to expire
+    try {
+      Thread.sleep(10);
+    } catch (InterruptedException e) {
+      // ignore
+    }
+
+    // Should only return active bans
+    var bannedNodes = channelManager.getAllBannedNodes();
+    // At least one should be active (address2)
+    assertTrue(bannedNodes.size() >= 1);
+  }
+
+  @Test
+  public void testGetBanInfoForNonBannedNode() {
+    InetAddress address = a1.getAddress();
+
+    // Should return null for non-banned node
+    assertNull(channelManager.getBanInfo(address));
+  }
+
+  @Test
+  public void testUnbanNonExistentNode() {
+    InetAddress address = a1.getAddress();
+
+    // Should not throw exception
+    channelManager.unbanNode(address);
+    assertFalse(channelManager.isBanned(address));
+  }
+
+  @Test
+  public void testRemoveNonWhitelistedNode() {
+    InetAddress address = a1.getAddress();
+
+    // Remove non-whitelisted node - should not throw
+    channelManager.removeFromWhitelist(address);
+    assertFalse(channelManager.isWhitelisted(address));
+  }
 }
