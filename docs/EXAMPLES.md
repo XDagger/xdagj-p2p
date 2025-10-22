@@ -98,7 +98,7 @@ ExampleConfig.builder()
     .discoverEnable(true)               // Enable discovery
     .minConnections(8)                  // Minimum connections
     .minActiveConnections(2)            // Minimum active connections
-    .maxConnections(30)                 // Maximum connections (default 30, not 50)
+    .maxConnections(30)                 // Maximum connections (default: 50, production recommended: 30)
     .maxConnectionsWithSameIp(2)        // Max connections with same IP
     .seedNodes(seedList)                // Seed nodes
     .activeNodes(activeList)            // Active nodes

@@ -210,7 +210,7 @@ graph TB
 
 ### Core
 - **Java 21 LTS**: Virtual threads and modern APIs
-- **Netty 4.2.1**: Async I/O framework with zero-copy buffers
+- **Netty 4.2.6.Final**: Async I/O framework with zero-copy buffers
 - **Custom SimpleCodec**: High-performance binary encoding
 
 ### Cryptography
