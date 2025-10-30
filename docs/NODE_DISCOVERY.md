@@ -16,13 +16,13 @@ Complete guide to node discovery mechanisms in XDAGJ-P2P.
 
 ### Kademlia DHT Discovery (Production-Ready)
 
-XDAGJ-P2P v0.1.2 uses **Kademlia DHT** for fully decentralized peer-to-peer discovery via UDP protocol.
+XDAGJ-P2P v0.1.4 uses **Kademlia DHT** for fully decentralized peer-to-peer discovery via UDP protocol.
 
 #### Basic Usage
 
 ```bash
 # Start node with seed nodes (recommended for production)
-java -jar xdagj-p2p-0.1.2.jar \
+java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar \
   -p 16783 \
   -s <SEED_NODE_IP_1>:16783,<SEED_NODE_IP_2>:16783
 ```
@@ -145,7 +145,7 @@ int leadingZeros = 160 - distance.bitLength();
 
 ```bash
 # Multiple seed nodes for redundancy
-java -jar xdagj-p2p-0.1.2.jar \
+java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar \
   -p 16783 \
   -s <SEED_NODE_IP_1>:16783,<SEED_NODE_IP_2>:16783,<SEED_NODE_IP_3>:16783 \
   -d 1
@@ -163,7 +163,8 @@ P2pConfig config = new P2pConfig();
 config.setPort(16783);
 config.setDiscoverEnable(true);
 config.setMaxConnections(30);
-config.setConnectionTimeout(10000); // 10 seconds
+// Note: Connection timeout is set via P2pConstant.NODE_CONNECTION_TIMEOUT (default: 2000ms)
+// It cannot be configured through P2pConfig
 
 // Add multiple seed nodes
 List<InetSocketAddress> seeds = Arrays.asList(
@@ -173,9 +174,12 @@ List<InetSocketAddress> seeds = Arrays.asList(
 );
 config.setSeedNodes(seeds);
 
+// Register event handler (if needed)
+// config.addP2pEventHandle(new MyEventHandler());
+
 // Start service
-P2pService service = new P2pService();
-service.start(config);
+P2pService service = new P2pService(config);
+service.start();
 ```
 
 ### Development & Testing
@@ -184,7 +188,7 @@ service.start(config);
 
 ```bash
 # Single seed node for local testing
-java -jar xdagj-p2p-0.1.2.jar \
+java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar \
   -p 10000 \
   -s 127.0.0.1:10001 \
   -d 1
@@ -194,13 +198,13 @@ java -jar xdagj-p2p-0.1.2.jar \
 
 ```bash
 # Node 1
-java -jar xdagj-p2p-0.1.2.jar -p 10000 -s 127.0.0.1:10001,127.0.0.1:10002 &
+java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar -p 10000 -s 127.0.0.1:10001,127.0.0.1:10002 &
 
 # Node 2
-java -jar xdagj-p2p-0.1.2.jar -p 10001 -s 127.0.0.1:10000,127.0.0.1:10002 &
+java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar -p 10001 -s 127.0.0.1:10000,127.0.0.1:10002 &
 
 # Node 3
-java -jar xdagj-p2p-0.1.2.jar -p 10002 -s 127.0.0.1:10000,127.0.0.1:10001 &
+java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar -p 10002 -s 127.0.0.1:10000,127.0.0.1:10001 &
 ```
 
 ### Private Networks
@@ -209,7 +213,7 @@ java -jar xdagj-p2p-0.1.2.jar -p 10002 -s 127.0.0.1:10000,127.0.0.1:10001 &
 
 ```bash
 # Private seed nodes with internal IPs
-java -jar xdagj-p2p-0.1.2.jar \
+java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar \
   -p 16783 \
   -s 10.0.1.10:16783,10.0.1.11:16783,10.0.1.12:16783 \
   -d 1
@@ -243,7 +247,7 @@ java -jar xdagj-p2p-0.1.2.jar \
 - Use standard port 16783 for XDAG network
 - Allow UDP and TCP traffic on configured port
 - Set appropriate connection limits (recommended: 30)
-- Configure proper timeouts (connection: 10s, discovery: 30s)
+- Note: Timeouts are set via constants (connection: 2s default, discovery: 15s default)
 
 ❌ **DON'T:**
 - Block UDP traffic (required for discovery)
@@ -279,12 +283,12 @@ iptables -t nat -A PREROUTING -p udp --dport 16783 -j DNAT --to 192.168.1.100:16
 
 **Example Monitoring:**
 ```java
-ChannelManager channelManager = p2pService.getChannelManager();
-int activeConnections = channelManager.getActiveChannels().size();
-int routingTableSize = kadService.getRoutingTable().getAllNodes().size();
+// Get connectable nodes count
+int connectableNodes = p2pService.getConnectableNodes().size();
 
-log.info("Active connections: {}, Routing table: {}",
-    activeConnections, routingTableSize);
+// Note: Direct access to ChannelManager and KadService internal components
+// is not part of the public API. Use the provided public methods instead.
+log.info("Connectable nodes: {}", connectableNodes);
 ```
 
 ### 5. Performance Tuning
@@ -293,9 +297,11 @@ log.info("Active connections: {}, Routing table: {}",
 ```java
 P2pConfig config = new P2pConfig();
 config.setMaxConnections(30);           // Balance between connectivity and resources
-config.setConnectionTimeout(10000);     // 10s for reliable networks
-config.setDiscoveryCycle(30000);        // 30s PING interval
-config.setMaxPeersToDiscover(16);       // K-value for Kademlia
+// Note: Connection timeout, discovery cycle, and Kademlia K-value are set via
+// P2pConstant and KademliaOptions constants, not through P2pConfig:
+// - Connection timeout: P2pConstant.NODE_CONNECTION_TIMEOUT (default: 2000ms)
+// - Discovery cycle: KademliaOptions.DISCOVER_CYCLE (default: 15000ms)
+// - Kademlia K-value: KademliaOptions.BUCKET_SIZE (default: 16)
 ```
 
 **Resource Considerations:**

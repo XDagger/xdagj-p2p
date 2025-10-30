@@ -28,9 +28,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.util.AttributeKey;
+import io.netty.util.DefaultAttributeMap;
 import io.xdag.p2p.PeerClient;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.NodeManager;
@@ -188,6 +193,35 @@ public class ChannelManagerTest {
     channelManager.getChannels().put(a1, mockChannel);
 
     assertTrue(channelManager.isConnected(a1));
+  }
+
+  @Test
+  public void testMarkHandshakeSuccessSetsChannelState() {
+    InetSocketAddress remote = new InetSocketAddress("127.0.0.1", 21000);
+
+    DefaultAttributeMap attributeMap = new DefaultAttributeMap();
+    io.netty.channel.Channel nettyChannel = mock(io.netty.channel.Channel.class);
+    when(nettyChannel.remoteAddress()).thenReturn(remote);
+    when(nettyChannel.isActive()).thenReturn(true);
+    when(nettyChannel.attr(any())).thenAnswer(invocation -> {
+      AttributeKey<Object> key = invocation.getArgument(0);
+      return attributeMap.attr(key);
+    });
+
+    ChannelHandlerContext ctx = mock(ChannelHandlerContext.class, RETURNS_DEEP_STUBS);
+    when(ctx.channel()).thenReturn(nettyChannel);
+
+    String nodeId = "test-node-id";
+
+    channelManager.markHandshakeSuccess(remote, ctx, nodeId);
+
+    assertEquals(1, channelManager.getChannels().size(), "Channel map should contain exactly one entry");
+    Channel managedChannel = channelManager.getChannels().values().iterator().next();
+    assertNotNull(managedChannel, "Channel should be registered after handshake success");
+    assertTrue(managedChannel.isFinishHandshake(), "Handshake flag should be set to true");
+    assertTrue(managedChannel.isActive(), "Channel should be marked as active after handshake");
+    assertEquals(nodeId, managedChannel.getNodeId(), "Node ID should be recorded for duplicate detection");
+    assertEquals(1, channelManager.getActivePeersCount(), "Active peer count should include the new channel");
   }
 
   @Test
