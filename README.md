@@ -12,9 +12,14 @@ High-performance Java P2P networking library for the XDAG blockchain ecosystem, 
 
 ---
 
-## What's New in v0.1.3
+## What's New in v0.1.4
 
-### Test Coverage Expansion (v0.1.3)
+### Handshake Stability & Release Quality
+- **Handshake Lifecycle Fixes**: ensure `Channel.isFinishHandshake()` and `isActive()` are set once the handshake succeeds, restoring accurate connection state reporting.
+- **Connection Pool Reliability**: random disconnects triggered at the max connection limit now use `closeWithoutBan()` so healthy peers are not blacklisted.
+- **Regression Coverage**: added targeted unit tests for `ChannelManager.markHandshakeSuccess` to guard against future regressions.
+
+### Previous Features (v0.1.3)
 - **Massive Test Suite Growth**: 503 → 859 tests (+356 tests, +71%)
 - **Coverage Improvement**: 75% → 76% instruction coverage
 - **DNS Module Tests**: Added comprehensive tests for dns.tree, dns.sync, dns.update modules
@@ -24,7 +29,7 @@ High-performance Java P2P networking library for the XDAG blockchain ecosystem, 
   - PublishConfigTest: 17 tests for DNS publishing configuration
 - **All Tests Passing**: 859/859 tests with zero flaky tests
 
-### Previous Features (v0.1.2)
+### Prior Release (v0.1.2)
 
 ### Breaking Change: Node ID Migration
 - Migrated from 520-bit to **160-bit Node ID** format (XDAG address-based)
@@ -59,7 +64,7 @@ See [CHANGELOG.md](CHANGELOG.md) for complete release notes.
 <dependency>
     <groupId>io.xdag</groupId>
     <artifactId>xdagj-p2p</artifactId>
-    <version>0.1.3</version>
+    <version>0.1.4</version>
 </dependency>
 ```
 
@@ -68,6 +73,15 @@ See [CHANGELOG.md](CHANGELOG.md) for complete release notes.
 ### Basic Usage
 
 ```java
+import io.xdag.p2p.P2pService;
+import io.xdag.p2p.P2pEventHandler;
+import io.xdag.p2p.P2pException;
+import io.xdag.p2p.config.P2pConfig;
+import io.xdag.p2p.channel.Channel;
+import org.apache.tuweni.bytes.Bytes;
+import java.net.InetSocketAddress;
+import java.util.Arrays;
+
 // 1. Configure P2P service
 P2pConfig config = new P2pConfig();
 config.setPort(16783);
@@ -89,10 +103,16 @@ public class MyEventHandler extends P2pEventHandler {
     }
 }
 
-// 3. Start P2P service
-P2pService p2pService = new P2pService();
-p2pService.register(new MyEventHandler());
-p2pService.start(config);
+// 3. Register event handler and start P2P service
+P2pService p2pService = new P2pService(config);
+try {
+    config.addP2pEventHandle(new MyEventHandler());
+} catch (P2pException e) {
+    // Handle registration error
+    e.printStackTrace();
+    return;
+}
+p2pService.start();
 ```
 
 ### Run Standalone Node
@@ -102,7 +122,7 @@ p2pService.start(config);
 mvn clean package -DskipTests
 
 # Run P2P node
-java -jar target/xdagj-p2p-0.1.3-jar-with-dependencies.jar \
+java -jar target/xdagj-p2p-0.1.4-jar-with-dependencies.jar \
   -p 16783 \
   -s <SEED_NODE_IP>:16783
 ```
@@ -330,11 +350,11 @@ python3 analyze-network-performance.py --logs-dir logs
 
 XDAGJ-P2P uses **Kademlia DHT** for fully decentralized peer-to-peer discovery.
 
-### Current Method (v0.1.3)
+### Current Method (v0.1.4)
 
 ```bash
 # Start node with seed nodes
-java -jar xdagj-p2p-0.1.3.jar \
+java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar \
   -p 16783 \
   -s <SEED_NODE_IP_1>:16783,<SEED_NODE_IP_2>:16783
 ```
@@ -356,21 +376,21 @@ java -jar xdagj-p2p-0.1.3.jar \
 
 **Production (24/7 nodes):**
 ```bash
-java -jar xdagj-p2p-0.1.3.jar \
+java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar \
   -p 16783 \
   -s <SEED_NODE_IP_1>:16783,<SEED_NODE_IP_2>:16783,<SEED_NODE_IP_3>:16783
 ```
 
 **Development/Testing:**
 ```bash
-java -jar xdagj-p2p-0.1.3.jar \
+java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar \
   -p 16783 \
   -s 127.0.0.1:10000,192.168.1.100:16783
 ```
 
 **Private Networks:**
 ```bash
-java -jar xdagj-p2p-0.1.3.jar \
+java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar \
   -p 16783 \
   -s 10.0.1.10:16783,10.0.1.11:16783
 ```
@@ -382,6 +402,7 @@ java -jar xdagj-p2p-0.1.3.jar \
 ## Documentation
 
 - **[User Guide](docs/USER_GUIDE.md)** - Complete usage guide
+- **[AI Usage Guide](docs/AI_USAGE_GUIDE.md)** - AI-friendly comprehensive API reference and usage patterns
 - **[Examples](docs/EXAMPLES.md)** - Code examples and use cases
 - **[Node Discovery](docs/NODE_DISCOVERY.md)** - Discovery mechanisms and configuration
 - **[DNS Configuration](docs/DNS_CONFIGURATION.md)** - EIP-1459 DNS discovery setup with AWS Route53
@@ -426,4 +447,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Status:** v0.1.3 Production-Ready | **Tests:** 859 passing | **Coverage:** 76%
+**Status:** v0.1.4 Production-Ready | **Tests:** 859 passing | **Coverage:** 76%

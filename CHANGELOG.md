@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2025-01-30
+
+### Fixed
+- Handshake lifecycle now sets `Channel.isFinishHandshake()` and `isActive()` once the handshake succeeds, ensuring connection state and metrics remain accurate.
+- Random disconnects triggered at the connection cap use `closeWithoutBan()` so healthy peers are not accidentally banned.
+
+### Added
+- Regression test coverage for `ChannelManager.markHandshakeSuccess` to prevent future regressions.
+
+### Documentation
+- Updated README, guides, and Maven coordinates to reference v0.1.4 artifacts.
+
 ## [0.1.3] - 2025-01-22
 
 ### Added (Test Coverage Expansion)
@@ -277,7 +289,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Serialization: 4M-22M ops/sec
 - Data access: 98M-206M ops/sec
 
-[Unreleased]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.1-dev...v0.1.2
 [0.1.1-dev]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.0...v0.1.1-dev
