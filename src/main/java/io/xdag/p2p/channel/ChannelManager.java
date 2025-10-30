@@ -400,8 +400,8 @@ public class ChannelManager {
 
         if (!peersToDisconnect.isEmpty()) {
             Channel peerToDisconnect = peersToDisconnect.get(new Random().nextInt(peersToDisconnect.size()));
-            log.info("Max connection limit reached. Disconnecting a random peer: {}", peerToDisconnect.getRemoteAddress());
-            peerToDisconnect.close(); // Use default ban time for random disconnection
+            log.info("Max connection limit reached. Disconnecting a random peer without penalty: {}", peerToDisconnect.getRemoteAddress());
+            peerToDisconnect.closeWithoutBan();
         }
     }
 
@@ -480,6 +480,8 @@ public class ChannelManager {
             ch.setChannelHandlerContext(ctx);
             // Set nodeId BEFORE calling onChannelActive() so duplicate detection works
             ch.setNodeId(nodeId);
+            ch.setFinishHandshake(true);
+            ch.setActive(true);
             onChannelActive(ch);
             int nowActive = activePeers.size();
             int min = config.getMinConnections();

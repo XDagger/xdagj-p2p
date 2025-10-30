@@ -209,37 +209,43 @@ handler.checkPingTimeout();       // -5 points
 ### Example 2: Restart Recovery
 
 ```java
-// Node restarts
-KadService kadService = new KadService(config);
-kadService.start();
+// Node restarts - reputation is automatically persisted and restored
+P2pConfig config = new P2pConfig();
+config.setDataDir("data");  // Reputation stored in data/reputation/
+config.addP2pEventHandle(new MyEventHandler());
 
-// ReputationManager automatically loads previous scores
-// Node with ID "abc123" had reputation 115 before restart
-int reputation = kadService.getReputationManager().getReputation("abc123");
-System.out.println(reputation);  // Output: 115 (or slightly decayed)
+P2pService p2pService = new P2pService(config);
+p2pService.start();
 
-// NodeHandler continues using the loaded reputation
+// ReputationManager automatically loads previous scores during initialization
+// All nodes' reputation scores are restored from disk automatically
+// Node with ID "abc123" had reputation 115 before restart, 
+// will be restored (possibly with slight decay)
 ```
 
-### Example 3: Programmatic Access
+**Note**: Reputation persistence is handled automatically by the internal `ReputationManager`.
+The reputation scores are loaded when `P2pService.start()` is called and the discovery service initializes.
+
+### Example 3: Understanding Reputation Behavior
+
+The reputation system works automatically - you don't need to manually access `ReputationManager`.
+However, understanding how it works helps:
 
 ```java
-// Get reputation for a specific node
-ReputationManager reputationManager = kadService.getReputationManager();
-int score = reputationManager.getReputation("node-id-12345");
+// Reputation is tracked internally per node ID
+// When a node connects and behaves well, reputation increases
+// When a node misbehaves or disconnects abnormally, reputation decreases
 
-if (score < 20) {
-    System.out.println("Node has very low reputation, avoid connecting");
-} else if (score > 150) {
-    System.out.println("Node has excellent reputation, prioritize this peer");
-}
+// The system automatically:
+// 1. Loads reputation from disk on startup
+// 2. Updates reputation based on node behavior
+// 3. Saves reputation to disk periodically (every 60 seconds)
+// 4. Applies decay over time (reputation decreases by 1 per hour)
 
-// Manually set reputation (for testing or admin purposes)
-reputationManager.setReputation("node-id-12345", 180);
-
-// Get total number of tracked nodes
-int nodeCount = reputationManager.size();
-System.out.println("Tracking " + nodeCount + " nodes");
+// Reputation affects connection decisions:
+// - Low reputation nodes are less likely to be connected
+// - High reputation nodes are prioritized
+// - Banned nodes cannot connect until ban expires
 ```
 
 ---
@@ -544,27 +550,23 @@ public void cleanupOldEntries() {
 
 ## Integration with Kademlia DHT
 
-### NodeHandler Integration
+### Automatic Integration
 
-```java
-// On NodeHandler creation (NodeHandler.java:68-73)
-String nodeId = node.getId();
-if (nodeId != null && kadService.getReputationManager() != null) {
-    int savedReputation = kadService.getReputationManager().getReputation(nodeId);
-    reputation.set(savedReputation);
-    log.info("Loaded reputation {} for node {}", savedReputation, node.getPreferInetSocketAddress());
-}
+The reputation system is automatically integrated with the Kademlia DHT discovery system.
+You don't need to write any code to enable this - it works automatically when you use `P2pService`.
 
-// On reputation update (NodeHandler.java:232-238)
-private void updateReputation(int newRep) {
-    reputation.set(newRep);
+**How it works internally** (implementation details, not part of public API):
 
-    String nodeId = node.getId();
-    if (nodeId != null && kadService.getReputationManager() != null) {
-        kadService.getReputationManager().setReputation(nodeId, newRep);
-    }
-}
-```
+- When a node is discovered or connected, its reputation is automatically loaded from disk
+- Reputation is updated automatically based on node behavior (ping/pong responses, connection stability)
+- When reputation changes, it's automatically saved to disk by the `ReputationManager`
+- Low-reputation nodes are less likely to be selected for connections
+- High-reputation nodes are prioritized during peer selection
+
+**As a user**, you simply:
+1. Configure `dataDir` in `P2pConfig` (where reputation files will be stored)
+2. Start `P2pService` - reputation tracking starts automatically
+3. The system handles everything else - loading, updating, saving
 
 ### Decision Making
 
@@ -656,4 +658,4 @@ See [ReputationManagerTest.java](../src/test/java/io/xdag/p2p/discover/kad/Reput
 
 ---
 
-**Status:** Production-ready | **Version:** v0.1.2 | **Tests:** 20/20 passing
+**Status:** Production-ready | **Version:** v0.1.4 | **Tests:** 20/20 passing

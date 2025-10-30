@@ -78,10 +78,10 @@ publishExample.start();
 
 ```bash
 # Basic startup
-java -jar xdagj-p2p-0.1.2-jar-with-dependencies.jar -s 127.0.0.1:16783
+java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar -s 127.0.0.1:16783
 
 # DNS publishing
-java -jar xdagj-p2p-0.1.2-jar-with-dependencies.jar \
+java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar \
   -publish \
   --dns-private your-private-key \
   --domain nodes.example.org
@@ -97,9 +97,7 @@ ExampleConfig.builder()
     .networkId(11111)                   // Network ID
     .discoverEnable(true)               // Enable discovery
     .minConnections(8)                  // Minimum connections
-    .minActiveConnections(2)            // Minimum active connections
     .maxConnections(30)                 // Maximum connections (default: 50, production recommended: 30)
-    .maxConnectionsWithSameIp(2)        // Max connections with same IP
     .seedNodes(seedList)                // Seed nodes
     .activeNodes(activeList)            // Active nodes
     .trustNodes(trustList)              // Trust nodes
@@ -119,6 +117,10 @@ ExampleConfig.builder()
 ### Custom Event Handler
 
 ```java
+import io.xdag.p2p.example.message.MessageTypes;
+import io.xdag.p2p.channel.Channel;
+import java.util.HashSet;
+
 public class MyEventHandler extends ExampleEventHandler {
     public MyEventHandler() {
         // messageTypes is inherited from P2pEventHandler
@@ -128,7 +130,7 @@ public class MyEventHandler extends ExampleEventHandler {
 
     @Override
     protected void onPeerConnected(Channel channel) {
-        log.info("Custom connection handling: {}", channel.getInetSocketAddress());
+        log.info("Custom connection handling: {}", channel.getRemoteAddress());
         // Custom logic
     }
     

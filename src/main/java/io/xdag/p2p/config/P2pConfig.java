@@ -85,7 +85,7 @@ public class P2pConfig {
   private int netMaxFrameBodySize = 128 * 1024;
   private int netMaxPacketSize = 4 * 1024 * 1024; // 4MB total packet limit
   private boolean enableFrameCompression = true;
-  private String clientId = "xdagj-p2p/0.1.1";
+  private String clientId = "xdagj-p2p/0.1.4";
   private String[] capabilities = new String[]{"DISCV5"};
   private boolean enableGenerateBlock = false;
   private String nodeTag = "default-node";
