@@ -44,7 +44,7 @@ jobs:
       run: mvn clean test jacoco:report
 
     - name: Upload test results
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       if: always()
       with:
         name: test-results-${{ matrix.os }}-java${{ matrix.java }}-${{ github.run_number }}
@@ -90,7 +90,7 @@ jobs:
       run: mvn clean package -DskipTests
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: ${{ steps.project.outputs.ARTIFACT_ID }}-${{ steps.project.outputs.VERSION }}-build${{ github.run_number }}
         path: |
