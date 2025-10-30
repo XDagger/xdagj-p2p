@@ -20,21 +20,21 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
 
-        <xdagj-crypto.version>0.1.2</xdagj-crypto.version>
+        <xdagj-crypto.version>0.1.4</xdagj-crypto.version>
 
         <!-- utils -->
-        <lombok.version>1.18.38</lombok.version>
-        <guava.version>33.4.8-jre</guava.version>
-        <commons-lang3.version>3.18.0</commons-lang3.version>
-        <commons-cli.version>1.9.0</commons-cli.version>
+        <lombok.version>1.18.42</lombok.version>
+        <guava.version>33.5.0-jre</guava.version>
+        <commons-lang3.version>3.19.0</commons-lang3.version>
+        <commons-cli.version>1.10.0</commons-cli.version>
         <snappy-java.version>1.1.10.8</snappy-java.version>
 
         <!-- network -->
-        <netty.version>4.2.6.Final</netty.version>
+        <netty.version>4.2.7.Final</netty.version>
 
         <!-- dns -->
         <dnsjava.version>3.6.3</dnsjava.version>
-        <aws-dns.version>2.35.11</aws-dns.version>
+        <aws-dns.version>2.37.1</aws-dns.version>
 
         <!-- log -->
         <slf4j.version>2.0.17</slf4j.version>
@@ -45,17 +45,17 @@
         <jmh.version>1.37</jmh.version>
 
         <!-- maven plugin -->
-        <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
-        <maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
+        <maven-compiler-plugin.version>3.14.1</maven-compiler-plugin.version>
+        <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
         <license-maven-plugin.version>5.0.0</license-maven-plugin.version>
         <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
         <maven-assembly-plugin.version>3.7.1</maven-assembly-plugin.version>
         <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
-        <maven-javadoc-plugin.version>3.11.1</maven-javadoc-plugin.version>
-        <central-publishing-plugin.version>0.6.0</central-publishing-plugin.version>
-        <nexus-staging-plugin.version>1.6.13</nexus-staging-plugin.version>
-        <maven-gpg-plugin.version>3.0.1</maven-gpg-plugin.version>
-        <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
+        <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
+        <central-publishing-plugin.version>0.9.0</central-publishing-plugin.version>
+        <nexus-staging-plugin.version>1.7.0</nexus-staging-plugin.version>
+        <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
+        <jacoco-maven-plugin.version>0.8.14</jacoco-maven-plugin.version>
     </properties>
 
     <organization>
