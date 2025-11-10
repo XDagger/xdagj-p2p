@@ -34,13 +34,13 @@
 
         <!-- dns -->
         <dnsjava.version>3.6.3</dnsjava.version>
-        <aws-dns.version>2.37.1</aws-dns.version>
+        <aws-dns.version>2.37.3</aws-dns.version>
 
         <!-- log -->
         <slf4j.version>2.0.17</slf4j.version>
 
         <!-- test -->
-        <junit.version>6.0.0</junit.version>
+        <junit.version>6.0.1</junit.version>
         <mockito.version>5.20.0</mockito.version>
         <jmh.version>1.37</jmh.version>
 
