@@ -20,7 +20,7 @@ This document is designed to help AI models understand and use the xdagj-p2p lib
 ### Basic Information
 
 - **Project Name**: xdagj-p2p
-- **Version**: 0.1.4
+- **Version**: 0.1.5
 - **Purpose**: High-performance Java P2P networking library for the XDAG blockchain ecosystem
 - **Language**: Java 21+
 - **License**: MIT
@@ -68,7 +68,7 @@ This document is designed to help AI models understand and use the xdagj-p2p lib
 <dependency>
     <groupId>io.xdag</groupId>
     <artifactId>xdagj-p2p</artifactId>
-    <version>0.1.4</version>
+    <version>0.1.5</version>
 </dependency>
 ```
 

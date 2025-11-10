@@ -6,7 +6,7 @@
 
     <groupId>io.xdag</groupId>
     <artifactId>xdagj-p2p</artifactId>
-    <version>0.1.4</version>
+    <version>0.1.5</version>
 
     <name>xdagj-p2p</name>
     <description>A Java p2p Library For XDAGJ</description>

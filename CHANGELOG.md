@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2025-02-15
+
+### Added
+- **Protocol Extensibility Framework**: Introduced `IMessageCode` interface for flexible message code system
+  - Enables application layers to define custom message codes without modifying P2P framework
+  - Reserved message code ranges:
+    - `0x00-0x0F`: KAD protocol (P2P framework)
+    - `0x10-0x1F`: Node protocol (P2P framework)
+    - `0x20-0xFF`: Application layer (available for custom protocols)
+  - Built-in helper methods: `isFrameworkMessage()`, `isApplicationMessage()`, `toInt()`
+  - Comprehensive JavaDoc documentation with usage examples
+
+### Changed
+- **Message System Refactoring**: Enhanced message code flexibility
+  - `Message` class now uses `IMessageCode` interface instead of concrete `MessageCode` enum
+  - `MessageCode` enum now implements `IMessageCode` for framework messages
+  - Added `getCodeByte()` method to `Message` for direct byte access
+  - Deprecated `getType()` method (maintained for backward compatibility)
+  - Improved message logging logic to support application layer messages
+- **Code Organization**: Added static imports in `KadService` for cleaner code
+- **Business Handler**: Updated `XdagBusinessHandler` to use new message code API
+
+### Technical Details
+- Maintains full backward compatibility with existing code
+- No breaking changes for current API users
+- All 873 tests passing (860 → 873, +13 tests)
+- Test coverage maintained at 76%
+- New comprehensive test suite for IMessageCode interface (13 tests)
+
+### Documentation
+- Updated all documentation to reference v0.1.5
+- Added comprehensive API usage examples for custom message codes
+- Updated Maven dependency coordinates in README.md
+
 ## [0.1.4] - 2025-01-30
 
 ### Fixed
@@ -289,7 +323,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Serialization: 4M-22M ops/sec
 - Data access: 98M-206M ops/sec
 
-[Unreleased]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.1-dev...v0.1.2

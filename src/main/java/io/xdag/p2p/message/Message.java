@@ -32,9 +32,10 @@ import io.xdag.p2p.utils.SimpleDecoder;
 public abstract class Message {
 
     /**
-     * Message code.
+     * Message code (interface type for extensibility).
+     * Can be either framework message code or application layer message code.
      */
-    protected final MessageCode code;
+    protected final IMessageCode code;
 
     /**
      * Response message class.
@@ -47,34 +48,59 @@ public abstract class Message {
     protected byte[] body;
 
     /**
-     * Create a message instance.
+     * Create a message instance with extensible message code.
+     *
+     * <p>This constructor accepts {@link IMessageCode} interface, allowing both
+     * P2P framework messages and application layer messages to be created.
+     *
+     * @param code Message code (can be from P2P layer or application layer)
+     * @param responseMessageClass Expected response message class
      */
-    public Message(MessageCode code, Class<?> responseMessageClass) {
+    public Message(IMessageCode code, Class<?> responseMessageClass) {
         this.code = code;
         this.responseMessageClass = responseMessageClass;
         this.body = Bytes.EMPTY.toArray();
     }
 
     /**
+     * Get the message code as byte.
+     *
+     * @return message code byte (0x00-0xFF)
+     */
+    public byte getCodeByte() {
+        return code.toByte();
+    }
+
+    /**
      * Get the message type (code).
      * @return message type
+     * @deprecated Use {@link #getCodeByte()} or access {@link #code} directly
      */
-    public MessageCode getType() {
+    @Deprecated
+    public IMessageCode getType() {
         return code;
     }
 
     /**
      * Check if this message should be logged.
+     *
+     * <p>By default, only important P2P framework messages are logged.
+     * Application layer messages can override this behavior.
+     *
      * @return true if should log, false otherwise
      */
     public boolean needToLog() {
-        // Log important messages by default
-        return code != null && (
-            code == MessageCode.HANDSHAKE_INIT ||
-            code == MessageCode.HANDSHAKE_HELLO ||
-            code == MessageCode.HANDSHAKE_WORLD ||
-            code == MessageCode.DISCONNECT
-        );
+        // Only log framework messages by default
+        if (!code.isFrameworkMessage()) {
+            return false; // Application layer decides logging
+        }
+
+        // Log important framework messages
+        byte codeByte = code.toByte();
+        return codeByte == 0x11 || // HANDSHAKE_INIT
+               codeByte == 0x12 || // HANDSHAKE_HELLO
+               codeByte == 0x13 || // HANDSHAKE_WORLD
+               codeByte == 0x10;   // DISCONNECT
     }
 
     /**

@@ -361,7 +361,7 @@ java -Xms2048m -Xmx6144m \
      -XX:MaxGCPauseMillis=200 \
      -XX:+UseStringDeduplication \
      --enable-preview \
-     -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar
+     -jar xdagj-p2p-0.1.5-jar-with-dependencies.jar
 ```
 
 **Explanation:**

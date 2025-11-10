@@ -42,7 +42,7 @@ class PeerTest {
         String peerId = "test-peer-id-12345";
         String ip = "192.168.1.100";
         int port = 30303;
-        String clientId = "xdagj-p2p/0.1.4";
+        String clientId = "xdagj-p2p/0.1.5";
         String[] capabilities = {"DISC_V5", "ETH_66", "SNAP_1"};
         long latestBlockNumber = 123456789L;
         boolean isGenerateBlock = true;

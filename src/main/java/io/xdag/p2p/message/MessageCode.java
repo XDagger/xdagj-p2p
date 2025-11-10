@@ -25,11 +25,20 @@ package io.xdag.p2p.message;
 
 import lombok.Getter;
 
+/**
+ * P2P framework message codes.
+ *
+ * <p>These codes are reserved for the xdagj-p2p framework internal use.
+ * Application layers should define their own MessageCode enum implementing
+ * {@link IMessageCode} and use codes in the range 0x20-0xFF.
+ *
+ * @see IMessageCode
+ */
 @Getter
-public enum MessageCode {
+public enum MessageCode implements IMessageCode {
 
     // =======================================
-    // [0x00, 0x0f] Reserved for KAD
+    // [0x00, 0x0f] Reserved for KAD protocol
     // =======================================
     KAD_PING((byte) 0x00),
     KAD_PONG((byte) 0x01),
@@ -37,7 +46,7 @@ public enum MessageCode {
     KAD_NEIGHBORS((byte) 0x03),
 
     // =======================================
-    // [0x10, 0x1f] Reserved for Node
+    // [0x10, 0x1f] Reserved for Node protocol
     // =======================================
     DISCONNECT(0x10),
     HANDSHAKE_INIT(0x11),
@@ -60,6 +69,12 @@ public enum MessageCode {
         }
     }
 
+    /**
+     * Get MessageCode from byte value.
+     *
+     * @param code byte code value
+     * @return MessageCode or null if not found
+     */
     public static MessageCode of(int code) {
         return map[0xff & code];
     }
@@ -70,8 +85,13 @@ public enum MessageCode {
         this.code = code;
     }
 
+    /**
+     * Get the byte representation of this message code.
+     *
+     * @return message code as byte
+     */
+    @Override
     public byte toByte() {
         return (byte) code;
     }
-
 }

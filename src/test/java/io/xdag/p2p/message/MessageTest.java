@@ -61,7 +61,7 @@ public class MessageTest {
         Message msg = new PingMessage(new byte[0]);
 
         // When
-        MessageCode code = msg.getType();
+        IMessageCode code = msg.getType();
 
         // Then
         assertEquals(MessageCode.PING, code);
@@ -73,7 +73,7 @@ public class MessageTest {
         Message msg = new DisconnectMessage(ReasonCode.BAD_NETWORK);
 
         // When
-        MessageCode code = msg.getType();
+        IMessageCode code = msg.getType();
 
         // Then
         assertEquals(MessageCode.DISCONNECT, code);
@@ -176,7 +176,7 @@ public class MessageTest {
         Message msg = new PingMessage(new byte[0]);
 
         // When
-        MessageCode code = msg.getCode();
+        IMessageCode code = msg.getCode();
 
         // Then
         assertNotNull(code);

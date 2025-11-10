@@ -145,6 +145,20 @@ public class SimpleDecoder {
     }
 
     /**
+     * Reads a fixed number of bytes into the provided buffer
+     * @param buf destination buffer
+     * @return number of bytes read
+     * @throws IndexOutOfBoundsException if there are not enough bytes
+     */
+    public int readBytes(byte[] buf) {
+        int len = buf.length;
+        require(len);
+        System.arraycopy(in, index, buf, 0, len);
+        index += len;
+        return len;
+    }
+
+    /**
      * Reads a UTF-8 encoded string
      * @return decoded string
      * @throws SimpleCodecException if encoding is not supported
