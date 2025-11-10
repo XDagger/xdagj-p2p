@@ -183,10 +183,11 @@ class IMessageCodeTest {
 
     @Test
     void testMessageCodeEnum_applicationProtocol() {
-        // Test application layer message code
-        assertFalse(MessageCode.APP_TEST.isFrameworkMessage());
-        assertTrue(MessageCode.APP_TEST.isApplicationMessage());
-        assertEquals(0x20, MessageCode.APP_TEST.toInt());
+        // Test APP_TEST code - moved to framework range 0x16 to avoid conflict with application range
+        // APP_TEST is now a framework message for testing/debugging purposes
+        assertTrue(MessageCode.APP_TEST.isFrameworkMessage());
+        assertFalse(MessageCode.APP_TEST.isApplicationMessage());
+        assertEquals(0x16, MessageCode.APP_TEST.toInt());
     }
 
     @Test
@@ -229,17 +230,13 @@ class IMessageCodeTest {
     @Test
     void testAllMessageCodesAreInCorrectRange() {
         // Verify all framework MessageCode enum values are in framework range
+        // All MessageCode enum values (including APP_TEST at 0x16) are framework messages
         for (MessageCode code : MessageCode.values()) {
             int intValue = code.toInt();
-            if (code == MessageCode.APP_TEST) {
-                // APP_TEST should be in application range
-                assertTrue(intValue >= 0x20, "APP_TEST should be >= 0x20, got: 0x" + Integer.toHexString(intValue));
-                assertTrue(code.isApplicationMessage());
-            } else {
-                // All other framework codes should be in framework range
-                assertTrue(intValue <= 0x1F, code + " should be <= 0x1F, got: 0x" + Integer.toHexString(intValue));
-                assertTrue(code.isFrameworkMessage());
-            }
+            // All framework codes should be in framework range (0x00-0x1F)
+            assertTrue(intValue <= 0x1F, code + " should be <= 0x1F, got: 0x" + Integer.toHexString(intValue));
+            assertTrue(code.isFrameworkMessage(), code + " should be a framework message");
+            assertFalse(code.isApplicationMessage(), code + " should not be an application message");
         }
     }
 

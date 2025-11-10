@@ -16,7 +16,8 @@ public class MessageTypeTest {
     assertEquals(MessageCode.KAD_PONG, MessageCode.of(0x01));
     assertEquals(MessageCode.HANDSHAKE_HELLO, MessageCode.of(0x12));
     assertEquals(MessageCode.DISCONNECT, MessageCode.of(0x10));
-    assertEquals(MessageCode.APP_TEST, MessageCode.of(0x20));
+    // APP_TEST moved to 0x16 (framework range) to avoid conflict with application range (0x20-0xFF)
+    assertEquals(MessageCode.APP_TEST, MessageCode.of(0x16));
   }
 
   @Test
