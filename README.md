@@ -12,7 +12,7 @@ High-performance Java P2P networking library for the XDAG blockchain ecosystem, 
 
 ---
 
-## What's New in v0.1.5
+## What's New in v0.1.6
 
 ### Protocol Extensibility Framework
 - **Introduced `IMessageCode` Interface**: Enables application layers to define custom message codes without modifying the P2P framework
@@ -97,7 +97,7 @@ See [CHANGELOG.md](CHANGELOG.md) for complete release notes.
 <dependency>
     <groupId>io.xdag</groupId>
     <artifactId>xdagj-p2p</artifactId>
-    <version>0.1.5</version>
+    <version>0.1.6</version>
 </dependency>
 ```
 
@@ -155,7 +155,7 @@ p2pService.start();
 mvn clean package -DskipTests
 
 # Run P2P node
-java -jar target/xdagj-p2p-0.1.5-jar-with-dependencies.jar \
+java -jar target/xdagj-p2p-0.1.6-jar-with-dependencies.jar \
   -p 16783 \
   -s <SEED_NODE_IP>:16783
 ```
@@ -383,11 +383,11 @@ python3 analyze-network-performance.py --logs-dir logs
 
 XDAGJ-P2P uses **Kademlia DHT** for fully decentralized peer-to-peer discovery.
 
-### Current Method (v0.1.5)
+### Current Method (v0.1.6)
 
 ```bash
 # Start node with seed nodes
-java -jar xdagj-p2p-0.1.5-jar-with-dependencies.jar \
+java -jar xdagj-p2p-0.1.6-jar-with-dependencies.jar \
   -p 16783 \
   -s <SEED_NODE_IP_1>:16783,<SEED_NODE_IP_2>:16783
 ```
@@ -409,21 +409,21 @@ java -jar xdagj-p2p-0.1.5-jar-with-dependencies.jar \
 
 **Production (24/7 nodes):**
 ```bash
-java -jar xdagj-p2p-0.1.5-jar-with-dependencies.jar \
+java -jar xdagj-p2p-0.1.6-jar-with-dependencies.jar \
   -p 16783 \
   -s <SEED_NODE_IP_1>:16783,<SEED_NODE_IP_2>:16783,<SEED_NODE_IP_3>:16783
 ```
 
 **Development/Testing:**
 ```bash
-java -jar xdagj-p2p-0.1.5-jar-with-dependencies.jar \
+java -jar xdagj-p2p-0.1.6-jar-with-dependencies.jar \
   -p 16783 \
   -s 127.0.0.1:10000,192.168.1.100:16783
 ```
 
 **Private Networks:**
 ```bash
-java -jar xdagj-p2p-0.1.5-jar-with-dependencies.jar \
+java -jar xdagj-p2p-0.1.6-jar-with-dependencies.jar \
   -p 16783 \
   -s 10.0.1.10:16783,10.0.1.11:16783
 ```
@@ -480,4 +480,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Status:** v0.1.5 Production-Ready | **Tests:** 873 passing | **Coverage:** 76%
+**Status:** v0.1.6 Production-Ready | **Tests:** 873 passing | **Coverage:** 76%

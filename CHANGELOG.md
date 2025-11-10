@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2025-11-10
+
+### Fixed
+- **Duplicate Connection Prevention**: Added `hasActiveConnectionTo()` method in ChannelManager
+  - Prevents duplicate connection attempts after recentConnections cache expires (30 seconds)
+  - Checks both channels Map and connectedNodeIds Map for active connections
+  - Verifies actual Netty Channel active state (not just internal flags)
+  - Special handling for loopback addresses (local testing scenarios)
+  - Reduces duplicate TCP and P2P handshakes from 3 per 90s to 0
+  - Location: `ChannelManager.java:429-485`
+
+### Test
+- **Added comprehensive unit tests for hasActiveConnectionTo()**: 10 new test cases
+  - Null address handling
+  - No connection scenarios
+  - Exact address matching with active/inactive states
+  - connectedNodeIds Map matching logic
+  - Loopback address special handling (with/without/empty nodeId)
+  - Non-loopback different port scenarios
+  - Edge cases (null context, empty nodeId)
+  - All tests use Java Reflection and Mockito
+  - Location: `ChannelManagerTest.java:823-1091`
+
+### Fixed
+- **Test Suite Alignment**: Updated tests to reflect APP_TEST moved to 0x16
+  - APP_TEST moved from 0x20 to 0x16 (Node protocol range) to avoid conflict with application message range
+  - Fixed IMessageCodeTest.testMessageCodeEnum_applicationProtocol()
+  - Fixed IMessageCodeTest.testAllMessageCodesAreInCorrectRange()
+  - Fixed MessageTypeTest.testOf_KnownTypes()
+
+### Test Results
+- ✅ All 883 tests pass (previously 880/883)
+- ✅ ChannelManagerTest: 59 tests (49 existing + 10 new)
+- ✅ Test coverage maintained at 76%
+- ✅ No regression in existing tests
+
+### Documentation
+- Updated all documentation to reference v0.1.6
+- Updated Maven dependency coordinates in README.md
+
 ## [0.1.5] - 2025-02-15
 
 ### Added
@@ -323,7 +363,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Serialization: 4M-22M ops/sec
 - Data access: 98M-206M ops/sec
 
-[Unreleased]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.2...v0.1.3
