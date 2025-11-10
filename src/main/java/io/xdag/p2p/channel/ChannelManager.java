@@ -338,6 +338,7 @@ public class ChannelManager {
                 desiredConnections);
 
         List<Node> connectableNodes = new ArrayList<>(nodeManager.getConnectableNodes());
+
         if (connectableNodes.isEmpty()) {
             // Fallback: directly try boot seeds to bootstrap TCP handshake (independent of KAD)
             log.debug("No discovered nodes yet; will try boot seeds via TCP");
@@ -360,35 +361,128 @@ public class ChannelManager {
             }
 
             InetSocketAddress address = node.getPreferInetSocketAddress();
-            // Skip if: already connected by address, recent connection attempt, banned, or already connected by Node ID
-            if (address != null && !isConnected(address) && recentConnections.getIfPresent(address) == null) {
-                // Skip self-connection attempts (comparing port since in local testing all nodes use 127.0.0.1)
-                if (address.getPort() == homePort &&
-                    (address.getAddress().isLoopbackAddress() || address.getAddress().isAnyLocalAddress())) {
-                    log.debug("Skipping self-connection to {}", address);
-                    continue;
-                }
-
-                // Skip if already connected to this Node ID (prevents duplicate connections in local testing)
-                if (node.getId() != null && connectedNodeIds.containsKey(node.getId())) {
-                    log.debug("Skipping connection to {} - already connected to Node ID {}", address, node.getId());
-                    continue;
-                }
-
-                // Skip banned nodes
-                if (isBanned(address.getAddress())) {
-                    log.debug("Skipping banned node: {}", address);
-                    continue;
-                }
-
-                log.debug("Attempting to connect to {}", address);
-                connectAsync(node, false);
-                connectCount++;
+            if (address == null) {
+                continue;
             }
+
+            // Skip self-connection attempts (comparing port since in local testing all nodes use 127.0.0.1)
+            if (address.getPort() == homePort &&
+                (address.getAddress().isLoopbackAddress() || address.getAddress().isAnyLocalAddress())) {
+                log.debug("Skipping self-connection to {}", address);
+                continue;
+            }
+
+            // Skip if already connected to this Node ID (prevents duplicate connections in local testing)
+            if (node.getId() != null && connectedNodeIds.containsKey(node.getId())) {
+                log.debug("Skipping connection to {} - already connected to Node ID {}", address, node.getId());
+                continue;
+            }
+
+            // CRITICAL CHECK: Skip if we already have an active connection to this address
+            // This check MUST come before recentConnections check to prevent duplicate connection attempts
+            // when both nodes try to connect to each other simultaneously
+            if (hasActiveConnectionTo(address)) {
+                log.debug("Skipping connection to {} - already have an active connection to this node", address);
+                continue;
+            }
+
+            // Skip if we just tried to connect to this address recently
+            if (recentConnections.getIfPresent(address) != null) {
+                continue;
+            }
+
+            // Skip if already connected by exact address match
+            if (isConnected(address)) {
+                continue;
+            }
+
+            // Skip banned nodes
+            if (isBanned(address.getAddress())) {
+                log.debug("Skipping banned node: {}", address);
+                continue;
+            }
+
+            log.debug("Attempting to connect to {}", address);
+            connectAsync(node, false);
+            connectCount++;
         }
 
     }
 
+
+    /**
+     * Check if we already have an active connection to the target address.
+     *
+     * This method performs a comprehensive check to prevent duplicate connection attempts:
+     * 1. Checks if there's an exact address match in channels Map
+     * 2. Checks all connectedNodeIds to see if any Channel is connected to the same IP:Port
+     * 3. For local testing (loopback addresses), checks if we have any active connection to the same IP,
+     *    since inbound connections use different ports than the target listening port
+     * 4. Verifies that the Channel's underlying Netty channel is actually active
+     *
+     * This is particularly useful when both nodes have each other in their whitelist,
+     * preventing unnecessary reconnection attempts after recentConnections cache expires.
+     *
+     * @param targetAddress the address we want to connect to
+     * @return true if we already have an active connection to this address
+     */
+    private boolean hasActiveConnectionTo(InetSocketAddress targetAddress) {
+        if (targetAddress == null) {
+            return false;
+        }
+
+        // Fast path: Check if we have a channel with this exact address
+        Channel existingChannel = channels.get(targetAddress);
+        if (existingChannel != null) {
+            // Verify the channel's Netty channel is actually active
+            if (existingChannel.getCtx() != null &&
+                existingChannel.getCtx().channel() != null &&
+                existingChannel.getCtx().channel().isActive()) {
+                return true;
+            }
+        }
+
+        // Additional check: Look through all connected nodes to see if any has
+        // a remoteAddress matching our target (handles outbound connections)
+        InetAddress targetHost = targetAddress.getAddress();
+        int targetPort = targetAddress.getPort();
+
+        for (Channel channel : connectedNodeIds.values()) {
+            InetSocketAddress remoteAddr = channel.getRemoteAddress();
+            if (remoteAddr != null) {
+                // Exact match (works for outbound connections where remoteAddress = target)
+                if (remoteAddr.getAddress().equals(targetHost) &&
+                    remoteAddr.getPort() == targetPort) {
+                    // Verify the channel is actually active
+                    if (channel.getCtx() != null &&
+                        channel.getCtx().channel() != null &&
+                        channel.getCtx().channel().isActive()) {
+                        return true;
+                    }
+                }
+
+                // For loopback/local addresses: if we have any active connection from the same IP,
+                // and that connection has a nodeId, assume it's the same node
+                // This handles the case where node2 connects to node1 (inbound), then node1 tries to connect to node2
+                if (targetHost.isLoopbackAddress() &&
+                    remoteAddr.getAddress().equals(targetHost)) {
+                    if (channel.getNodeId() != null && !channel.getNodeId().isEmpty()) {
+                        // We have an active connection from this loopback IP with a known nodeId
+                        // Very likely the same node, skip reconnection attempt
+                        if (channel.getCtx() != null &&
+                            channel.getCtx().channel() != null &&
+                            channel.getCtx().channel().isActive()) {
+                            log.debug("Skipping connection to {} - already have active loopback connection from {} with nodeId {}",
+                                    targetAddress, remoteAddr, channel.getNodeId());
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
 
     private void checkConnections() {
         if (activePeers.size() < config.getMaxConnections()) {
@@ -408,6 +502,14 @@ public class ChannelManager {
 
     public ChannelFuture connectAsync(Node node, boolean isDiscovery) {
         InetSocketAddress address = node.getPreferInetSocketAddress();
+
+        // CRITICAL: Check if we already have an active connection to this address
+        // This prevents wasting resources on duplicate handshakes
+        if (address != null && hasActiveConnectionTo(address)) {
+            log.debug("Skipped connection to {} - already have active connection", address);
+            return null;  // Don't even attempt the connection
+        }
+
         if (address != null) {
             recentConnections.put(address, System.currentTimeMillis());
         }

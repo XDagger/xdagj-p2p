@@ -123,6 +123,7 @@ private ChannelFuture connectAsync(String host, int port) {
         b.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, P2pConstant.NODE_CONNECTION_TIMEOUT);
         b.remoteAddress(host, port);
         b.handler(new P2pChannelInitializer(p2pConfig, channelManager, p2pConfig.getNodeKey(), true));
+
         return b.connect();
     } catch (Exception e) {
         log.warn("Connect to {}:{} failed", host, port, e);

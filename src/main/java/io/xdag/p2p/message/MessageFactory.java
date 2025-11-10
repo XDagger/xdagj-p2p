@@ -69,7 +69,9 @@ public class MessageFactory {
                 case KAD_PONG -> new io.xdag.p2p.message.discover.KadPongMessage(body);
                 case KAD_FIND_NODE -> new io.xdag.p2p.message.discover.KadFindNodeMessage(body);
                 case KAD_NEIGHBORS -> new io.xdag.p2p.message.discover.KadNeighborsMessage(body);
-                case APP_TEST -> new io.xdag.p2p.example.message.AppTestMessage(body);
+                // APP_TEST is reserved for application layer - should be handled by custom MessageFactory
+                // Framework should not reference example/test classes in production code
+                case APP_TEST -> null;  // Return null for application-layer messages
             };
         } catch (IllegalArgumentException e) {
             // Defensive programming - invalid message format

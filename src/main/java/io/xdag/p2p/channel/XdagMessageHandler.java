@@ -58,7 +58,6 @@ public class XdagMessageHandler extends MessageToMessageCodec<XdagFrame, Message
         // Send raw body; packetType from message code, size is body length
         byte[] data = msg.getBody();
         byte[] compressed = data;
-        log.debug("Encode {}: bodyLen={} to {}", msg.getCode(), data != null ? data.length : 0, ctx.channel().remoteAddress());
 
         if (config.isEnableFrameCompression()) {
             try {
@@ -70,9 +69,11 @@ public class XdagMessageHandler extends MessageToMessageCodec<XdagFrame, Message
         }
 
         byte packetType = msg.getCode().toByte();
-        if (msg.getCode() == io.xdag.p2p.message.MessageCode.APP_TEST) {
-            log.debug("Encode APP_TEST: bodyLen={} remote={}", data != null ? data.length : 0, ctx.channel().remoteAddress());
-        }
+        log.debug("Encode message: type=0x{}, bodyLen={}, compressedLen={}, to={}",
+                String.format("%02X", packetType),
+                data != null ? data.length : 0,
+                compressed.length,
+                ctx.channel().remoteAddress());
         int packetId = packetCounter.incrementAndGet();
         int packetSize = compressed.length;
 
@@ -180,7 +181,21 @@ public class XdagMessageHandler extends MessageToMessageCodec<XdagFrame, Message
             default -> throw new MessageException("Unsupported compress type: " + head.getCompressType());
         }
 
-        return messageFactory.create(packetType, data);
+        // Check if this is an application-layer message (code >= 0x16)
+        // MessageFactory only handles framework messages (0x00-0x15)
+        // For application/XDAG messages, create a generic wrapper to pass through
+        int codeInt = 0xFF & packetType;
+        log.debug("Decode message: type=0x{}, dataLen={}",
+                String.format("%02X", packetType), data.length);
+
+        if (codeInt >= 0x16) {
+            // Application layer or XDAG protocol - create generic message wrapper
+            // These will be decoded by application-specific event handlers
+            return new ApplicationMessage(packetType, data);
+        } else {
+            // Framework message - use MessageFactory
+            return messageFactory.create(packetType, data);
+        }
     }
 
     private static final class PacketAggregate {
@@ -195,6 +210,60 @@ public class XdagMessageHandler extends MessageToMessageCodec<XdagFrame, Message
             // Assume average frame size of 32KB, so estimate frame count
             int estimatedFrames = Math.max(1, (size / 32768) + 1);
             this.frames = new ArrayList<>(estimatedFrames);
+        }
+    }
+
+    /**
+     * Generic message wrapper for application-layer messages (code >= 0x16).
+     * These messages bypass MessageFactory and are decoded by application-specific event handlers.
+     */
+    private static final class ApplicationMessage extends Message {
+        private final byte codeValue;
+
+        ApplicationMessage(byte code, byte[] body) {
+            super(new ApplicationMessageCode(code), null);
+            this.codeValue = code;
+            this.body = body;  // Set body directly
+        }
+
+        @Override
+        public void encode(io.xdag.p2p.utils.SimpleEncoder enc) {
+            // Application messages are already encoded - just write body as-is
+            if (body != null && body.length > 0) {
+                enc.writeBytes(body);
+            }
+        }
+
+        @Override
+        public org.apache.tuweni.bytes.Bytes getSendData() {
+            return super.getSendData();
+        }
+
+        @Override
+        public boolean needToLog() {
+            return true;  // Application messages should be logged
+        }
+
+        @Override
+        public String toString() {
+            return String.format("ApplicationMessage{code=0x%02X, bodyLen=%d}",
+                    codeValue, body != null ? body.length : 0);
+        }
+    }
+
+    /**
+     * Simple IMessageCode implementation for application-layer messages.
+     */
+    private static final class ApplicationMessageCode implements io.xdag.p2p.message.IMessageCode {
+        private final byte code;
+
+        ApplicationMessageCode(byte code) {
+            this.code = code;
+        }
+
+        @Override
+        public byte toByte() {
+            return code;
         }
     }
 }
