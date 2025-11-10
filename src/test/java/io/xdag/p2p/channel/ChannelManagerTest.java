@@ -819,4 +819,274 @@ public class ChannelManagerTest {
     channelManager.removeFromWhitelist(address);
     assertFalse(channelManager.isWhitelisted(address));
   }
+
+  // ========== Tests for hasActiveConnectionTo() - Commit 61b0d17 ==========
+
+  @Test
+  public void testHasActiveConnectionTo_NullAddress() throws Exception {
+    // Use reflection to test private hasActiveConnectionTo method
+    java.lang.reflect.Method method = ChannelManager.class.getDeclaredMethod("hasActiveConnectionTo", InetSocketAddress.class);
+    method.setAccessible(true);
+
+    // Test with null address - should return false
+    boolean result = (boolean) method.invoke(channelManager, (InetSocketAddress) null);
+    assertFalse(result, "Should return false for null address");
+  }
+
+  @Test
+  public void testHasActiveConnectionTo_NoConnection() throws Exception {
+    // Use reflection to test private hasActiveConnectionTo method
+    java.lang.reflect.Method method = ChannelManager.class.getDeclaredMethod("hasActiveConnectionTo", InetSocketAddress.class);
+    method.setAccessible(true);
+
+    InetSocketAddress testAddress = new InetSocketAddress("192.168.1.100", 8080);
+
+    // Test with no existing connections - should return false
+    boolean result = (boolean) method.invoke(channelManager, testAddress);
+    assertFalse(result, "Should return false when no connections exist");
+  }
+
+  @Test
+  public void testHasActiveConnectionTo_ExactMatchInChannels() throws Exception {
+    // Use reflection to test private hasActiveConnectionTo method
+    java.lang.reflect.Method method = ChannelManager.class.getDeclaredMethod("hasActiveConnectionTo", InetSocketAddress.class);
+    method.setAccessible(true);
+
+    InetSocketAddress testAddress = new InetSocketAddress("192.168.1.100", 8080);
+
+    // Create a mock channel with active Netty channel
+    Channel mockChannel = mock(Channel.class);
+    io.netty.channel.ChannelHandlerContext mockCtx = mock(io.netty.channel.ChannelHandlerContext.class);
+    io.netty.channel.Channel mockNettyChannel = mock(io.netty.channel.Channel.class);
+
+    when(mockChannel.getCtx()).thenReturn(mockCtx);
+    when(mockCtx.channel()).thenReturn(mockNettyChannel);
+    when(mockNettyChannel.isActive()).thenReturn(true);
+
+    // Add to channels map
+    channelManager.getChannels().put(testAddress, mockChannel);
+
+    // Test - should return true since we have an active connection to this exact address
+    boolean result = (boolean) method.invoke(channelManager, testAddress);
+    assertTrue(result, "Should return true for exact match with active channel");
+  }
+
+  @Test
+  public void testHasActiveConnectionTo_ExactMatchButInactive() throws Exception {
+    // Use reflection to test private hasActiveConnectionTo method
+    java.lang.reflect.Method method = ChannelManager.class.getDeclaredMethod("hasActiveConnectionTo", InetSocketAddress.class);
+    method.setAccessible(true);
+
+    InetSocketAddress testAddress = new InetSocketAddress("192.168.1.100", 8080);
+
+    // Create a mock channel with INACTIVE Netty channel
+    Channel mockChannel = mock(Channel.class);
+    io.netty.channel.ChannelHandlerContext mockCtx = mock(io.netty.channel.ChannelHandlerContext.class);
+    io.netty.channel.Channel mockNettyChannel = mock(io.netty.channel.Channel.class);
+
+    when(mockChannel.getCtx()).thenReturn(mockCtx);
+    when(mockCtx.channel()).thenReturn(mockNettyChannel);
+    when(mockNettyChannel.isActive()).thenReturn(false); // Inactive!
+
+    // Add to channels map
+    channelManager.getChannels().put(testAddress, mockChannel);
+
+    // Test - should return false since the Netty channel is not active
+    boolean result = (boolean) method.invoke(channelManager, testAddress);
+    assertFalse(result, "Should return false when Netty channel is not active");
+  }
+
+  @Test
+  public void testHasActiveConnectionTo_MatchInConnectedNodeIds() throws Exception {
+    // Use reflection to access private fields and methods
+    java.lang.reflect.Method method = ChannelManager.class.getDeclaredMethod("hasActiveConnectionTo", InetSocketAddress.class);
+    method.setAccessible(true);
+
+    java.lang.reflect.Field connectedNodeIdsField = ChannelManager.class.getDeclaredField("connectedNodeIds");
+    connectedNodeIdsField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, Channel> connectedNodeIds = (java.util.Map<String, Channel>) connectedNodeIdsField.get(channelManager);
+
+    InetSocketAddress testAddress = new InetSocketAddress("192.168.1.100", 8080);
+    String nodeId = "test-node-id-789";
+
+    // Create a mock channel with matching remote address
+    Channel mockChannel = mock(Channel.class);
+    when(mockChannel.getRemoteAddress()).thenReturn(testAddress);
+
+    io.netty.channel.ChannelHandlerContext mockCtx = mock(io.netty.channel.ChannelHandlerContext.class);
+    io.netty.channel.Channel mockNettyChannel = mock(io.netty.channel.Channel.class);
+    when(mockChannel.getCtx()).thenReturn(mockCtx);
+    when(mockCtx.channel()).thenReturn(mockNettyChannel);
+    when(mockNettyChannel.isActive()).thenReturn(true);
+
+    // Add to connectedNodeIds map (simulating an active connection)
+    connectedNodeIds.put(nodeId, mockChannel);
+
+    // Test - should return true since we have an active connection to this address
+    boolean result = (boolean) method.invoke(channelManager, testAddress);
+    assertTrue(result, "Should return true when matching address found in connectedNodeIds");
+  }
+
+  @Test
+  public void testHasActiveConnectionTo_LoopbackAddressWithNodeId() throws Exception {
+    // Use reflection to access private fields and methods
+    java.lang.reflect.Method method = ChannelManager.class.getDeclaredMethod("hasActiveConnectionTo", InetSocketAddress.class);
+    method.setAccessible(true);
+
+    java.lang.reflect.Field connectedNodeIdsField = ChannelManager.class.getDeclaredField("connectedNodeIds");
+    connectedNodeIdsField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, Channel> connectedNodeIds = (java.util.Map<String, Channel>) connectedNodeIdsField.get(channelManager);
+
+    // Target: loopback address with port 8080
+    InetSocketAddress targetAddress = new InetSocketAddress("127.0.0.1", 8080);
+    // Existing connection: from same loopback IP but different port (simulating inbound connection)
+    InetSocketAddress existingAddress = new InetSocketAddress("127.0.0.1", 9999);
+    String nodeId = "test-loopback-node";
+
+    // Create a mock channel with different port but same loopback IP
+    Channel mockChannel = mock(Channel.class);
+    when(mockChannel.getRemoteAddress()).thenReturn(existingAddress);
+    when(mockChannel.getNodeId()).thenReturn(nodeId);
+
+    io.netty.channel.ChannelHandlerContext mockCtx = mock(io.netty.channel.ChannelHandlerContext.class);
+    io.netty.channel.Channel mockNettyChannel = mock(io.netty.channel.Channel.class);
+    when(mockChannel.getCtx()).thenReturn(mockCtx);
+    when(mockCtx.channel()).thenReturn(mockNettyChannel);
+    when(mockNettyChannel.isActive()).thenReturn(true);
+
+    // Add to connectedNodeIds map
+    connectedNodeIds.put(nodeId, mockChannel);
+
+    // Test - should return true for loopback address with same IP (even different port) if nodeId exists
+    boolean result = (boolean) method.invoke(channelManager, targetAddress);
+    assertTrue(result, "Should return true for loopback address with same IP and valid nodeId");
+  }
+
+  @Test
+  public void testHasActiveConnectionTo_LoopbackAddressWithoutNodeId() throws Exception {
+    // Use reflection to access private fields and methods
+    java.lang.reflect.Method method = ChannelManager.class.getDeclaredMethod("hasActiveConnectionTo", InetSocketAddress.class);
+    method.setAccessible(true);
+
+    java.lang.reflect.Field connectedNodeIdsField = ChannelManager.class.getDeclaredField("connectedNodeIds");
+    connectedNodeIdsField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, Channel> connectedNodeIds = (java.util.Map<String, Channel>) connectedNodeIdsField.get(channelManager);
+
+    // Target: loopback address with port 8080
+    InetSocketAddress targetAddress = new InetSocketAddress("127.0.0.1", 8080);
+    // Existing connection: from same loopback IP but different port
+    InetSocketAddress existingAddress = new InetSocketAddress("127.0.0.1", 9999);
+
+    // Create a mock channel WITHOUT nodeId
+    Channel mockChannel = mock(Channel.class);
+    when(mockChannel.getRemoteAddress()).thenReturn(existingAddress);
+    when(mockChannel.getNodeId()).thenReturn(null); // No nodeId
+
+    io.netty.channel.ChannelHandlerContext mockCtx = mock(io.netty.channel.ChannelHandlerContext.class);
+    io.netty.channel.Channel mockNettyChannel = mock(io.netty.channel.Channel.class);
+    when(mockChannel.getCtx()).thenReturn(mockCtx);
+    when(mockCtx.channel()).thenReturn(mockNettyChannel);
+    when(mockNettyChannel.isActive()).thenReturn(true);
+
+    // Add to connectedNodeIds map (with some key)
+    connectedNodeIds.put("some-key", mockChannel);
+
+    // Test - should return false for loopback address without nodeId (can't confirm it's the same node)
+    boolean result = (boolean) method.invoke(channelManager, targetAddress);
+    assertFalse(result, "Should return false for loopback address without nodeId");
+  }
+
+  @Test
+  public void testHasActiveConnectionTo_LoopbackAddressWithEmptyNodeId() throws Exception {
+    // Use reflection to access private fields and methods
+    java.lang.reflect.Method method = ChannelManager.class.getDeclaredMethod("hasActiveConnectionTo", InetSocketAddress.class);
+    method.setAccessible(true);
+
+    java.lang.reflect.Field connectedNodeIdsField = ChannelManager.class.getDeclaredField("connectedNodeIds");
+    connectedNodeIdsField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, Channel> connectedNodeIds = (java.util.Map<String, Channel>) connectedNodeIdsField.get(channelManager);
+
+    // Target: loopback address with port 8080
+    InetSocketAddress targetAddress = new InetSocketAddress("127.0.0.1", 8080);
+    // Existing connection: from same loopback IP but different port
+    InetSocketAddress existingAddress = new InetSocketAddress("127.0.0.1", 9999);
+
+    // Create a mock channel with EMPTY nodeId
+    Channel mockChannel = mock(Channel.class);
+    when(mockChannel.getRemoteAddress()).thenReturn(existingAddress);
+    when(mockChannel.getNodeId()).thenReturn(""); // Empty nodeId
+
+    io.netty.channel.ChannelHandlerContext mockCtx = mock(io.netty.channel.ChannelHandlerContext.class);
+    io.netty.channel.Channel mockNettyChannel = mock(io.netty.channel.Channel.class);
+    when(mockChannel.getCtx()).thenReturn(mockCtx);
+    when(mockCtx.channel()).thenReturn(mockNettyChannel);
+    when(mockNettyChannel.isActive()).thenReturn(true);
+
+    // Add to connectedNodeIds map
+    connectedNodeIds.put("some-key", mockChannel);
+
+    // Test - should return false for loopback address with empty nodeId
+    boolean result = (boolean) method.invoke(channelManager, targetAddress);
+    assertFalse(result, "Should return false for loopback address with empty nodeId");
+  }
+
+  @Test
+  public void testHasActiveConnectionTo_NonLoopbackDifferentPort() throws Exception {
+    // Use reflection to access private fields and methods
+    java.lang.reflect.Method method = ChannelManager.class.getDeclaredMethod("hasActiveConnectionTo", InetSocketAddress.class);
+    method.setAccessible(true);
+
+    java.lang.reflect.Field connectedNodeIdsField = ChannelManager.class.getDeclaredField("connectedNodeIds");
+    connectedNodeIdsField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, Channel> connectedNodeIds = (java.util.Map<String, Channel>) connectedNodeIdsField.get(channelManager);
+
+    // Target: non-loopback address with port 8080
+    InetSocketAddress targetAddress = new InetSocketAddress("192.168.1.100", 8080);
+    // Existing connection: same IP but DIFFERENT port
+    InetSocketAddress existingAddress = new InetSocketAddress("192.168.1.100", 9999);
+    String nodeId = "test-node-different-port";
+
+    // Create a mock channel with different port
+    Channel mockChannel = mock(Channel.class);
+    when(mockChannel.getRemoteAddress()).thenReturn(existingAddress);
+    when(mockChannel.getNodeId()).thenReturn(nodeId);
+
+    io.netty.channel.ChannelHandlerContext mockCtx = mock(io.netty.channel.ChannelHandlerContext.class);
+    io.netty.channel.Channel mockNettyChannel = mock(io.netty.channel.Channel.class);
+    when(mockChannel.getCtx()).thenReturn(mockCtx);
+    when(mockCtx.channel()).thenReturn(mockNettyChannel);
+    when(mockNettyChannel.isActive()).thenReturn(true);
+
+    // Add to connectedNodeIds map
+    connectedNodeIds.put(nodeId, mockChannel);
+
+    // Test - should return false for non-loopback address with different port
+    boolean result = (boolean) method.invoke(channelManager, targetAddress);
+    assertFalse(result, "Should return false for non-loopback address with different port");
+  }
+
+  @Test
+  public void testHasActiveConnectionTo_ExactMatchWithNullCtx() throws Exception {
+    // Use reflection to test private hasActiveConnectionTo method
+    java.lang.reflect.Method method = ChannelManager.class.getDeclaredMethod("hasActiveConnectionTo", InetSocketAddress.class);
+    method.setAccessible(true);
+
+    InetSocketAddress testAddress = new InetSocketAddress("192.168.1.100", 8080);
+
+    // Create a mock channel with NULL context (edge case)
+    Channel mockChannel = mock(Channel.class);
+    when(mockChannel.getCtx()).thenReturn(null);
+
+    // Add to channels map
+    channelManager.getChannels().put(testAddress, mockChannel);
+
+    // Test - should return false since ctx is null
+    boolean result = (boolean) method.invoke(channelManager, testAddress);
+    assertFalse(result, "Should return false when channel context is null");
+  }
 }
