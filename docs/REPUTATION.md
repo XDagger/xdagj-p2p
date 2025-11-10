@@ -658,4 +658,4 @@ See [ReputationManagerTest.java](../src/test/java/io/xdag/p2p/discover/kad/Reput
 
 ---
 
-**Status:** Production-ready | **Version:** v0.1.4 | **Tests:** 20/20 passing
+**Status:** Production-ready | **Version:** v0.1.5 | **Tests:** 20/20 passing

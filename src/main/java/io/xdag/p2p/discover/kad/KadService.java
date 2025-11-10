@@ -23,6 +23,11 @@
  */
 package io.xdag.p2p.discover.kad;
 
+import static io.xdag.p2p.message.MessageCode.KAD_FIND_NODE;
+import static io.xdag.p2p.message.MessageCode.KAD_NEIGHBORS;
+import static io.xdag.p2p.message.MessageCode.KAD_PING;
+import static io.xdag.p2p.message.MessageCode.KAD_PONG;
+
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.DiscoverService;
 import io.xdag.p2p.discover.Node;

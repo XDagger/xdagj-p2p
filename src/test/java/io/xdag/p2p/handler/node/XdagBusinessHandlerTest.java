@@ -116,7 +116,7 @@ class XdagBusinessHandlerTest {
 
         byte[] appPayload = new byte[]{1, 2, 3, 4, 5};
         Message appTestMessage = mock(Message.class);
-        when(appTestMessage.getType()).thenReturn(MessageCode.APP_TEST);
+        when(appTestMessage.getCode()).thenReturn(MessageCode.APP_TEST);
         when(appTestMessage.getBody()).thenReturn(appPayload);
 
         // When
@@ -141,7 +141,7 @@ class XdagBusinessHandlerTest {
 
         byte[] fullData = new byte[]{0x01, 0x02, 0x03, 0x04};
         Message customMessage = mock(Message.class);
-        when(customMessage.getType()).thenReturn(MessageCode.DISCONNECT);
+        when(customMessage.getCode()).thenReturn(MessageCode.DISCONNECT);
         when(customMessage.getBody()).thenReturn(new byte[]{0x02, 0x03, 0x04});
         when(customMessage.getSendData()).thenReturn(Bytes.wrap(fullData));
 
@@ -163,7 +163,7 @@ class XdagBusinessHandlerTest {
         when(nettyChannel.remoteAddress()).thenReturn(unknownAddress);
 
         Message message = mock(Message.class);
-        when(message.getType()).thenReturn(MessageCode.DISCONNECT);
+        when(message.getCode()).thenReturn(MessageCode.DISCONNECT);
 
         P2pEventHandler messageHandler = mock(P2pEventHandler.class);
         when(config.getHandlerList()).thenReturn(List.of(messageHandler));
@@ -184,7 +184,7 @@ class XdagBusinessHandlerTest {
         when(config.getHandlerList()).thenReturn(List.of(faultyHandler));
 
         Message message = mock(Message.class);
-        when(message.getType()).thenReturn(MessageCode.DISCONNECT);
+        when(message.getCode()).thenReturn(MessageCode.DISCONNECT);
         when(message.getSendData()).thenReturn(Bytes.wrap(new byte[]{1, 2, 3}));
         when(message.getBody()).thenReturn(new byte[]{2, 3});
 
@@ -213,7 +213,7 @@ class XdagBusinessHandlerTest {
         when(config.getHandlerList()).thenReturn(List.of(handler1, handler2, handler3));
 
         Message message = mock(Message.class);
-        when(message.getType()).thenReturn(MessageCode.DISCONNECT);
+        when(message.getCode()).thenReturn(MessageCode.DISCONNECT);
         when(message.getSendData()).thenReturn(Bytes.wrap(new byte[]{1, 2, 3}));
         when(message.getBody()).thenReturn(new byte[]{2, 3});
 
@@ -242,7 +242,7 @@ class XdagBusinessHandlerTest {
         when(config.getHandlerList()).thenReturn(new ArrayList<>());
 
         Message message = mock(Message.class);
-        when(message.getType()).thenReturn(MessageCode.DISCONNECT);
+        when(message.getCode()).thenReturn(MessageCode.DISCONNECT);
         when(message.getSendData()).thenReturn(Bytes.wrap(new byte[]{1, 2, 3}));
         when(message.getBody()).thenReturn(new byte[]{2, 3});
 
@@ -257,7 +257,7 @@ class XdagBusinessHandlerTest {
         when(config.getHandlerList()).thenReturn(List.of(messageHandler));
 
         Message message = mock(Message.class);
-        when(message.getType()).thenReturn(MessageCode.APP_TEST);
+        when(message.getCode()).thenReturn(MessageCode.APP_TEST);
         when(message.getBody()).thenReturn(null);
 
         // When & Then - should handle gracefully
@@ -296,7 +296,7 @@ class XdagBusinessHandlerTest {
         when(config.getHandlerList()).thenReturn(List.of(messageHandler));
 
         Message message = mock(Message.class);
-        when(message.getType()).thenReturn(MessageCode.DISCONNECT);
+        when(message.getCode()).thenReturn(MessageCode.DISCONNECT);
         when(message.getBody()).thenReturn(new byte[0]);
         when(message.getSendData()).thenReturn(Bytes.wrap(new byte[]{MessageCode.DISCONNECT.toByte()}));
 
@@ -317,7 +317,7 @@ class XdagBusinessHandlerTest {
 
         // Test DISCONNECT message
         Message disconnectMsg = mock(Message.class);
-        when(disconnectMsg.getType()).thenReturn(MessageCode.DISCONNECT);
+        when(disconnectMsg.getCode()).thenReturn(MessageCode.DISCONNECT);
         when(disconnectMsg.getSendData()).thenReturn(Bytes.wrap(new byte[]{1}));
         when(disconnectMsg.getBody()).thenReturn(new byte[]{1});
 
@@ -332,7 +332,7 @@ class XdagBusinessHandlerTest {
     void testChannelManagerIntegration() {
         // Given
         Message message = mock(Message.class);
-        when(message.getType()).thenReturn(MessageCode.DISCONNECT);
+        when(message.getCode()).thenReturn(MessageCode.DISCONNECT);
         when(message.getSendData()).thenReturn(Bytes.wrap(new byte[]{1, 2}));
         when(message.getBody()).thenReturn(new byte[]{2});
 
@@ -355,7 +355,7 @@ class XdagBusinessHandlerTest {
         when(config.getHandlerList()).thenReturn(List.of(goodHandler1, faultyHandler, goodHandler2));
 
         Message message = mock(Message.class);
-        when(message.getType()).thenReturn(MessageCode.DISCONNECT);
+        when(message.getCode()).thenReturn(MessageCode.DISCONNECT);
         when(message.getSendData()).thenReturn(Bytes.wrap(new byte[]{1, 2, 3}));
         when(message.getBody()).thenReturn(new byte[]{2, 3});
 

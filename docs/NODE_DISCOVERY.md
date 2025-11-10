@@ -16,13 +16,13 @@ Complete guide to node discovery mechanisms in XDAGJ-P2P.
 
 ### Kademlia DHT Discovery (Production-Ready)
 
-XDAGJ-P2P v0.1.4 uses **Kademlia DHT** for fully decentralized peer-to-peer discovery via UDP protocol.
+XDAGJ-P2P v0.1.5 uses **Kademlia DHT** for fully decentralized peer-to-peer discovery via UDP protocol.
 
 #### Basic Usage
 
 ```bash
 # Start node with seed nodes (recommended for production)
-java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar \
+java -jar xdagj-p2p-0.1.5-jar-with-dependencies.jar \
   -p 16783 \
   -s <SEED_NODE_IP_1>:16783,<SEED_NODE_IP_2>:16783
 ```
@@ -145,7 +145,7 @@ int leadingZeros = 160 - distance.bitLength();
 
 ```bash
 # Multiple seed nodes for redundancy
-java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar \
+java -jar xdagj-p2p-0.1.5-jar-with-dependencies.jar \
   -p 16783 \
   -s <SEED_NODE_IP_1>:16783,<SEED_NODE_IP_2>:16783,<SEED_NODE_IP_3>:16783 \
   -d 1
@@ -188,7 +188,7 @@ service.start();
 
 ```bash
 # Single seed node for local testing
-java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar \
+java -jar xdagj-p2p-0.1.5-jar-with-dependencies.jar \
   -p 10000 \
   -s 127.0.0.1:10001 \
   -d 1
@@ -198,13 +198,13 @@ java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar \
 
 ```bash
 # Node 1
-java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar -p 10000 -s 127.0.0.1:10001,127.0.0.1:10002 &
+java -jar xdagj-p2p-0.1.5-jar-with-dependencies.jar -p 10000 -s 127.0.0.1:10001,127.0.0.1:10002 &
 
 # Node 2
-java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar -p 10001 -s 127.0.0.1:10000,127.0.0.1:10002 &
+java -jar xdagj-p2p-0.1.5-jar-with-dependencies.jar -p 10001 -s 127.0.0.1:10000,127.0.0.1:10002 &
 
 # Node 3
-java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar -p 10002 -s 127.0.0.1:10000,127.0.0.1:10001 &
+java -jar xdagj-p2p-0.1.5-jar-with-dependencies.jar -p 10002 -s 127.0.0.1:10000,127.0.0.1:10001 &
 ```
 
 ### Private Networks
@@ -213,7 +213,7 @@ java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar -p 10002 -s 127.0.0.1:10000,
 
 ```bash
 # Private seed nodes with internal IPs
-java -jar xdagj-p2p-0.1.4-jar-with-dependencies.jar \
+java -jar xdagj-p2p-0.1.5-jar-with-dependencies.jar \
   -p 16783 \
   -s 10.0.1.10:16783,10.0.1.11:16783,10.0.1.12:16783 \
   -d 1

@@ -28,6 +28,7 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import io.xdag.p2p.channel.Channel;
 import io.xdag.p2p.channel.ChannelManager;
 import io.xdag.p2p.config.P2pConfig;
+import io.xdag.p2p.message.IMessageCode;
 import io.xdag.p2p.message.Message;
 import io.xdag.p2p.message.MessageCode;
 import java.net.InetSocketAddress;
@@ -47,14 +48,16 @@ public class XdagBusinessHandler extends SimpleChannelInboundHandler<Message> {
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, Message msg) {
         try {
-            MessageCode code = msg.getType();
+            IMessageCode code = msg.getCode();
+            byte codeByte = code.toByte();
+
             InetSocketAddress remote = (InetSocketAddress) ctx.channel().remoteAddress();
             Channel ch = channelManager.getChannels().get(remote);
             if (ch == null) {
                 return; // No logging in extreme TPS mode
             }
 
-            if (code == MessageCode.PING) {
+            if (codeByte == MessageCode.PING.toByte()) {
                 // Auto-respond to TCP keepalive pings at business layer
                 try {
                     ctx.writeAndFlush(new io.xdag.p2p.message.node.PongMessage());
@@ -62,10 +65,10 @@ public class XdagBusinessHandler extends SimpleChannelInboundHandler<Message> {
                     // Silent failure
                 }
                 return;
-            } else if (code == MessageCode.PONG) {
+            } else if (codeByte == MessageCode.PONG.toByte()) {
                 // Latency can be tracked here if needed
                 return;
-            } else if (code == MessageCode.APP_TEST) {
+            } else if (codeByte == MessageCode.APP_TEST.toByte()) {
                 // Deliver pure app payload without network code
                 org.apache.tuweni.bytes.Bytes appPayload = org.apache.tuweni.bytes.Bytes.wrap(msg.getBody());
                 for (var h : config.getHandlerList()) {

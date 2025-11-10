@@ -84,7 +84,7 @@
   - [ ] Add more code examples
   - [ ] API reference documentation
 
-## Version 0.1.4 - Completed Q1 2025 ✅
+## Version 0.1.5 - Completed Q1 2025 ✅
 
 ### High Priority ✅ Completed
 - [x] **Handshake Reliability Hotfix**
@@ -94,7 +94,7 @@
 ### Medium Priority ✅ Completed
 - [x] **Regression Coverage & Release Hygiene**
   - [x] Added unit test coverage for `ChannelManager.markHandshakeSuccess`
-  - [x] Updated documentation & artifacts to v0.1.4
+  - [x] Updated documentation & artifacts to v0.1.5
 
 ## Version 0.1.5 (Next Release) - Q2 2025
 
@@ -198,4 +198,4 @@ We welcome community input on our roadmap! Please:
 
 ---
 
-Last Updated: 2025-01-30 (v0.1.4 Released)
+Last Updated: 2025-01-30 (v0.1.5 Released)
