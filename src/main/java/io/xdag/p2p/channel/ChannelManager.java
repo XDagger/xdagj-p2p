@@ -524,39 +524,84 @@ public class ChannelManager {
     public void onChannelActive(Channel channel) {
         String nodeId = channel.getNodeId();
 
-        // Check if we already have a connection to this Node ID (prevents duplicate connections)
-        // This works in both local testing (same IP) and production (different IPs)
-        if (nodeId != null && !nodeId.isEmpty()) {
-            Channel existingChannel = connectedNodeIds.get(nodeId);
-            if (existingChannel != null) {
-                // Check if the Netty channel is actually active (not the isActive field)
-                boolean nettyChannelActive = existingChannel.getCtx() != null
-                    && existingChannel.getCtx().channel() != null
-                    && existingChannel.getCtx().channel().isActive();
-                if (nettyChannelActive) {
-                    log.warn("Duplicate connection detected to Node ID {}. Existing: {}, New: {}. Closing new connection.",
-                             nodeId, existingChannel.getRemoteAddress(), channel.getRemoteAddress());
-                    channel.closeWithoutBan();
-                    return;
-                }
-            }
+        // If nodeId is null or empty, we cannot deduplicate by NodeId
+        // Only add to channels map (for backward compatibility), but not to connectedNodeIds
+        if (nodeId == null || nodeId.isEmpty()) {
+            log.warn("Channel {} has no NodeId, cannot deduplicate. This may cause duplicate connections.",
+                     channel.getRemoteAddress());
+            addChannelToMaps(channel, null);
+            return;
         }
 
-        // Proceed with normal connection logic
-        if (channels.putIfAbsent(channel.getRemoteAddress(), channel) == null) {
-            // Track by Node ID (if available)
-            if (nodeId != null && !nodeId.isEmpty()) {
-                connectedNodeIds.put(nodeId, channel);
+        // Thread-safe deduplication using compute
+        // This ensures atomic check-and-update on connectedNodeIds
+        Channel[] result = new Channel[1]; // To hold the result from compute
+        boolean[] shouldClose = new boolean[1];
+
+        connectedNodeIds.compute(nodeId, (key, existingChannel) -> {
+            if (existingChannel == null) {
+                // No existing connection, accept the new one
+                result[0] = channel;
+                return channel;
             }
+
+            // Check if existing channel is actually active
+            if (isNettyChannelActive(existingChannel)) {
+                // Existing channel is active, reject the new one
+                log.warn("Duplicate connection to NodeId {}. Existing: {}, New: {}. Closing new connection.",
+                         nodeId, existingChannel.getRemoteAddress(), channel.getRemoteAddress());
+                shouldClose[0] = true;
+                result[0] = existingChannel;
+                return existingChannel; // Keep existing
+            } else {
+                // Existing channel is stale, replace it
+                log.info("Replacing stale connection for NodeId {}. Old: {}, New: {}",
+                         nodeId, existingChannel.getRemoteAddress(), channel.getRemoteAddress());
+                cleanupStaleChannel(existingChannel);
+                result[0] = channel;
+                return channel; // Replace with new
+            }
+        });
+
+        // If we should close the new connection, do it outside the compute block
+        if (shouldClose[0]) {
+            channel.closeWithoutBan();
+            return;
+        }
+
+        // If the new channel was accepted, add to other tracking structures
+        if (result[0] == channel) {
+            addChannelToMaps(channel, nodeId);
+        }
+    }
+
+    /**
+     * Check if a channel's underlying Netty channel is actually active.
+     */
+    private boolean isNettyChannelActive(Channel channel) {
+        return channel != null
+            && channel.getCtx() != null
+            && channel.getCtx().channel() != null
+            && channel.getCtx().channel().isActive();
+    }
+
+    /**
+     * Add channel to tracking maps and notify handlers.
+     * This is called after deduplication has passed.
+     */
+    private void addChannelToMaps(Channel channel, String nodeId) {
+        // Add to channels map (keyed by remote address for backward compatibility)
+        if (channels.putIfAbsent(channel.getRemoteAddress(), channel) == null) {
             activePeers.add(channel);
-            boolean isActive = channel.isActive();
-            if (isActive) {
+            if (channel.isActive()) {
                 activePeersCount.incrementAndGet();
             } else {
                 passivePeersCount.incrementAndGet();
             }
 
-            log.info("New channel connected: {}. Total channels: {}", channel.getRemoteAddress(), channels.size());
+            log.info("New channel connected: {} (NodeId: {}). Total channels: {}, Unique peers: {}",
+                     channel.getRemoteAddress(), nodeId, channels.size(), connectedNodeIds.size());
+
             // Notify application handlers
             try {
                 for (var h : config.getHandlerList()) {
@@ -566,6 +611,48 @@ public class ChannelManager {
                 log.warn("Handler onConnect error: {}", e.getMessage());
             }
         }
+    }
+
+    /**
+     * Clean up a stale channel from all tracking collections.
+     * This is called when replacing a stale connection with a new one from the same NodeId.
+     */
+    private void cleanupStaleChannel(Channel staleChannel) {
+        if (staleChannel == null) {
+            return;
+        }
+
+        // Remove from channels map
+        channels.remove(staleChannel.getRemoteAddress());
+
+        // Remove from activePeers list
+        activePeers.remove(staleChannel);
+
+        // Update counters
+        if (staleChannel.isActive()) {
+            activePeersCount.decrementAndGet();
+        } else {
+            passivePeersCount.decrementAndGet();
+        }
+
+        // Close the stale channel
+        try {
+            staleChannel.closeWithoutBan();
+        } catch (Exception e) {
+            log.debug("Error closing stale channel: {}", e.getMessage());
+        }
+
+        log.debug("Cleaned up stale channel: {}", staleChannel.getRemoteAddress());
+    }
+
+    /**
+     * Get unique connected channels, deduplicated by Node ID.
+     * This should be used for broadcasting messages to avoid sending to the same peer multiple times.
+     *
+     * @return list of unique channels (one per Node ID)
+     */
+    public List<Channel> getUniqueConnectedChannels() {
+        return new ArrayList<>(connectedNodeIds.values());
     }
 
     /**

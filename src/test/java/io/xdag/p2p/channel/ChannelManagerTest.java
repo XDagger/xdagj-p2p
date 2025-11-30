@@ -30,7 +30,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.netty.channel.ChannelHandlerContext;
@@ -1088,5 +1091,297 @@ public class ChannelManagerTest {
     // Test - should return false since ctx is null
     boolean result = (boolean) method.invoke(channelManager, testAddress);
     assertFalse(result, "Should return false when channel context is null");
+  }
+
+  // ========== Tests for onChannelActive() NodeId deduplication - BUG-P2P-002 ==========
+
+  @Test
+  public void testOnChannelActive_NullNodeId() throws Exception {
+    // Create a channel with null nodeId
+    Channel channel = mock(Channel.class);
+    InetSocketAddress remoteAddress = new InetSocketAddress("192.168.1.100", 55001);
+    when(channel.getNodeId()).thenReturn(null);
+    when(channel.getRemoteAddress()).thenReturn(remoteAddress);
+    when(channel.isActive()).thenReturn(true);
+
+    // Call onChannelActive
+    channelManager.onChannelActive(channel);
+
+    // Channel should be added to channels map
+    assertTrue(channelManager.getChannels().containsKey(remoteAddress),
+        "Channel with null nodeId should be added to channels map");
+
+    // But NOT to connectedNodeIds
+    java.lang.reflect.Field connectedNodeIdsField = ChannelManager.class.getDeclaredField("connectedNodeIds");
+    connectedNodeIdsField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, Channel> connectedNodeIds = (java.util.Map<String, Channel>) connectedNodeIdsField.get(channelManager);
+    assertTrue(connectedNodeIds.isEmpty(),
+        "Channel with null nodeId should NOT be added to connectedNodeIds");
+  }
+
+  @Test
+  public void testOnChannelActive_EmptyNodeId() throws Exception {
+    // Create a channel with empty nodeId
+    Channel channel = mock(Channel.class);
+    InetSocketAddress remoteAddress = new InetSocketAddress("192.168.1.100", 55002);
+    when(channel.getNodeId()).thenReturn("");
+    when(channel.getRemoteAddress()).thenReturn(remoteAddress);
+    when(channel.isActive()).thenReturn(true);
+
+    // Call onChannelActive
+    channelManager.onChannelActive(channel);
+
+    // Channel should be added to channels map
+    assertTrue(channelManager.getChannels().containsKey(remoteAddress),
+        "Channel with empty nodeId should be added to channels map");
+
+    // But NOT to connectedNodeIds
+    java.lang.reflect.Field connectedNodeIdsField = ChannelManager.class.getDeclaredField("connectedNodeIds");
+    connectedNodeIdsField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, Channel> connectedNodeIds = (java.util.Map<String, Channel>) connectedNodeIdsField.get(channelManager);
+    assertTrue(connectedNodeIds.isEmpty(),
+        "Channel with empty nodeId should NOT be added to connectedNodeIds");
+  }
+
+  @Test
+  public void testOnChannelActive_FirstConnectionWithNodeId() throws Exception {
+    String nodeId = "node-id-12345";
+    InetSocketAddress remoteAddress = new InetSocketAddress("192.168.1.100", 55003);
+
+    Channel channel = mock(Channel.class);
+    when(channel.getNodeId()).thenReturn(nodeId);
+    when(channel.getRemoteAddress()).thenReturn(remoteAddress);
+    when(channel.isActive()).thenReturn(true);
+
+    // Call onChannelActive
+    channelManager.onChannelActive(channel);
+
+    // Channel should be added to channels map
+    assertTrue(channelManager.getChannels().containsKey(remoteAddress),
+        "First channel should be added to channels map");
+
+    // AND to connectedNodeIds
+    java.lang.reflect.Field connectedNodeIdsField = ChannelManager.class.getDeclaredField("connectedNodeIds");
+    connectedNodeIdsField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, Channel> connectedNodeIds = (java.util.Map<String, Channel>) connectedNodeIdsField.get(channelManager);
+    assertEquals(channel, connectedNodeIds.get(nodeId),
+        "First channel should be added to connectedNodeIds");
+  }
+
+  @Test
+  public void testOnChannelActive_DuplicateWithActiveChannel() throws Exception {
+    String nodeId = "node-id-duplicate-active";
+    InetSocketAddress existingAddress = new InetSocketAddress("192.168.1.100", 55004);
+    InetSocketAddress newAddress = new InetSocketAddress("192.168.1.100", 55005);
+
+    // Create existing channel that is ACTIVE
+    Channel existingChannel = mock(Channel.class);
+    when(existingChannel.getNodeId()).thenReturn(nodeId);
+    when(existingChannel.getRemoteAddress()).thenReturn(existingAddress);
+    when(existingChannel.isActive()).thenReturn(true);
+
+    // Mock Netty channel as active
+    ChannelHandlerContext existingCtx = mock(ChannelHandlerContext.class);
+    io.netty.channel.Channel nettyChannel = mock(io.netty.channel.Channel.class);
+    when(existingChannel.getCtx()).thenReturn(existingCtx);
+    when(existingCtx.channel()).thenReturn(nettyChannel);
+    when(nettyChannel.isActive()).thenReturn(true);
+
+    // Add existing channel first
+    channelManager.onChannelActive(existingChannel);
+
+    // Create new channel with same nodeId
+    Channel newChannel = mock(Channel.class);
+    when(newChannel.getNodeId()).thenReturn(nodeId);
+    when(newChannel.getRemoteAddress()).thenReturn(newAddress);
+    when(newChannel.isActive()).thenReturn(true);
+
+    // Call onChannelActive for new channel
+    channelManager.onChannelActive(newChannel);
+
+    // New channel should be closed (duplicate)
+    verify(newChannel, times(1)).closeWithoutBan();
+
+    // Existing channel should still be in connectedNodeIds
+    java.lang.reflect.Field connectedNodeIdsField = ChannelManager.class.getDeclaredField("connectedNodeIds");
+    connectedNodeIdsField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, Channel> connectedNodeIds = (java.util.Map<String, Channel>) connectedNodeIdsField.get(channelManager);
+    assertEquals(existingChannel, connectedNodeIds.get(nodeId),
+        "Existing active channel should remain in connectedNodeIds");
+
+    // New channel should NOT be in channels map
+    assertFalse(channelManager.getChannels().containsKey(newAddress),
+        "New duplicate channel should NOT be added to channels map");
+  }
+
+  @Test
+  public void testOnChannelActive_DuplicateWithStaleChannel() throws Exception {
+    String nodeId = "node-id-duplicate-stale";
+    InetSocketAddress existingAddress = new InetSocketAddress("192.168.1.100", 55006);
+    InetSocketAddress newAddress = new InetSocketAddress("192.168.1.100", 55007);
+
+    // Create existing channel that is STALE (Netty channel inactive)
+    Channel existingChannel = mock(Channel.class);
+    when(existingChannel.getNodeId()).thenReturn(nodeId);
+    when(existingChannel.getRemoteAddress()).thenReturn(existingAddress);
+    when(existingChannel.isActive()).thenReturn(false);
+
+    // Mock Netty channel as INACTIVE (stale)
+    ChannelHandlerContext existingCtx = mock(ChannelHandlerContext.class);
+    io.netty.channel.Channel nettyChannel = mock(io.netty.channel.Channel.class);
+    when(existingChannel.getCtx()).thenReturn(existingCtx);
+    when(existingCtx.channel()).thenReturn(nettyChannel);
+    when(nettyChannel.isActive()).thenReturn(false);
+
+    // Add existing channel first
+    channelManager.onChannelActive(existingChannel);
+
+    // Verify existing channel is in maps
+    assertTrue(channelManager.getChannels().containsKey(existingAddress));
+
+    // Create new channel with same nodeId
+    Channel newChannel = mock(Channel.class);
+    when(newChannel.getNodeId()).thenReturn(nodeId);
+    when(newChannel.getRemoteAddress()).thenReturn(newAddress);
+    when(newChannel.isActive()).thenReturn(true);
+
+    // Call onChannelActive for new channel
+    channelManager.onChannelActive(newChannel);
+
+    // Stale channel should be closed and cleaned up
+    verify(existingChannel, times(1)).closeWithoutBan();
+
+    // New channel should replace stale in connectedNodeIds
+    java.lang.reflect.Field connectedNodeIdsField = ChannelManager.class.getDeclaredField("connectedNodeIds");
+    connectedNodeIdsField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, Channel> connectedNodeIds = (java.util.Map<String, Channel>) connectedNodeIdsField.get(channelManager);
+    assertEquals(newChannel, connectedNodeIds.get(nodeId),
+        "New channel should replace stale channel in connectedNodeIds");
+
+    // Old address should be removed, new address should be added
+    assertFalse(channelManager.getChannels().containsKey(existingAddress),
+        "Stale channel address should be removed from channels map");
+    assertTrue(channelManager.getChannels().containsKey(newAddress),
+        "New channel address should be added to channels map");
+  }
+
+  @Test
+  public void testGetUniqueConnectedChannels() throws Exception {
+    String nodeId1 = "unique-node-1";
+    String nodeId2 = "unique-node-2";
+
+    // Create two channels with different nodeIds
+    Channel channel1 = mock(Channel.class);
+    when(channel1.getNodeId()).thenReturn(nodeId1);
+    when(channel1.getRemoteAddress()).thenReturn(new InetSocketAddress("192.168.1.101", 55010));
+    when(channel1.isActive()).thenReturn(true);
+
+    Channel channel2 = mock(Channel.class);
+    when(channel2.getNodeId()).thenReturn(nodeId2);
+    when(channel2.getRemoteAddress()).thenReturn(new InetSocketAddress("192.168.1.102", 55011));
+    when(channel2.isActive()).thenReturn(true);
+
+    // Add both channels
+    channelManager.onChannelActive(channel1);
+    channelManager.onChannelActive(channel2);
+
+    // Get unique channels
+    java.util.List<Channel> uniqueChannels = channelManager.getUniqueConnectedChannels();
+
+    // Should have exactly 2 unique channels
+    assertEquals(2, uniqueChannels.size(), "Should have 2 unique connected channels");
+    assertTrue(uniqueChannels.contains(channel1), "Should contain channel1");
+    assertTrue(uniqueChannels.contains(channel2), "Should contain channel2");
+  }
+
+  @Test
+  public void testGetUniqueConnectedChannels_ExcludesNullNodeId() throws Exception {
+    String nodeId = "valid-node-id";
+
+    // Create channel with valid nodeId
+    Channel channelWithId = mock(Channel.class);
+    when(channelWithId.getNodeId()).thenReturn(nodeId);
+    when(channelWithId.getRemoteAddress()).thenReturn(new InetSocketAddress("192.168.1.103", 55012));
+    when(channelWithId.isActive()).thenReturn(true);
+
+    // Create channel with null nodeId
+    Channel channelWithoutId = mock(Channel.class);
+    when(channelWithoutId.getNodeId()).thenReturn(null);
+    when(channelWithoutId.getRemoteAddress()).thenReturn(new InetSocketAddress("192.168.1.104", 55013));
+    when(channelWithoutId.isActive()).thenReturn(true);
+
+    // Add both channels
+    channelManager.onChannelActive(channelWithId);
+    channelManager.onChannelActive(channelWithoutId);
+
+    // Get unique channels
+    java.util.List<Channel> uniqueChannels = channelManager.getUniqueConnectedChannels();
+
+    // Should only have 1 (the one with nodeId)
+    assertEquals(1, uniqueChannels.size(),
+        "getUniqueConnectedChannels should only return channels with nodeId");
+    assertTrue(uniqueChannels.contains(channelWithId),
+        "Should contain channel with valid nodeId");
+    assertFalse(uniqueChannels.contains(channelWithoutId),
+        "Should NOT contain channel without nodeId");
+
+    // But channels map should have both
+    assertEquals(2, channelManager.getChannels().size(),
+        "channels map should contain both channels");
+  }
+
+  @Test
+  public void testOnChannelActive_ThreadSafety() throws Exception {
+    // Test that concurrent calls to onChannelActive with same nodeId don't cause issues
+    String nodeId = "concurrent-node-id";
+    int numThreads = 10;
+    java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(numThreads);
+    java.util.concurrent.atomic.AtomicInteger closedCount = new java.util.concurrent.atomic.AtomicInteger(0);
+
+    java.util.List<Channel> channels = new java.util.ArrayList<>();
+    for (int i = 0; i < numThreads; i++) {
+      Channel channel = mock(Channel.class);
+      when(channel.getNodeId()).thenReturn(nodeId);
+      when(channel.getRemoteAddress()).thenReturn(new InetSocketAddress("192.168.1.200", 56000 + i));
+      when(channel.isActive()).thenReturn(true);
+      // Count how many get closed
+      doAnswer(invocation -> {
+        closedCount.incrementAndGet();
+        return null;
+      }).when(channel).closeWithoutBan();
+      channels.add(channel);
+    }
+
+    // Run concurrent onChannelActive calls
+    java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(numThreads);
+    for (Channel channel : channels) {
+      executor.submit(() -> {
+        try {
+          channelManager.onChannelActive(channel);
+        } finally {
+          latch.countDown();
+        }
+      });
+    }
+
+    latch.await(5, java.util.concurrent.TimeUnit.SECONDS);
+    executor.shutdown();
+
+    // Only ONE channel should remain in connectedNodeIds
+    java.lang.reflect.Field connectedNodeIdsField = ChannelManager.class.getDeclaredField("connectedNodeIds");
+    connectedNodeIdsField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, Channel> connectedNodeIds = (java.util.Map<String, Channel>) connectedNodeIdsField.get(channelManager);
+    assertEquals(1, connectedNodeIds.size(),
+        "Only one channel per nodeId should remain after concurrent calls");
+
+    // n-1 channels should have been closed
+    assertEquals(numThreads - 1, closedCount.get(),
+        "All but one channel should have been closed");
   }
 }
