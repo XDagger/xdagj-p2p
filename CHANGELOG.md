@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7] - 2025-11-30
+
+### Fixed
+- **Redundant channelActivated() Call**: Removed duplicate explicit call in `DiscoverServer.start()`
+  - Netty already triggers `channelActivated()` via `MessageHandler.channelActive()` callback
+  - Reduced from 3 calls to 2 calls during startup
+  - Eliminates 2 redundant log lines per node startup
+  - Location: `DiscoverServer.java:107-111`
+
+### Changed
+- **Thread Safety Improvement**: Changed `KadService.inited` from `volatile boolean` to `AtomicBoolean`
+  - Previous implementation had potential race condition in check-then-act pattern
+  - Now uses `compareAndSet()` for atomic check-and-set operation
+  - Guarantees only one thread can successfully initialize NodeHandlers
+  - Added `isInited()` method to maintain API compatibility
+  - Location: `KadService.java:67,174-176,204-216`
+
+### Test Results
+- ✅ All 883 tests pass
+- ✅ No regression in existing tests
+- ✅ API backward compatible
+
 ## [0.1.6] - 2025-11-10
 
 ### Fixed
@@ -363,7 +385,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Serialization: 4M-22M ops/sec
 - Data access: 98M-206M ops/sec
 
-[Unreleased]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.3...v0.1.4

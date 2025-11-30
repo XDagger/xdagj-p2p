@@ -46,6 +46,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import lombok.Getter;
 import lombok.Setter;
@@ -63,7 +64,7 @@ public class KadService implements DiscoverService {
     @Setter
     private static long pingTimeout = 30_000;
     private final List<Node> bootNodes = new ArrayList<>();
-    private volatile boolean inited = false;
+    private final AtomicBoolean inited = new AtomicBoolean(false);
     private final Map<InetSocketAddress, NodeHandler> nodeHandlerMap = new ConcurrentHashMap<>();
     private Consumer<UdpEvent> messageSender;
     private NodeTable table;
@@ -166,6 +167,14 @@ public class KadService implements DiscoverService {
         }
     }
 
+    /**
+     * Returns whether the KadService has been initialized.
+     * @return true if channelActivated() has been successfully called
+     */
+    public boolean isInited() {
+        return inited.get();
+    }
+
     public List<Node> getConnectableNodes() {
         List<Node> nodes = new ArrayList<>();
         // 1) Prefer discovered nodes
@@ -202,10 +211,9 @@ public class KadService implements DiscoverService {
 
     @Override
     public void channelActivated() {
-        log.info("KadService.channelActivated() called - inited: {}, bootNodes: {}", inited, bootNodes.size());
-        if (!inited) {
-            inited = true;
-
+        log.info("KadService.channelActivated() called - inited: {}, bootNodes: {}", inited.get(), bootNodes.size());
+        // Use compareAndSet for atomic check-and-set to prevent race conditions
+        if (inited.compareAndSet(false, true)) {
             for (Node node : bootNodes) {
                 log.info("Creating NodeHandler for boot node: {}", node.getPreferInetSocketAddress());
                 getNodeHandler(node);
