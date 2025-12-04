@@ -216,15 +216,48 @@ public class ChannelManagerTest {
 
     String nodeId = "test-node-id";
 
-    channelManager.markHandshakeSuccess(remote, ctx, nodeId);
+    // Test with isOutbound=true (outbound connection)
+    channelManager.markHandshakeSuccess(remote, ctx, nodeId, true);
 
     assertEquals(1, channelManager.getChannels().size(), "Channel map should contain exactly one entry");
     Channel managedChannel = channelManager.getChannels().values().iterator().next();
     assertNotNull(managedChannel, "Channel should be registered after handshake success");
     assertTrue(managedChannel.isFinishHandshake(), "Handshake flag should be set to true");
-    assertTrue(managedChannel.isActive(), "Channel should be marked as active after handshake");
+    assertTrue(managedChannel.isActive(), "Channel should be marked as OUTBOUND (isActive=true)");
     assertEquals(nodeId, managedChannel.getNodeId(), "Node ID should be recorded for duplicate detection");
     assertEquals(1, channelManager.getActivePeersCount(), "Active peer count should include the new channel");
+  }
+
+  @Test
+  public void testMarkHandshakeSuccessSetsInboundFlag() {
+    InetSocketAddress remote = new InetSocketAddress("127.0.0.1", 21001);
+
+    DefaultAttributeMap attributeMap = new DefaultAttributeMap();
+    io.netty.channel.Channel nettyChannel = mock(io.netty.channel.Channel.class);
+    when(nettyChannel.remoteAddress()).thenReturn(remote);
+    when(nettyChannel.isActive()).thenReturn(true);
+    when(nettyChannel.attr(any())).thenAnswer(invocation -> {
+      AttributeKey<Object> key = invocation.getArgument(0);
+      return attributeMap.attr(key);
+    });
+
+    ChannelHandlerContext ctx = mock(ChannelHandlerContext.class, RETURNS_DEEP_STUBS);
+    when(ctx.channel()).thenReturn(nettyChannel);
+
+    String nodeId = "test-node-id-inbound";
+
+    // Test with isOutbound=false (inbound connection)
+    channelManager.markHandshakeSuccess(remote, ctx, nodeId, false);
+
+    assertEquals(1, channelManager.getChannels().size(), "Channel map should contain exactly one entry");
+    Channel managedChannel = channelManager.getChannels().values().iterator().next();
+    assertNotNull(managedChannel, "Channel should be registered after handshake success");
+    assertTrue(managedChannel.isFinishHandshake(), "Handshake flag should be set to true");
+    assertFalse(managedChannel.isActive(), "Channel should be marked as INBOUND (isActive=false)");
+    assertEquals(nodeId, managedChannel.getNodeId(), "Node ID should be recorded for duplicate detection");
+    // Inbound connections count as passive peers
+    assertEquals(0, channelManager.getActivePeersCount(), "Active peer count should be 0 for inbound connection");
+    assertEquals(1, channelManager.getPassivePeersCount(), "Passive peer count should be 1 for inbound connection");
   }
 
   @Test

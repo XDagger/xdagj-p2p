@@ -745,8 +745,9 @@ public class ChannelManager {
      * @param remote the remote address
      * @param ctx the channel handler context
      * @param nodeId the peer's node ID (for duplicate connection detection)
+     * @param isOutbound true if this is an outbound connection (we initiated), false if inbound (peer initiated)
      */
-    public void markHandshakeSuccess(java.net.InetSocketAddress remote, ChannelHandlerContext ctx, String nodeId) {
+    public void markHandshakeSuccess(java.net.InetSocketAddress remote, ChannelHandlerContext ctx, String nodeId, boolean isOutbound) {
         try {
             Channel ch = new Channel(this);
             ch.setP2pConfig(config);
@@ -754,7 +755,9 @@ public class ChannelManager {
             // Set nodeId BEFORE calling onChannelActive() so duplicate detection works
             ch.setNodeId(nodeId);
             ch.setFinishHandshake(true);
-            ch.setActive(true);
+            // IMPORTANT: isActive indicates connection direction for duplicate detection
+            // true = outbound (we initiated), false = inbound (peer initiated)
+            ch.setActive(isOutbound);
             onChannelActive(ch);
             int nowActive = activePeers.size();
             int min = config.getMinConnections();
