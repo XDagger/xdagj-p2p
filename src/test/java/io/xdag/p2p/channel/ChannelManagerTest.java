@@ -1384,4 +1384,484 @@ public class ChannelManagerTest {
     assertEquals(numThreads - 1, closedCount.get(),
         "All but one channel should have been closed");
   }
+
+  // ========== Tests for Deterministic Duplicate Connection Tie-Breaking ==========
+
+  /**
+   * Test: When localNodeId < remoteNodeId, local node prefers OUTBOUND connections.
+   *
+   * Scenario:
+   * - Local node has ID "AAAA..." (smaller)
+   * - Remote node has ID "ZZZZ..." (larger)
+   * - Existing connection is INBOUND (isActive=false)
+   * - New connection is OUTBOUND (isActive=true)
+   * - Expected: Keep the NEW outbound connection, close existing inbound
+   */
+  @Test
+  public void testDuplicateConnection_SmallerNodeIdPrefersOutbound_KeepNew() throws Exception {
+    // Setup: local nodeId is smaller than remote nodeId
+    String localNodeId = "AAAA1111111111111111111111111111";
+    String remoteNodeId = "ZZZZ9999999999999999999999999999";
+
+    // Use reflection to set localNodeId
+    java.lang.reflect.Field localNodeIdField = ChannelManager.class.getDeclaredField("localNodeId");
+    localNodeIdField.setAccessible(true);
+    localNodeIdField.set(channelManager, localNodeId);
+
+    InetSocketAddress existingAddr = new InetSocketAddress("192.168.1.100", 55100);
+    InetSocketAddress newAddr = new InetSocketAddress("192.168.1.100", 55101);
+
+    // Create existing INBOUND channel (isActive=false)
+    Channel existingChannel = mock(Channel.class);
+    when(existingChannel.getNodeId()).thenReturn(remoteNodeId);
+    when(existingChannel.getRemoteAddress()).thenReturn(existingAddr);
+    when(existingChannel.isActive()).thenReturn(false); // INBOUND
+
+    ChannelHandlerContext existingCtx = mock(ChannelHandlerContext.class);
+    io.netty.channel.Channel existingNetty = mock(io.netty.channel.Channel.class);
+    when(existingChannel.getCtx()).thenReturn(existingCtx);
+    when(existingCtx.channel()).thenReturn(existingNetty);
+    when(existingNetty.isActive()).thenReturn(true);
+
+    // Add existing channel
+    channelManager.onChannelActive(existingChannel);
+
+    // Create new OUTBOUND channel (isActive=true)
+    Channel newChannel = mock(Channel.class);
+    when(newChannel.getNodeId()).thenReturn(remoteNodeId);
+    when(newChannel.getRemoteAddress()).thenReturn(newAddr);
+    when(newChannel.isActive()).thenReturn(true); // OUTBOUND
+
+    // Add new channel
+    channelManager.onChannelActive(newChannel);
+
+    // Verify: existing INBOUND should be closed, new OUTBOUND should be kept
+    verify(existingChannel, times(1)).closeWithoutBan();
+    verify(newChannel, times(0)).closeWithoutBan();
+
+    // New channel should be in connectedNodeIds
+    java.lang.reflect.Field connectedNodeIdsField = ChannelManager.class.getDeclaredField("connectedNodeIds");
+    connectedNodeIdsField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, Channel> connectedNodeIds = (java.util.Map<String, Channel>) connectedNodeIdsField.get(channelManager);
+    assertEquals(newChannel, connectedNodeIds.get(remoteNodeId),
+        "New outbound channel should be kept when localId < remoteId");
+  }
+
+  /**
+   * Test: When localNodeId < remoteNodeId, local node prefers OUTBOUND connections.
+   *
+   * Scenario:
+   * - Local node has ID "AAAA..." (smaller)
+   * - Remote node has ID "ZZZZ..." (larger)
+   * - Existing connection is OUTBOUND (isActive=true)
+   * - New connection is INBOUND (isActive=false)
+   * - Expected: Keep the EXISTING outbound connection, close new inbound
+   */
+  @Test
+  public void testDuplicateConnection_SmallerNodeIdPrefersOutbound_KeepExisting() throws Exception {
+    // Setup: local nodeId is smaller than remote nodeId
+    String localNodeId = "AAAA1111111111111111111111111111";
+    String remoteNodeId = "ZZZZ9999999999999999999999999999";
+
+    // Use reflection to set localNodeId
+    java.lang.reflect.Field localNodeIdField = ChannelManager.class.getDeclaredField("localNodeId");
+    localNodeIdField.setAccessible(true);
+    localNodeIdField.set(channelManager, localNodeId);
+
+    InetSocketAddress existingAddr = new InetSocketAddress("192.168.1.100", 55102);
+    InetSocketAddress newAddr = new InetSocketAddress("192.168.1.100", 55103);
+
+    // Create existing OUTBOUND channel (isActive=true)
+    Channel existingChannel = mock(Channel.class);
+    when(existingChannel.getNodeId()).thenReturn(remoteNodeId);
+    when(existingChannel.getRemoteAddress()).thenReturn(existingAddr);
+    when(existingChannel.isActive()).thenReturn(true); // OUTBOUND
+
+    ChannelHandlerContext existingCtx = mock(ChannelHandlerContext.class);
+    io.netty.channel.Channel existingNetty = mock(io.netty.channel.Channel.class);
+    when(existingChannel.getCtx()).thenReturn(existingCtx);
+    when(existingCtx.channel()).thenReturn(existingNetty);
+    when(existingNetty.isActive()).thenReturn(true);
+
+    // Add existing channel
+    channelManager.onChannelActive(existingChannel);
+
+    // Create new INBOUND channel (isActive=false)
+    Channel newChannel = mock(Channel.class);
+    when(newChannel.getNodeId()).thenReturn(remoteNodeId);
+    when(newChannel.getRemoteAddress()).thenReturn(newAddr);
+    when(newChannel.isActive()).thenReturn(false); // INBOUND
+
+    // Add new channel
+    channelManager.onChannelActive(newChannel);
+
+    // Verify: new INBOUND should be closed, existing OUTBOUND should be kept
+    verify(existingChannel, times(0)).closeWithoutBan();
+    verify(newChannel, times(1)).closeWithoutBan();
+
+    // Existing channel should still be in connectedNodeIds
+    java.lang.reflect.Field connectedNodeIdsField = ChannelManager.class.getDeclaredField("connectedNodeIds");
+    connectedNodeIdsField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, Channel> connectedNodeIds = (java.util.Map<String, Channel>) connectedNodeIdsField.get(channelManager);
+    assertEquals(existingChannel, connectedNodeIds.get(remoteNodeId),
+        "Existing outbound channel should be kept when localId < remoteId");
+  }
+
+  /**
+   * Test: When localNodeId > remoteNodeId, local node prefers INBOUND connections.
+   *
+   * Scenario:
+   * - Local node has ID "ZZZZ..." (larger)
+   * - Remote node has ID "AAAA..." (smaller)
+   * - Existing connection is OUTBOUND (isActive=true)
+   * - New connection is INBOUND (isActive=false)
+   * - Expected: Keep the NEW inbound connection, close existing outbound
+   */
+  @Test
+  public void testDuplicateConnection_LargerNodeIdPrefersInbound_KeepNew() throws Exception {
+    // Setup: local nodeId is larger than remote nodeId
+    String localNodeId = "ZZZZ9999999999999999999999999999";
+    String remoteNodeId = "AAAA1111111111111111111111111111";
+
+    // Use reflection to set localNodeId
+    java.lang.reflect.Field localNodeIdField = ChannelManager.class.getDeclaredField("localNodeId");
+    localNodeIdField.setAccessible(true);
+    localNodeIdField.set(channelManager, localNodeId);
+
+    InetSocketAddress existingAddr = new InetSocketAddress("192.168.1.100", 55104);
+    InetSocketAddress newAddr = new InetSocketAddress("192.168.1.100", 55105);
+
+    // Create existing OUTBOUND channel (isActive=true)
+    Channel existingChannel = mock(Channel.class);
+    when(existingChannel.getNodeId()).thenReturn(remoteNodeId);
+    when(existingChannel.getRemoteAddress()).thenReturn(existingAddr);
+    when(existingChannel.isActive()).thenReturn(true); // OUTBOUND
+
+    ChannelHandlerContext existingCtx = mock(ChannelHandlerContext.class);
+    io.netty.channel.Channel existingNetty = mock(io.netty.channel.Channel.class);
+    when(existingChannel.getCtx()).thenReturn(existingCtx);
+    when(existingCtx.channel()).thenReturn(existingNetty);
+    when(existingNetty.isActive()).thenReturn(true);
+
+    // Add existing channel
+    channelManager.onChannelActive(existingChannel);
+
+    // Create new INBOUND channel (isActive=false)
+    Channel newChannel = mock(Channel.class);
+    when(newChannel.getNodeId()).thenReturn(remoteNodeId);
+    when(newChannel.getRemoteAddress()).thenReturn(newAddr);
+    when(newChannel.isActive()).thenReturn(false); // INBOUND
+
+    // Add new channel
+    channelManager.onChannelActive(newChannel);
+
+    // Verify: existing OUTBOUND should be closed, new INBOUND should be kept
+    verify(existingChannel, times(1)).closeWithoutBan();
+    verify(newChannel, times(0)).closeWithoutBan();
+
+    // New channel should be in connectedNodeIds
+    java.lang.reflect.Field connectedNodeIdsField = ChannelManager.class.getDeclaredField("connectedNodeIds");
+    connectedNodeIdsField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, Channel> connectedNodeIds = (java.util.Map<String, Channel>) connectedNodeIdsField.get(channelManager);
+    assertEquals(newChannel, connectedNodeIds.get(remoteNodeId),
+        "New inbound channel should be kept when localId > remoteId");
+  }
+
+  /**
+   * Test: When localNodeId > remoteNodeId, local node prefers INBOUND connections.
+   *
+   * Scenario:
+   * - Local node has ID "ZZZZ..." (larger)
+   * - Remote node has ID "AAAA..." (smaller)
+   * - Existing connection is INBOUND (isActive=false)
+   * - New connection is OUTBOUND (isActive=true)
+   * - Expected: Keep the EXISTING inbound connection, close new outbound
+   */
+  @Test
+  public void testDuplicateConnection_LargerNodeIdPrefersInbound_KeepExisting() throws Exception {
+    // Setup: local nodeId is larger than remote nodeId
+    String localNodeId = "ZZZZ9999999999999999999999999999";
+    String remoteNodeId = "AAAA1111111111111111111111111111";
+
+    // Use reflection to set localNodeId
+    java.lang.reflect.Field localNodeIdField = ChannelManager.class.getDeclaredField("localNodeId");
+    localNodeIdField.setAccessible(true);
+    localNodeIdField.set(channelManager, localNodeId);
+
+    InetSocketAddress existingAddr = new InetSocketAddress("192.168.1.100", 55106);
+    InetSocketAddress newAddr = new InetSocketAddress("192.168.1.100", 55107);
+
+    // Create existing INBOUND channel (isActive=false)
+    Channel existingChannel = mock(Channel.class);
+    when(existingChannel.getNodeId()).thenReturn(remoteNodeId);
+    when(existingChannel.getRemoteAddress()).thenReturn(existingAddr);
+    when(existingChannel.isActive()).thenReturn(false); // INBOUND
+
+    ChannelHandlerContext existingCtx = mock(ChannelHandlerContext.class);
+    io.netty.channel.Channel existingNetty = mock(io.netty.channel.Channel.class);
+    when(existingChannel.getCtx()).thenReturn(existingCtx);
+    when(existingCtx.channel()).thenReturn(existingNetty);
+    when(existingNetty.isActive()).thenReturn(true);
+
+    // Add existing channel
+    channelManager.onChannelActive(existingChannel);
+
+    // Create new OUTBOUND channel (isActive=true)
+    Channel newChannel = mock(Channel.class);
+    when(newChannel.getNodeId()).thenReturn(remoteNodeId);
+    when(newChannel.getRemoteAddress()).thenReturn(newAddr);
+    when(newChannel.isActive()).thenReturn(true); // OUTBOUND
+
+    // Add new channel
+    channelManager.onChannelActive(newChannel);
+
+    // Verify: new OUTBOUND should be closed, existing INBOUND should be kept
+    verify(existingChannel, times(0)).closeWithoutBan();
+    verify(newChannel, times(1)).closeWithoutBan();
+
+    // Existing channel should still be in connectedNodeIds
+    java.lang.reflect.Field connectedNodeIdsField = ChannelManager.class.getDeclaredField("connectedNodeIds");
+    connectedNodeIdsField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, Channel> connectedNodeIds = (java.util.Map<String, Channel>) connectedNodeIdsField.get(channelManager);
+    assertEquals(existingChannel, connectedNodeIds.get(remoteNodeId),
+        "Existing inbound channel should be kept when localId > remoteId");
+  }
+
+  /**
+   * Test: When both connections have the same direction, fall back to first-come-first-served.
+   *
+   * Scenario:
+   * - Existing is OUTBOUND, New is also OUTBOUND
+   * - Expected: Keep existing, close new (regardless of nodeId comparison)
+   */
+  @Test
+  public void testDuplicateConnection_SameDirection_FirstComeFirstServed() throws Exception {
+    String localNodeId = "AAAA1111111111111111111111111111";
+    String remoteNodeId = "ZZZZ9999999999999999999999999999";
+
+    // Use reflection to set localNodeId
+    java.lang.reflect.Field localNodeIdField = ChannelManager.class.getDeclaredField("localNodeId");
+    localNodeIdField.setAccessible(true);
+    localNodeIdField.set(channelManager, localNodeId);
+
+    InetSocketAddress existingAddr = new InetSocketAddress("192.168.1.100", 55108);
+    InetSocketAddress newAddr = new InetSocketAddress("192.168.1.100", 55109);
+
+    // Both channels are OUTBOUND
+    Channel existingChannel = mock(Channel.class);
+    when(existingChannel.getNodeId()).thenReturn(remoteNodeId);
+    when(existingChannel.getRemoteAddress()).thenReturn(existingAddr);
+    when(existingChannel.isActive()).thenReturn(true); // OUTBOUND
+
+    ChannelHandlerContext existingCtx = mock(ChannelHandlerContext.class);
+    io.netty.channel.Channel existingNetty = mock(io.netty.channel.Channel.class);
+    when(existingChannel.getCtx()).thenReturn(existingCtx);
+    when(existingCtx.channel()).thenReturn(existingNetty);
+    when(existingNetty.isActive()).thenReturn(true);
+
+    channelManager.onChannelActive(existingChannel);
+
+    Channel newChannel = mock(Channel.class);
+    when(newChannel.getNodeId()).thenReturn(remoteNodeId);
+    when(newChannel.getRemoteAddress()).thenReturn(newAddr);
+    when(newChannel.isActive()).thenReturn(true); // also OUTBOUND
+
+    channelManager.onChannelActive(newChannel);
+
+    // When both are same direction, keep existing (first-come-first-served)
+    verify(existingChannel, times(0)).closeWithoutBan();
+    verify(newChannel, times(1)).closeWithoutBan();
+  }
+
+  /**
+   * Test: Fallback to first-come-first-served when localNodeId is null.
+   */
+  @Test
+  public void testDuplicateConnection_NoLocalNodeId_FallbackToFirstCome() throws Exception {
+    // Set localNodeId to null
+    java.lang.reflect.Field localNodeIdField = ChannelManager.class.getDeclaredField("localNodeId");
+    localNodeIdField.setAccessible(true);
+    localNodeIdField.set(channelManager, null);
+
+    String remoteNodeId = "remote-node-xyz";
+    InetSocketAddress existingAddr = new InetSocketAddress("192.168.1.100", 55110);
+    InetSocketAddress newAddr = new InetSocketAddress("192.168.1.100", 55111);
+
+    Channel existingChannel = mock(Channel.class);
+    when(existingChannel.getNodeId()).thenReturn(remoteNodeId);
+    when(existingChannel.getRemoteAddress()).thenReturn(existingAddr);
+    when(existingChannel.isActive()).thenReturn(false); // INBOUND
+
+    ChannelHandlerContext existingCtx = mock(ChannelHandlerContext.class);
+    io.netty.channel.Channel existingNetty = mock(io.netty.channel.Channel.class);
+    when(existingChannel.getCtx()).thenReturn(existingCtx);
+    when(existingCtx.channel()).thenReturn(existingNetty);
+    when(existingNetty.isActive()).thenReturn(true);
+
+    channelManager.onChannelActive(existingChannel);
+
+    Channel newChannel = mock(Channel.class);
+    when(newChannel.getNodeId()).thenReturn(remoteNodeId);
+    when(newChannel.getRemoteAddress()).thenReturn(newAddr);
+    when(newChannel.isActive()).thenReturn(true); // OUTBOUND
+
+    channelManager.onChannelActive(newChannel);
+
+    // Without localNodeId, fallback to first-come-first-served: keep existing
+    verify(existingChannel, times(0)).closeWithoutBan();
+    verify(newChannel, times(1)).closeWithoutBan();
+  }
+
+  /**
+   * Test: Verify that both nodes make the SAME decision about which connection to keep.
+   *
+   * This simulates the scenario where Node1 (ID=AAA) and Node2 (ID=ZZZ) connect simultaneously:
+   * - Node1 makes outbound to Node2, Node2 makes outbound to Node1
+   * - Both detect duplicate
+   * - Node1 (smaller ID) should prefer outbound → keeps its outbound
+   * - Node2 (larger ID) should prefer inbound → keeps Node1's outbound (which is Node2's inbound)
+   *
+   * Result: Both keep the SAME connection (Node1's outbound = Node2's inbound)
+   */
+  @Test
+  public void testDuplicateConnection_BothNodesMakeSameDecision() throws Exception {
+    // Node1's perspective: localNodeId=AAA (smaller), sees remoteNodeId=ZZZ
+    // Node1 prefers OUTBOUND (since AAA < ZZZ)
+    String node1LocalId = "AAAA1111111111111111111111111111";
+    String node2LocalId = "ZZZZ9999999999999999999999999999";
+
+    // ===== Simulate Node1's decision =====
+    ChannelManager node1ChannelManager = new ChannelManager(p2pConfig, nodeManager);
+    java.lang.reflect.Field node1LocalIdField = ChannelManager.class.getDeclaredField("localNodeId");
+    node1LocalIdField.setAccessible(true);
+    node1LocalIdField.set(node1ChannelManager, node1LocalId);
+
+    // Node1's existing: inbound from Node2 (Node2's outbound)
+    Channel node1Existing = mock(Channel.class);
+    when(node1Existing.getNodeId()).thenReturn(node2LocalId);
+    when(node1Existing.getRemoteAddress()).thenReturn(new InetSocketAddress("192.168.2.1", 60001));
+    when(node1Existing.isActive()).thenReturn(false); // INBOUND (from Node2's outbound)
+    ChannelHandlerContext ctx1e = mock(ChannelHandlerContext.class);
+    io.netty.channel.Channel netty1e = mock(io.netty.channel.Channel.class);
+    when(node1Existing.getCtx()).thenReturn(ctx1e);
+    when(ctx1e.channel()).thenReturn(netty1e);
+    when(netty1e.isActive()).thenReturn(true);
+    node1ChannelManager.onChannelActive(node1Existing);
+
+    // Node1's new: outbound to Node2 (Node1's outbound)
+    Channel node1New = mock(Channel.class);
+    when(node1New.getNodeId()).thenReturn(node2LocalId);
+    when(node1New.getRemoteAddress()).thenReturn(new InetSocketAddress("192.168.2.1", 60002));
+    when(node1New.isActive()).thenReturn(true); // OUTBOUND
+    node1ChannelManager.onChannelActive(node1New);
+
+    // Node1 decision: AAA < ZZZ → prefer outbound → close existing inbound, keep new outbound
+    verify(node1Existing, times(1)).closeWithoutBan();
+    verify(node1New, times(0)).closeWithoutBan();
+
+    // ===== Simulate Node2's decision =====
+    ChannelManager node2ChannelManager = new ChannelManager(p2pConfig, nodeManager);
+    java.lang.reflect.Field node2LocalIdField = ChannelManager.class.getDeclaredField("localNodeId");
+    node2LocalIdField.setAccessible(true);
+    node2LocalIdField.set(node2ChannelManager, node2LocalId);
+
+    // Node2's existing: inbound from Node1 (Node1's outbound)
+    Channel node2Existing = mock(Channel.class);
+    when(node2Existing.getNodeId()).thenReturn(node1LocalId);
+    when(node2Existing.getRemoteAddress()).thenReturn(new InetSocketAddress("192.168.1.1", 60003));
+    when(node2Existing.isActive()).thenReturn(false); // INBOUND (from Node1's outbound)
+    ChannelHandlerContext ctx2e = mock(ChannelHandlerContext.class);
+    io.netty.channel.Channel netty2e = mock(io.netty.channel.Channel.class);
+    when(node2Existing.getCtx()).thenReturn(ctx2e);
+    when(ctx2e.channel()).thenReturn(netty2e);
+    when(netty2e.isActive()).thenReturn(true);
+    node2ChannelManager.onChannelActive(node2Existing);
+
+    // Node2's new: outbound to Node1 (Node2's outbound)
+    Channel node2New = mock(Channel.class);
+    when(node2New.getNodeId()).thenReturn(node1LocalId);
+    when(node2New.getRemoteAddress()).thenReturn(new InetSocketAddress("192.168.1.1", 60004));
+    when(node2New.isActive()).thenReturn(true); // OUTBOUND
+    node2ChannelManager.onChannelActive(node2New);
+
+    // Node2 decision: ZZZ > AAA → prefer inbound → close new outbound, keep existing inbound
+    verify(node2Existing, times(0)).closeWithoutBan();
+    verify(node2New, times(1)).closeWithoutBan();
+
+    // Both nodes now have the SAME connection:
+    // - Node1 keeps: Node1's OUTBOUND to Node2
+    // - Node2 keeps: Node1's OUTBOUND (which is Node2's INBOUND)
+    // This is the SAME connection viewed from different perspectives!
+
+    // Verify final state
+    java.lang.reflect.Field connField = ChannelManager.class.getDeclaredField("connectedNodeIds");
+    connField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, Channel> node1Conns = (java.util.Map<String, Channel>) connField.get(node1ChannelManager);
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, Channel> node2Conns = (java.util.Map<String, Channel>) connField.get(node2ChannelManager);
+
+    // Node1 keeps outbound to ZZZ
+    assertEquals(node1New, node1Conns.get(node2LocalId), "Node1 should keep its outbound connection");
+    // Node2 keeps inbound from AAA
+    assertEquals(node2Existing, node2Conns.get(node1LocalId), "Node2 should keep its inbound connection");
+
+    // These represent the SAME TCP connection from different perspectives!
+    // Node1's outbound (isActive=true) == Node2's inbound (isActive=false)
+    assertTrue(node1New.isActive(), "Node1's kept connection should be outbound");
+    assertFalse(node2Existing.isActive(), "Node2's kept connection should be inbound");
+  }
+
+  /**
+   * Test: Local NodeId initialization when start() is called with valid nodeKey.
+   */
+  @Test
+  public void testStartInitializesLocalNodeId() throws Exception {
+    // Ensure nodeKey is set
+    assertNotNull(p2pConfig.getNodeKey(), "nodeKey should be generated in @BeforeEach");
+
+    PeerClient mockPeerClient = mock(PeerClient.class);
+    channelManager.start(mockPeerClient);
+
+    // Verify localNodeId is initialized
+    java.lang.reflect.Field localNodeIdField = ChannelManager.class.getDeclaredField("localNodeId");
+    localNodeIdField.setAccessible(true);
+    String localNodeId = (String) localNodeIdField.get(channelManager);
+
+    assertNotNull(localNodeId, "localNodeId should be initialized after start()");
+    assertFalse(localNodeId.isEmpty(), "localNodeId should not be empty");
+
+    channelManager.stop();
+  }
+
+  /**
+   * Test: Local NodeId is NOT initialized when nodeKey is null.
+   */
+  @Test
+  public void testStartWithNullNodeKey() throws Exception {
+    // Create a new config WITHOUT nodeKey
+    P2pConfig configNoKey = new P2pConfig();
+    // Don't call generateNodeKey()!
+    assertNull(configNoKey.getNodeKey(), "nodeKey should be null");
+
+    // Use mock NodeManager to avoid requiring nodeKey
+    NodeManager mockNodeManager = mock(NodeManager.class);
+    ChannelManager cm = new ChannelManager(configNoKey, mockNodeManager);
+
+    PeerClient mockPeerClient = mock(PeerClient.class);
+    cm.start(mockPeerClient);
+
+    // Verify localNodeId is still null
+    java.lang.reflect.Field localNodeIdField = ChannelManager.class.getDeclaredField("localNodeId");
+    localNodeIdField.setAccessible(true);
+    String localNodeId = (String) localNodeIdField.get(cm);
+
+    assertNull(localNodeId, "localNodeId should remain null when nodeKey is not configured");
+
+    cm.stop();
+  }
 }
