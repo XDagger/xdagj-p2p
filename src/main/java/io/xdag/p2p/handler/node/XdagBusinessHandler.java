@@ -87,6 +87,17 @@ public class XdagBusinessHandler extends SimpleChannelInboundHandler<Message> {
     }
 
     @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        InetSocketAddress remote = (InetSocketAddress) ctx.channel().remoteAddress();
+        Channel ch = channelManager.getChannels().get(remote);
+        if (ch != null) {
+            log.info("Channel inactive detected: {}", remote);
+            channelManager.onChannelInactive(ch);
+        }
+        super.channelInactive(ctx);
+    }
+
+    @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         log.error("Exception in XdagBusinessHandler", cause);
         ctx.close();

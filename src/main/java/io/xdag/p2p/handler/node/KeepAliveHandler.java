@@ -40,8 +40,8 @@ public class KeepAliveHandler extends ChannelDuplexHandler {
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
         if (evt instanceof IdleStateEvent) {
             IdleStateEvent e = (IdleStateEvent) evt;
-            if (e.state() == IdleState.WRITER_IDLE) {
-                log.trace("Writer idle, sending Ping");
+            if (e.state() == IdleState.WRITER_IDLE || e.state() == IdleState.READER_IDLE) {
+                log.debug("{} idle, sending Ping to {}", e.state(), ctx.channel().remoteAddress());
                 writeMessage(ctx, new PingMessage());
                 lastPingTimestamp = System.currentTimeMillis();
             }

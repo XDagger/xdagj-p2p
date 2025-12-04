@@ -179,7 +179,7 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
             ChannelPipeline pipeline = ctx.pipeline();
             // Add handlers for post-handshake communication BEFORE registering the channel,
             // so that application onConnect sends will pass through message codec
-            pipeline.addLast("idleStateHandler", new IdleStateHandler(0, 30, 0, TimeUnit.SECONDS));
+            pipeline.addLast("idleStateHandler", new IdleStateHandler(30, 30, 0, TimeUnit.SECONDS));
             pipeline.addLast("keepAliveHandler", new KeepAliveHandler());
             pipeline.addLast("xdagMessageHandler", new XdagMessageHandler(config));
             pipeline.addLast("businessHandler", new XdagBusinessHandler(config, channelManager));
