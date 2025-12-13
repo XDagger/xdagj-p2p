@@ -3,12 +3,12 @@
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://openjdk.java.net/)
 [![Maven](https://img.shields.io/badge/Maven-3.6+-blue.svg)](https://maven.apache.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-873%20Total-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/Tests-913%20Total-brightgreen.svg)](#testing)
 [![Coverage](https://img.shields.io/badge/Coverage-76%25-brightgreen.svg)](#testing)
 
 High-performance Java P2P networking library for the XDAG blockchain ecosystem, built with modern Java technologies and comprehensive testing.
 
-**Key Features:** Kademlia DHT discovery • Persistent reputation system • Graduated ban management • Layered network statistics • Production-ready with 873 tests
+**Key Features:** Kademlia DHT discovery • Persistent reputation system • Graduated ban management • Layered network statistics • Production-ready with 913 tests
 
 ---
 
@@ -211,7 +211,7 @@ Error Rate:            0% (7M+ messages tested)
 
 ### Test Coverage
 ```
-Tests:          873 test cases (100% pass rate)
+Tests:          913 test cases (100% pass rate)
 Instructions:   76% (12,162 / 15,810)
 Branches:       64% (911 / 1,409)
 Lines:          77% (2,851 / 3,669)
@@ -284,7 +284,7 @@ graph TB
 - **Tuweni 2.7.0**: Packet processing utilities
 
 ### Testing
-- **JUnit 5.12.2 + Mockito 5.14.2**: 873 comprehensive tests
+- **JUnit 5.12.2 + Mockito 5.14.2**: 913 comprehensive tests
 - **JaCoCo**: 76% instruction coverage
 - **Professional test suite**: Multi-node network testing
 
@@ -329,7 +329,7 @@ Connection Success:  >99% reliability
 
 ### Run Unit Tests
 ```bash
-# All 873 tests
+# All 913 tests
 mvn test
 
 # Generate coverage report
@@ -480,4 +480,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Status:** v0.1.6 Production-Ready | **Tests:** 873 passing | **Coverage:** 76%
+**Status:** v0.1.6 Production-Ready | **Tests:** 913 passing | **Coverage:** 76%
