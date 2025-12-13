@@ -107,14 +107,8 @@ public class DiscoverServer {
         channel = b.bind(port).sync().channel();
 
         log.info("Discovery server started, bind port {}", port);
-        // Notify event handler that the discovery channel is active
-        if (eventHandler != null) {
-          try {
-            eventHandler.channelActivated();
-          } catch (Throwable t) {
-            log.warn("Error on discovery channel activation callback", t);
-          }
-        }
+        // Note: channelActivated() is called automatically by Netty via MessageHandler.channelActive()
+        // No explicit call needed here
 
         channel.closeFuture().sync();
         if (shutdown) {

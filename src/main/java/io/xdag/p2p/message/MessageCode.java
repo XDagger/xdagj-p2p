@@ -56,9 +56,10 @@ public enum MessageCode implements IMessageCode {
     PONG(0x15),
 
     // =======================================
-    // [0x20, 0x2f] Reserved for Example/Application messages
+    // [0x16] APP_TEST - for testing/debugging only
+    // NOTE: Moved from 0x20 to avoid conflict with application message range (0x20-0xFF)
     // =======================================
-    APP_TEST(0x20);
+    APP_TEST(0x16);
 
 
     private static final MessageCode[] map = new MessageCode[256];

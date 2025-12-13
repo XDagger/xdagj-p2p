@@ -29,8 +29,8 @@ $ java -jar target/xdagj-p2p-{version}-jar-with-dependencies.jar [options]
 
 For example, with current version:
 ```bash
-$ java -jar target/xdagj-p2p-0.1.5-jar-with-dependencies.jar [options]
-$ java -jar target/xdagj-p2p-0.1.5-jar-with-dependencies.jar [options]
+$ java -jar target/xdagj-p2p-0.1.6-jar-with-dependencies.jar [options]
+$ java -jar target/xdagj-p2p-0.1.6-jar-with-dependencies.jar [options]
 ```
 
 available cli options:
@@ -101,19 +101,19 @@ For example:
 **Node A** - starts with default configuration parameters. Let's say its IP is 127.0.0.1
 
 ```bash
-$ java -jar target/xdagj-p2p-0.1.5-jar-with-dependencies.jar
+$ java -jar target/xdagj-p2p-0.1.6-jar-with-dependencies.jar
 ```
 
 **Node B** - start with seed nodes(127.0.0.1:16783). Let's say its IP is 127.0.0.2
 
 ```bash
-$ java -jar target/xdagj-p2p-0.1.5-jar-with-dependencies.jar -s 127.0.0.1:16783
+$ java -jar target/xdagj-p2p-0.1.6-jar-with-dependencies.jar -s 127.0.0.1:16783
 ```
 
 **Node C** - start with seed nodes(127.0.0.1:16783). Let's say its IP is 127.0.0.3
 
 ```bash
-$ java -jar target/xdagj-p2p-0.1.5-jar-with-dependencies.jar -s 127.0.0.1:16783
+$ java -jar target/xdagj-p2p-0.1.6-jar-with-dependencies.jar -s 127.0.0.1:16783
 ```
 
 After the three nodes are successfully started, the usual situation is that node B can discover node
@@ -155,7 +155,7 @@ For more details about the EIP-1459 protocol, see: https://eips.ethereum.org/EIP
 
 ```bash
 # Publish to XDAG mainnet
-java -jar target/xdagj-p2p-0.1.5-jar-with-dependencies.jar -p 16783 -v 201910292 -d 1 \
+java -jar target/xdagj-p2p-0.1.6-jar-with-dependencies.jar -p 16783 -v 201910292 -d 1 \
 -s <SEED_NODE_IP>:16783 \
 -publish \
 --dns-private <XDAG_MAINNET_DNS_PRIVATE_KEY> \
@@ -171,7 +171,7 @@ java -jar target/xdagj-p2p-0.1.5-jar-with-dependencies.jar -p 16783 -v 201910292
 
 ```bash
 # Publish to XDAG testnet
-java -jar target/xdagj-p2p-0.1.5-jar-with-dependencies.jar -p 16783 -v 54321 -d 1 \
+java -jar target/xdagj-p2p-0.1.6-jar-with-dependencies.jar -p 16783 -v 54321 -d 1 \
 -s <SEED_NODE_IP>:16783 \
 -publish \
 --dns-private <XDAG_TESTNET_DNS_PRIVATE_KEY> \
@@ -220,11 +220,11 @@ To use DNS discovery, you can specify the tree URLs when starting your nodes:
 
 ```bash
 # Connect to XDAG mainnet using DNS discovery
-java -jar target/xdagj-p2p-0.1.5-jar-with-dependencies.jar -p 16783 -v 201910292 -d 1 \
+java -jar target/xdagj-p2p-0.1.6-jar-with-dependencies.jar -p 16783 -v 201910292 -d 1 \
 -u tree://APFGGTFOBVE2ZNAB3CSMNNX6RRK3ODIRLP2AA5U4YFAA6MSYZUYTQ@mainnet.xdag.io
 
 # Connect to XDAG testnet using DNS discovery
-java -jar target/xdagj-p2p-0.1.5-jar-with-dependencies.jar -p 16783 -v 54321 -d 1 \
+java -jar target/xdagj-p2p-0.1.6-jar-with-dependencies.jar -p 16783 -v 54321 -d 1 \
 -u tree://BQHGGTFOBVE2ZNAB3CSMNNX6RRK3ODIRLP2AA5U4YFAA6MSYZUYTQ@testnet.xdag.io
 ```
 
@@ -241,11 +241,11 @@ To use xdagj-p2p as a dependency in your project, add the following to your `pom
 <dependency>
     <groupId>io.xdag</groupId>
     <artifactId>xdagj-p2p</artifactId>
-    <version>0.1.5</version>
+    <version>0.1.6</version>
 </dependency>
 ```
 
-The standard dependency JAR (`xdagj-p2p-0.1.5.jar`) contains the core library code, making it suitable for use as a Maven dependency.
+The standard dependency JAR (`xdagj-p2p-0.1.6.jar`) contains the core library code, making it suitable for use as a Maven dependency.
 
 ## 2.2 Core classes
 

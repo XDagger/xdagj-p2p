@@ -7,6 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2025-11-10
+
+### Fixed
+- **Redundant channelActivated() Call**: Removed duplicate explicit call in `DiscoverServer.start()`
+  - Netty already triggers `channelActivated()` via `MessageHandler.channelActive()` callback
+  - Reduced from 3 calls to 2 calls during startup
+  - Eliminates 2 redundant log lines per node startup
+  - Location: `DiscoverServer.java:107-111`
+
+- **Duplicate Connection by NodeId (BUG-P2P-002)**: Enhanced `onChannelActive()` with thread-safe NodeId deduplication
+  - Problem: Multiple connections from same NodeId accumulated in channels map (28 "peers" for 1 actual node)
+  - Solution: Use `ConcurrentHashMap.compute()` for atomic check-and-update on `connectedNodeIds`
+  - Added `getUniqueConnectedChannels()` method for broadcasting (deduplicated by NodeId)
+  - Properly cleans up stale connections before accepting new ones
+  - Handles null/empty nodeId gracefully (adds to channels but not connectedNodeIds)
+  - Location: `ChannelManager.java:524-656`
+
+- **Duplicate Connection Prevention**: Added `hasActiveConnectionTo()` method in ChannelManager
+  - Prevents duplicate connection attempts after recentConnections cache expires (30 seconds)
+  - Checks both channels Map and connectedNodeIds Map for active connections
+  - Verifies actual Netty Channel active state (not just internal flags)
+  - Special handling for loopback addresses (local testing scenarios)
+  - Reduces duplicate TCP and P2P handshakes from 3 per 90s to 0
+  - Location: `ChannelManager.java:429-485`
+
+### Changed
+- **Thread Safety Improvement**: Changed `KadService.inited` from `volatile boolean` to `AtomicBoolean`
+  - Previous implementation had potential race condition in check-then-act pattern
+  - Now uses `compareAndSet()` for atomic check-and-set operation
+  - Guarantees only one thread can successfully initialize NodeHandlers
+  - Added `isInited()` method to maintain API compatibility
+  - Location: `KadService.java:67,174-176,204-216`
+
+### Test
+- **Added comprehensive unit tests for onChannelActive() NodeId deduplication**: 8 new test cases
+  - Null nodeId handling
+  - Empty nodeId handling
+  - First connection with valid nodeId
+  - Duplicate connection with active existing channel (closes new)
+  - Duplicate connection with stale existing channel (replaces old)
+  - getUniqueConnectedChannels returns deduplicated list
+  - getUniqueConnectedChannels excludes null nodeId channels
+  - Thread safety with concurrent calls
+  - Location: `ChannelManagerTest.java:1093-1384`
+
+- **Added comprehensive unit tests for hasActiveConnectionTo()**: 10 new test cases
+  - Null address handling
+  - No connection scenarios
+  - Exact address matching with active/inactive states
+  - connectedNodeIds Map matching logic
+  - Loopback address special handling (with/without/empty nodeId)
+  - Non-loopback different port scenarios
+  - Edge cases (null context, empty nodeId)
+  - All tests use Java Reflection and Mockito
+  - Location: `ChannelManagerTest.java:823-1091`
+
+### Fixed
+- **Test Suite Alignment**: Updated tests to reflect APP_TEST moved to 0x16
+  - APP_TEST moved from 0x20 to 0x16 (Node protocol range) to avoid conflict with application message range
+  - Fixed IMessageCodeTest.testMessageCodeEnum_applicationProtocol()
+  - Fixed IMessageCodeTest.testAllMessageCodesAreInCorrectRange()
+  - Fixed MessageTypeTest.testOf_KnownTypes()
+
+### Test Results
+- ✅ All 883 tests pass (previously 880/883)
+- ✅ ChannelManagerTest: 59 tests (49 existing + 10 new)
+- ✅ Test coverage maintained at 76%
+- ✅ No regression in existing tests
+
+### Documentation
+- Updated all documentation to reference v0.1.6
+- Updated Maven dependency coordinates in README.md
+
 ## [0.1.5] - 2025-02-15
 
 ### Added
@@ -323,7 +396,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Serialization: 4M-22M ops/sec
 - Data access: 98M-206M ops/sec
 
-[Unreleased]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/XDagger/xdagj-p2p/compare/v0.1.2...v0.1.3

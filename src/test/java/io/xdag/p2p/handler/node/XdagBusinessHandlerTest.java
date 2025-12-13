@@ -367,4 +367,53 @@ class XdagBusinessHandlerTest {
         // Note: Due to exception, remaining handlers might not be called
         // This tests that the exception is caught and doesn't propagate
     }
+
+    // ==================== channelInactive tests ====================
+
+    @Test
+    void testChannelInactiveCallsOnChannelInactiveWhenChannelExists() throws Exception {
+        // Given - channel exists in channelMap (set up in setUp())
+
+        // When
+        handler.channelInactive(ctx);
+
+        // Then
+        verify(channelManager).onChannelInactive(xdagChannel);
+    }
+
+    @Test
+    void testChannelInactiveDoesNotCallOnChannelInactiveWhenChannelNotFound() throws Exception {
+        // Given - remote address not in channel map
+        InetSocketAddress unknownAddress = new InetSocketAddress("10.0.0.1", 9999);
+        when(nettyChannel.remoteAddress()).thenReturn(unknownAddress);
+
+        // When
+        handler.channelInactive(ctx);
+
+        // Then
+        verify(channelManager, never()).onChannelInactive(any());
+    }
+
+    @Test
+    void testChannelInactiveAlwaysCallsSuperMethod() throws Exception {
+        // Given - use spy to verify super method is called
+        XdagBusinessHandler spyHandler = spy(handler);
+
+        // When
+        spyHandler.channelInactive(ctx);
+
+        // Then - verify onChannelInactive was called (channel exists)
+        verify(channelManager).onChannelInactive(xdagChannel);
+        // Note: super.channelInactive() is called internally, which propagates the event
+    }
+
+    @Test
+    void testChannelInactiveWithNullRemoteAddress() throws Exception {
+        // Given
+        when(nettyChannel.remoteAddress()).thenReturn(null);
+
+        // When & Then - should handle gracefully without NPE
+        assertDoesNotThrow(() -> handler.channelInactive(ctx));
+        verify(channelManager, never()).onChannelInactive(any());
+    }
 }

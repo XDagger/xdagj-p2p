@@ -78,10 +78,10 @@ publishExample.start();
 
 ```bash
 # Basic startup
-java -jar xdagj-p2p-0.1.5-jar-with-dependencies.jar -s 127.0.0.1:16783
+java -jar xdagj-p2p-0.1.6-jar-with-dependencies.jar -s 127.0.0.1:16783
 
 # DNS publishing
-java -jar xdagj-p2p-0.1.5-jar-with-dependencies.jar \
+java -jar xdagj-p2p-0.1.6-jar-with-dependencies.jar \
   -publish \
   --dns-private your-private-key \
   --domain nodes.example.org

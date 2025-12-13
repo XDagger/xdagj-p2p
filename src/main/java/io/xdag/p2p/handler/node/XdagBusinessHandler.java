@@ -51,24 +51,30 @@ public class XdagBusinessHandler extends SimpleChannelInboundHandler<Message> {
             IMessageCode code = msg.getCode();
             byte codeByte = code.toByte();
 
+            // Handle PING/PONG first - these must work even if channel is not registered
+            if (codeByte == MessageCode.PING.toByte()) {
+                // Auto-respond to TCP keepalive pings at business layer
+                log.info("Received PING from {}, sending PONG", ctx.channel().remoteAddress());
+                try {
+                    ctx.writeAndFlush(new io.xdag.p2p.message.node.PongMessage());
+                    log.info("PONG sent successfully to {}", ctx.channel().remoteAddress());
+                } catch (Exception e) {
+                    log.warn("Failed to send PONG to {}", ctx.channel().remoteAddress(), e);
+                }
+                return;
+            } else if (codeByte == MessageCode.PONG.toByte()) {
+                // Latency can be tracked here if needed
+                log.info("Received PONG from {}", ctx.channel().remoteAddress());
+                return;
+            }
+
             InetSocketAddress remote = (InetSocketAddress) ctx.channel().remoteAddress();
             Channel ch = channelManager.getChannels().get(remote);
             if (ch == null) {
                 return; // No logging in extreme TPS mode
             }
 
-            if (codeByte == MessageCode.PING.toByte()) {
-                // Auto-respond to TCP keepalive pings at business layer
-                try {
-                    ctx.writeAndFlush(new io.xdag.p2p.message.node.PongMessage());
-                } catch (Exception e) {
-                    // Silent failure
-                }
-                return;
-            } else if (codeByte == MessageCode.PONG.toByte()) {
-                // Latency can be tracked here if needed
-                return;
-            } else if (codeByte == MessageCode.APP_TEST.toByte()) {
+            if (codeByte == MessageCode.APP_TEST.toByte()) {
                 // Deliver pure app payload without network code
                 org.apache.tuweni.bytes.Bytes appPayload = org.apache.tuweni.bytes.Bytes.wrap(msg.getBody());
                 for (var h : config.getHandlerList()) {
@@ -82,8 +88,21 @@ public class XdagBusinessHandler extends SimpleChannelInboundHandler<Message> {
                 }
             }
         } catch (Exception e) {
-            // Silent failure in extreme TPS mode
+            log.warn("Exception in channelRead0 from {}: {}", ctx.channel().remoteAddress(), e.getMessage());
         }
+    }
+
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        InetSocketAddress remote = (InetSocketAddress) ctx.channel().remoteAddress();
+        if (remote != null) {
+            Channel ch = channelManager.getChannels().get(remote);
+            if (ch != null) {
+                log.info("Channel inactive detected: {}", remote);
+                channelManager.onChannelInactive(ch);
+            }
+        }
+        super.channelInactive(ctx);
     }
 
     @Override

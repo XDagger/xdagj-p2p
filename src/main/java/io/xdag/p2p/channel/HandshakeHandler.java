@@ -179,14 +179,15 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
             ChannelPipeline pipeline = ctx.pipeline();
             // Add handlers for post-handshake communication BEFORE registering the channel,
             // so that application onConnect sends will pass through message codec
-            pipeline.addLast("idleStateHandler", new IdleStateHandler(0, 30, 0, TimeUnit.SECONDS));
+            pipeline.addLast("idleStateHandler", new IdleStateHandler(30, 30, 0, TimeUnit.SECONDS));
             pipeline.addLast("keepAliveHandler", new KeepAliveHandler());
             pipeline.addLast("xdagMessageHandler", new XdagMessageHandler(config));
             pipeline.addLast("businessHandler", new XdagBusinessHandler(config, channelManager));
             // Register channel to manager to count as active (this triggers app onConnect callbacks)
             // Pass nodeId for duplicate connection detection
+            // Pass isOutbound to correctly identify connection direction
             try {
-                channelManager.markHandshakeSuccess((java.net.InetSocketAddress) ctx.channel().remoteAddress(), ctx, msg.getPeerId());
+                channelManager.markHandshakeSuccess((java.net.InetSocketAddress) ctx.channel().remoteAddress(), ctx, msg.getPeerId(), isOutbound);
             } catch (Exception ignored) {}
 
             // Remove this handler from the pipeline

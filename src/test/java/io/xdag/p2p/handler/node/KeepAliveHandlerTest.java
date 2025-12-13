@@ -27,11 +27,14 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.xdag.p2p.channel.XdagFrame;
 import io.xdag.p2p.message.MessageCode;
+import java.net.InetSocketAddress;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -48,6 +51,12 @@ class KeepAliveHandlerTest {
     void setUp() {
         handler = new KeepAliveHandler();
         ctx = mock(ChannelHandlerContext.class);
+        Channel channel = mock(Channel.class);
+        ChannelFuture channelFuture = mock(ChannelFuture.class);
+        when(ctx.channel()).thenReturn(channel);
+        when(channel.remoteAddress()).thenReturn(new InetSocketAddress("127.0.0.1", 8080));
+        when(ctx.writeAndFlush(any())).thenReturn(channelFuture);
+        when(channelFuture.addListener(any())).thenReturn(channelFuture);
     }
 
     @Test
@@ -74,16 +83,21 @@ class KeepAliveHandlerTest {
     }
 
     @Test
-    void testReaderIdleDoesNotTriggerPing() throws Exception {
-        // Given
+    void testReaderIdleAlsoTriggersPing() throws Exception {
+        // Given - READER_IDLE should also trigger ping (same as WRITER_IDLE)
         IdleStateEvent idleEvent = mock(IdleStateEvent.class);
         when(idleEvent.state()).thenReturn(IdleState.READER_IDLE);
 
         // When
         handler.userEventTriggered(ctx, idleEvent);
 
-        // Then
-        verify(ctx, never()).writeAndFlush(any());
+        // Then - READER_IDLE should also send ping
+        ArgumentCaptor<XdagFrame> frameCaptor = ArgumentCaptor.forClass(XdagFrame.class);
+        verify(ctx).writeAndFlush(frameCaptor.capture());
+
+        XdagFrame sentFrame = frameCaptor.getValue();
+        assertNotNull(sentFrame);
+        assertEquals(MessageCode.PING.toByte(), sentFrame.getPacketType());
     }
 
     @Test
@@ -196,8 +210,8 @@ class KeepAliveHandlerTest {
         handler.userEventTriggered(ctx, customEvent);
         handler.userEventTriggered(ctx, writerIdle);
 
-        // Then
-        verify(ctx, times(2)).writeAndFlush(any(XdagFrame.class)); // Only 2 WRITER_IDLE events
+        // Then - WRITER_IDLE and READER_IDLE both trigger ping (2 + 1 = 3)
+        verify(ctx, times(3)).writeAndFlush(any(XdagFrame.class));
         verify(ctx).fireChannelRead(message);
     }
 
@@ -212,7 +226,8 @@ class KeepAliveHandlerTest {
 
         // Then - verify context is actually used for write operation
         verify(ctx).writeAndFlush(any(XdagFrame.class));
-        verifyNoMoreInteractions(ctx);
+        // Also verifies ctx.channel() is called for logging
+        verify(ctx, atLeastOnce()).channel();
     }
 
     @Test

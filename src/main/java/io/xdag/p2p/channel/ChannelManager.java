@@ -28,6 +28,8 @@ import com.google.common.cache.CacheBuilder;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelFutureListener;
+import io.xdag.crypto.encoding.Base58;
+import io.xdag.crypto.keys.AddressUtils;
 import io.xdag.p2p.PeerClient;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
@@ -75,6 +77,9 @@ public class ChannelManager {
     private final AtomicInteger activePeersCount = new AtomicInteger(0);
     private final AtomicInteger connectingPeersCount = new AtomicInteger(0);
 
+    // Cached local NodeId for deterministic duplicate connection resolution
+    private volatile String localNodeId;
+
     private final ScheduledExecutorService poolLoopExecutor =
             Executors.newSingleThreadScheduledExecutor(BasicThreadFactory.builder().namingPattern("p2p-pool-%d").build());
     private final ScheduledExecutorService disconnectExecutor =
@@ -88,6 +93,15 @@ public class ChannelManager {
 
     public void start(PeerClient peerClient) {
         this.peerClient = peerClient;
+
+        // Initialize local NodeId for deterministic duplicate connection resolution
+        if (config.getNodeKey() != null) {
+            this.localNodeId = Base58.encodeCheck(AddressUtils.toBytesAddress(config.getNodeKey().getPublicKey()));
+            log.info("ChannelManager started with localNodeId: {}", localNodeId);
+        } else {
+            log.warn("No nodeKey configured - duplicate connection resolution may not work correctly");
+        }
+
         poolLoopExecutor.scheduleWithFixedDelay(this::connectLoop, 3, 5, TimeUnit.SECONDS);
 
         if (config.isDisconnectionPolicyEnable()) {
@@ -338,6 +352,7 @@ public class ChannelManager {
                 desiredConnections);
 
         List<Node> connectableNodes = new ArrayList<>(nodeManager.getConnectableNodes());
+
         if (connectableNodes.isEmpty()) {
             // Fallback: directly try boot seeds to bootstrap TCP handshake (independent of KAD)
             log.debug("No discovered nodes yet; will try boot seeds via TCP");
@@ -360,35 +375,159 @@ public class ChannelManager {
             }
 
             InetSocketAddress address = node.getPreferInetSocketAddress();
-            // Skip if: already connected by address, recent connection attempt, banned, or already connected by Node ID
-            if (address != null && !isConnected(address) && recentConnections.getIfPresent(address) == null) {
-                // Skip self-connection attempts (comparing port since in local testing all nodes use 127.0.0.1)
-                if (address.getPort() == homePort &&
-                    (address.getAddress().isLoopbackAddress() || address.getAddress().isAnyLocalAddress())) {
-                    log.debug("Skipping self-connection to {}", address);
-                    continue;
-                }
-
-                // Skip if already connected to this Node ID (prevents duplicate connections in local testing)
-                if (node.getId() != null && connectedNodeIds.containsKey(node.getId())) {
-                    log.debug("Skipping connection to {} - already connected to Node ID {}", address, node.getId());
-                    continue;
-                }
-
-                // Skip banned nodes
-                if (isBanned(address.getAddress())) {
-                    log.debug("Skipping banned node: {}", address);
-                    continue;
-                }
-
-                log.debug("Attempting to connect to {}", address);
-                connectAsync(node, false);
-                connectCount++;
+            if (address == null) {
+                continue;
             }
+
+            // Skip self-connection attempts (comparing port since in local testing all nodes use 127.0.0.1)
+            if (address.getPort() == homePort &&
+                (address.getAddress().isLoopbackAddress() || address.getAddress().isAnyLocalAddress())) {
+                log.debug("Skipping self-connection to {}", address);
+                continue;
+            }
+
+            // Skip if already connected to this Node ID (prevents duplicate connections in local testing)
+            if (node.getId() != null && connectedNodeIds.containsKey(node.getId())) {
+                log.debug("Skipping connection to {} - already connected to Node ID {}", address, node.getId());
+                continue;
+            }
+
+            // CRITICAL CHECK: Skip if we already have an active connection to this address
+            // This check MUST come before recentConnections check to prevent duplicate connection attempts
+            // when both nodes try to connect to each other simultaneously
+            if (hasActiveConnectionTo(address)) {
+                log.debug("Skipping connection to {} - already have an active connection to this node", address);
+                continue;
+            }
+
+            // Skip if we just tried to connect to this address recently
+            if (recentConnections.getIfPresent(address) != null) {
+                continue;
+            }
+
+            // Skip if already connected by exact address match
+            if (isConnected(address)) {
+                continue;
+            }
+
+            // Skip banned nodes
+            if (isBanned(address.getAddress())) {
+                log.debug("Skipping banned node: {}", address);
+                continue;
+            }
+
+            log.debug("Attempting to connect to {}", address);
+            connectAsync(node, false);
+            connectCount++;
         }
 
     }
 
+
+    /**
+     * Check if we already have an active connection to the target address.
+     * <p>
+     * This method performs a comprehensive check to prevent duplicate connection attempts:
+     * 1. Checks if there's an exact address match in channels Map
+     * 2. Checks all connectedNodeIds to see if any Channel is connected to the same IP:Port
+     * 3. For local testing (loopback addresses), checks if we have any active connection to the same IP,
+     *    since inbound connections use different ports than the target listening port
+     * 4. Verifies that the Channel's underlying Netty channel is actually active
+     * <p>
+     * This is particularly useful when both nodes have each other in their whitelist,
+     * preventing unnecessary reconnection attempts after recentConnections cache expires.
+     *
+     * @param targetAddress the address we want to connect to
+     * @return true if we already have an active connection to this address
+     */
+    private boolean hasActiveConnectionTo(InetSocketAddress targetAddress) {
+        if (targetAddress == null) {
+            return false;
+        }
+
+        // Fast path: Check if we have a channel with this exact address
+        Channel existingChannel = channels.get(targetAddress);
+        if (existingChannel != null) {
+            // Verify the channel's Netty channel is actually active
+            if (existingChannel.getCtx() != null &&
+                existingChannel.getCtx().channel() != null &&
+                existingChannel.getCtx().channel().isActive()) {
+                log.debug("hasActiveConnectionTo({}) = TRUE (exact match in channels map)", targetAddress);
+                return true;
+            } else {
+                log.debug("hasActiveConnectionTo({}) - exact match found but channel inactive (ctx={}, netty={})",
+                        targetAddress,
+                        existingChannel.getCtx() != null,
+                        existingChannel.getCtx() != null && existingChannel.getCtx().channel() != null ?
+                            existingChannel.getCtx().channel().isActive() : "null");
+            }
+        }
+
+        // Additional check: Look through all connected nodes to see if any has
+        // a remoteAddress matching our target (handles outbound connections)
+        InetAddress targetHost = targetAddress.getAddress();
+        int targetPort = targetAddress.getPort();
+
+        // DIAGNOSTIC: Log the current state of connectedNodeIds
+        if (log.isDebugEnabled()) {
+            log.debug("hasActiveConnectionTo({}) - checking connectedNodeIds (size={})", targetAddress, connectedNodeIds.size());
+            for (Map.Entry<String, Channel> entry : connectedNodeIds.entrySet()) {
+                Channel ch = entry.getValue();
+                InetSocketAddress addr = ch.getRemoteAddress();
+                boolean isActive = ch.getCtx() != null && ch.getCtx().channel() != null && ch.getCtx().channel().isActive();
+                log.debug("  connectedNodeIds[{}]: remoteAddr={}, nodeId={}, isActive={}",
+                        entry.getKey().substring(0, Math.min(8, entry.getKey().length())) + "...",
+                        addr, ch.getNodeId(), isActive);
+            }
+        }
+
+        for (Channel channel : connectedNodeIds.values()) {
+            InetSocketAddress remoteAddr = channel.getRemoteAddress();
+            if (remoteAddr != null) {
+                // Exact match (works for outbound connections where remoteAddress = target)
+                if (remoteAddr.getAddress().equals(targetHost) &&
+                    remoteAddr.getPort() == targetPort) {
+                    // Verify the channel is actually active
+                    if (channel.getCtx() != null &&
+                        channel.getCtx().channel() != null &&
+                        channel.getCtx().channel().isActive()) {
+                        log.debug("hasActiveConnectionTo({}) = TRUE (exact match in connectedNodeIds)", targetAddress);
+                        return true;
+                    }
+                }
+
+                // For loopback/local addresses: if we have any active connection from the same IP,
+                // and that connection has a nodeId, assume it's the same node
+                // This handles the case where node2 connects to node1 (inbound), then node1 tries to connect to node2
+                if (targetHost.isLoopbackAddress() &&
+                    remoteAddr.getAddress().equals(targetHost)) {
+                    if (channel.getNodeId() != null && !channel.getNodeId().isEmpty()) {
+                        // We have an active connection from this loopback IP with a known nodeId
+                        // Very likely the same node, skip reconnection attempt
+                        if (channel.getCtx() != null &&
+                            channel.getCtx().channel() != null &&
+                            channel.getCtx().channel().isActive()) {
+                            log.debug("hasActiveConnectionTo({}) = TRUE (loopback match: same IP {}, has nodeId {})",
+                                    targetAddress, remoteAddr, channel.getNodeId());
+                            return true;
+                        } else {
+                            log.debug("hasActiveConnectionTo({}) - loopback match but channel inactive (remoteAddr={}, nodeId={}, ctx={}, netty={})",
+                                    targetAddress, remoteAddr, channel.getNodeId(),
+                                    channel.getCtx() != null,
+                                    channel.getCtx() != null && channel.getCtx().channel() != null ?
+                                        channel.getCtx().channel().isActive() : "null");
+                        }
+                    } else {
+                        log.debug("hasActiveConnectionTo({}) - loopback IP match but no nodeId (remoteAddr={})",
+                                targetAddress, remoteAddr);
+                    }
+                }
+            }
+        }
+
+        log.debug("hasActiveConnectionTo({}) = FALSE (no matching active connection found)", targetAddress);
+        return false;
+    }
 
     private void checkConnections() {
         if (activePeers.size() < config.getMaxConnections()) {
@@ -408,10 +547,18 @@ public class ChannelManager {
 
     public ChannelFuture connectAsync(Node node, boolean isDiscovery) {
         InetSocketAddress address = node.getPreferInetSocketAddress();
+
+        // CRITICAL: Check if we already have an active connection to this address
+        // This prevents wasting resources on duplicate handshakes
+        if (hasActiveConnectionTo(address)) {
+            log.debug("Skipped connection to {} - already have active connection", address);
+            return null;  // Don't even attempt the connection
+        }
+
         if (address != null) {
             recentConnections.put(address, System.currentTimeMillis());
         }
-        return peerClient.connect(node, (ChannelFutureListener) future -> {
+        return peerClient.connect(node, future -> {
             if (!future.isSuccess()) {
                 log.warn("Connect to peer {} fail, cause:{}", node.getPreferInetSocketAddress(),
                         future.cause() != null ? future.cause().getMessage() : "unknown");
@@ -422,39 +569,185 @@ public class ChannelManager {
     public void onChannelActive(Channel channel) {
         String nodeId = channel.getNodeId();
 
-        // Check if we already have a connection to this Node ID (prevents duplicate connections)
-        // This works in both local testing (same IP) and production (different IPs)
-        if (nodeId != null && !nodeId.isEmpty()) {
-            Channel existingChannel = connectedNodeIds.get(nodeId);
-            if (existingChannel != null) {
-                // Check if the Netty channel is actually active (not the isActive field)
-                boolean nettyChannelActive = existingChannel.getCtx() != null
-                    && existingChannel.getCtx().channel() != null
-                    && existingChannel.getCtx().channel().isActive();
-                if (nettyChannelActive) {
-                    log.warn("Duplicate connection detected to Node ID {}. Existing: {}, New: {}. Closing new connection.",
-                             nodeId, existingChannel.getRemoteAddress(), channel.getRemoteAddress());
-                    channel.closeWithoutBan();
-                    return;
-                }
-            }
+        // If nodeId is null or empty, we cannot deduplicate by NodeId
+        // Only add to channels map (for backward compatibility), but not to connectedNodeIds
+        if (nodeId == null || nodeId.isEmpty()) {
+            log.warn("Channel {} has no NodeId, cannot deduplicate. This may cause duplicate connections.",
+                     channel.getRemoteAddress());
+            addChannelToMaps(channel, null);
+            return;
         }
 
-        // Proceed with normal connection logic
-        if (channels.putIfAbsent(channel.getRemoteAddress(), channel) == null) {
-            // Track by Node ID (if available)
-            if (nodeId != null && !nodeId.isEmpty()) {
-                connectedNodeIds.put(nodeId, channel);
+        // Thread-safe deduplication using compute
+        // This ensures atomic check-and-update on connectedNodeIds
+        Channel[] result = new Channel[1]; // To hold the result from compute
+        boolean[] shouldClose = new boolean[1];
+
+        connectedNodeIds.compute(nodeId, (key, existingChannel) -> {
+            if (existingChannel == null) {
+                // No existing connection, accept the new one
+                result[0] = channel;
+                return channel;
             }
+
+            // Check if existing channel is actually active
+            if (isNettyChannelActive(existingChannel)) {
+                // DUPLICATE DETECTION: Both channels are active
+                // Use deterministic tie-breaking to ensure both sides make the same decision
+                //
+                // Algorithm:
+                // - Compare local NodeId with remote NodeId
+                // - Node with smaller NodeId prefers OUTBOUND (isActive=true) connections
+                // - Node with larger NodeId prefers INBOUND (isActive=false) connections
+                //
+                // Example (Node1=ABC, Node2=XYZ, ABC < XYZ):
+                // - Node1 sees duplicate: localId(ABC) < remoteId(XYZ) → prefers outbound → keeps its outbound
+                // - Node2 sees duplicate: localId(XYZ) > remoteId(ABC) → prefers inbound → keeps Node1's outbound
+                // - Both nodes keep the SAME connection!
+
+                Channel channelToKeep;
+                Channel channelToClose;
+
+                if (localNodeId != null) {
+                    boolean preferOutbound = localNodeId.compareTo(nodeId) < 0;
+                    boolean newIsOutbound = channel.isActive();
+                    boolean existingIsOutbound = existingChannel.isActive();
+
+                    log.info("Duplicate connection to NodeId {}. Deterministic resolution: localId={}, remoteId={}, preferOutbound={}",
+                             nodeId, localNodeId.substring(0, 8) + "...", nodeId.substring(0, 8) + "...", preferOutbound);
+                    log.info("  Existing: {} (outbound={}), New: {} (outbound={})",
+                             existingChannel.getRemoteAddress(), existingIsOutbound,
+                             channel.getRemoteAddress(), newIsOutbound);
+
+                    if (preferOutbound) {
+                        // Local node has smaller ID → prefer outbound connection
+                        if (newIsOutbound && !existingIsOutbound) {
+                            // New is outbound, existing is inbound → keep new (preferred direction)
+                            channelToKeep = channel;
+                            channelToClose = existingChannel;
+                        } else if (!newIsOutbound && existingIsOutbound) {
+                            // New is inbound, existing is outbound → keep existing (preferred direction)
+                            channelToKeep = existingChannel;
+                            channelToClose = channel;
+                        } else if (existingIsOutbound && newIsOutbound) {
+                            // BUG-P2P-004 FIX: Both outbound (our preferred direction)
+                            // Keep NEW connection (just completed handshake, guaranteed alive)
+                            // Existing might be half-open/stale
+                            log.info("  Both connections are OUTBOUND (our preferred) - keeping NEW (guaranteed alive)");
+                            channelToKeep = channel;
+                            channelToClose = existingChannel;
+                        } else {
+                            // BUG-P2P-004 FIX: Both inbound (NOT our preferred direction)
+                            // Keep NEW connection (just completed handshake, guaranteed alive)
+                            log.info("  Both connections are INBOUND but we prefer OUTBOUND - keeping NEW (guaranteed alive)");
+                            channelToKeep = channel;
+                            channelToClose = existingChannel;
+                        }
+                    } else {
+                        // Local node has larger ID → prefer inbound connection
+                        if (!newIsOutbound && existingIsOutbound) {
+                            // New is inbound, existing is outbound → keep new (preferred direction)
+                            channelToKeep = channel;
+                            channelToClose = existingChannel;
+                        } else if (newIsOutbound && !existingIsOutbound) {
+                            // New is outbound, existing is inbound → keep existing (preferred direction)
+                            channelToKeep = existingChannel;
+                            channelToClose = channel;
+                        } else if (!existingIsOutbound && !newIsOutbound) {
+                            // BUG-P2P-004 FIX: Both inbound (our preferred direction)
+                            // Keep NEW connection (just completed handshake, guaranteed alive)
+                            log.info("  Both connections are INBOUND (our preferred) - keeping NEW (guaranteed alive)");
+                            channelToKeep = channel;
+                            channelToClose = existingChannel;
+                        } else {
+                            // BUG-P2P-004 FIX: Both outbound (NOT our preferred direction)
+                            // Keep NEW connection (just completed handshake, guaranteed alive)
+                            log.info("  Both connections are OUTBOUND but we prefer INBOUND - keeping NEW (guaranteed alive)");
+                            channelToKeep = channel;
+                            channelToClose = existingChannel;
+                        }
+                    }
+                } else {
+                    // No local NodeId configured, fall back to first-come-first-served
+                    log.warn("No localNodeId configured, using first-come-first-served for duplicate resolution");
+                    channelToKeep = existingChannel;
+                    channelToClose = channel;
+                }
+
+                if (channelToClose == channel) {
+                    log.info("  → Closing NEW connection, keeping existing");
+                    shouldClose[0] = true;
+                    result[0] = existingChannel;
+                    return existingChannel;
+                } else {
+                    log.info("  → Closing EXISTING connection, keeping new");
+                    cleanupStaleChannel(existingChannel);
+                    result[0] = channel;
+                    return channel;
+                }
+            } else {
+                // Existing channel is stale, replace it
+                log.info("Replacing stale connection for NodeId {}. Old: {}, New: {}",
+                         nodeId, existingChannel.getRemoteAddress(), channel.getRemoteAddress());
+                cleanupStaleChannel(existingChannel);
+                result[0] = channel;
+                return channel; // Replace with new
+            }
+        });
+
+        // If we should close the new connection, do it outside the compute block
+        if (shouldClose[0]) {
+            channel.closeWithoutBan();
+            return;
+        }
+
+        // If the new channel was accepted, add to other tracking structures
+        if (result[0] == channel) {
+            addChannelToMaps(channel, nodeId);
+        }
+    }
+
+    /**
+     * Check if a channel's underlying Netty channel is actually active and usable.
+     *
+     * <p>BUG-P2P-003 FIX: Enhanced check to detect dying connections.
+     * Previous implementation only checked isActive(), which returns true even for
+     * connections that are in the process of closing. This caused the duplicate
+     * connection algorithm to keep stale connections and reject new working ones.
+     *
+     * <p>Now we also check:
+     * <ul>
+     *   <li>isWritable() - False when connection is congested or closing</li>
+     *   <li>isOpen() - False when channel is closed</li>
+     * </ul>
+     */
+    private boolean isNettyChannelActive(Channel channel) {
+        if (channel == null || channel.getCtx() == null || channel.getCtx().channel() == null) {
+            return false;
+        }
+        io.netty.channel.Channel nettyChannel = channel.getCtx().channel();
+        // isActive alone is not enough - a dying connection may still report isActive=true
+        // We also check isOpen and isWritable for more accurate status
+        return nettyChannel.isActive() && nettyChannel.isOpen() && nettyChannel.isWritable();
+    }
+
+    /**
+     * Add channel to tracking maps and notify handlers.
+     * This is called after deduplication has passed.
+     */
+    private void addChannelToMaps(Channel channel, String nodeId) {
+        // Add to channels map (keyed by remote address for backward compatibility)
+        if (channels.putIfAbsent(channel.getRemoteAddress(), channel) == null) {
             activePeers.add(channel);
-            boolean isActive = channel.isActive();
-            if (isActive) {
+            if (channel.isActive()) {
                 activePeersCount.incrementAndGet();
             } else {
                 passivePeersCount.incrementAndGet();
             }
 
-            log.info("New channel connected: {}. Total channels: {}", channel.getRemoteAddress(), channels.size());
+            log.info("New channel connected: {} (NodeId: {}). Total channels: {}, Unique peers: {}",
+                     channel.getRemoteAddress(), nodeId, channels.size(), connectedNodeIds.size());
+
             // Notify application handlers
             try {
                 for (var h : config.getHandlerList()) {
@@ -467,13 +760,56 @@ public class ChannelManager {
     }
 
     /**
+     * Clean up a stale channel from all tracking collections.
+     * This is called when replacing a stale connection with a new one from the same NodeId.
+     */
+    private void cleanupStaleChannel(Channel staleChannel) {
+        if (staleChannel == null) {
+            return;
+        }
+
+        // Remove from channels map
+        channels.remove(staleChannel.getRemoteAddress());
+
+        // Remove from activePeers list
+        activePeers.remove(staleChannel);
+
+        // Update counters
+        if (staleChannel.isActive()) {
+            activePeersCount.decrementAndGet();
+        } else {
+            passivePeersCount.decrementAndGet();
+        }
+
+        // Close the stale channel
+        try {
+            staleChannel.closeWithoutBan();
+        } catch (Exception e) {
+            log.debug("Error closing stale channel: {}", e.getMessage());
+        }
+
+        log.debug("Cleaned up stale channel: {}", staleChannel.getRemoteAddress());
+    }
+
+    /**
+     * Get unique connected channels, deduplicated by Node ID.
+     * This should be used for broadcasting messages to avoid sending to the same peer multiple times.
+     *
+     * @return list of unique channels (one per Node ID)
+     */
+    public List<Channel> getUniqueConnectedChannels() {
+        return new ArrayList<>(connectedNodeIds.values());
+    }
+
+    /**
      * Helper to record handshake success for a Netty channel that doesn't yet have a wrapped Channel instance.
      *
      * @param remote the remote address
      * @param ctx the channel handler context
      * @param nodeId the peer's node ID (for duplicate connection detection)
+     * @param isOutbound true if this is an outbound connection (we initiated), false if inbound (peer initiated)
      */
-    public void markHandshakeSuccess(java.net.InetSocketAddress remote, ChannelHandlerContext ctx, String nodeId) {
+    public void markHandshakeSuccess(java.net.InetSocketAddress remote, ChannelHandlerContext ctx, String nodeId, boolean isOutbound) {
         try {
             Channel ch = new Channel(this);
             ch.setP2pConfig(config);
@@ -481,7 +817,9 @@ public class ChannelManager {
             // Set nodeId BEFORE calling onChannelActive() so duplicate detection works
             ch.setNodeId(nodeId);
             ch.setFinishHandshake(true);
-            ch.setActive(true);
+            // IMPORTANT: isActive indicates connection direction for duplicate detection
+            // true = outbound (we initiated), false = inbound (peer initiated)
+            ch.setActive(isOutbound);
             onChannelActive(ch);
             int nowActive = activePeers.size();
             int min = config.getMinConnections();
@@ -493,12 +831,39 @@ public class ChannelManager {
     }
 
     public void onChannelInactive(Channel channel) {
-        if (channels.remove(channel.getRemoteAddress()) != null) {
-            // Also remove from Node ID tracking map
-            String nodeId = channel.getNodeId();
-            if (nodeId != null && !nodeId.isEmpty()) {
-                connectedNodeIds.remove(nodeId);
+        // BUG-P2P-003 FIX: Always attempt to clean up from connectedNodeIds,
+        // regardless of whether channels.remove() succeeds.
+        // This prevents stale entries from blocking new connections.
+        String nodeId = channel.getNodeId();
+        if (nodeId != null && !nodeId.isEmpty()) {
+            // Only remove if the stored channel is THIS channel (not a replacement)
+            connectedNodeIds.computeIfPresent(nodeId, (key, storedChannel) -> {
+                if (storedChannel == channel) {
+                    log.debug("Removing nodeId {} from connectedNodeIds (channel {})", nodeId, channel.getRemoteAddress());
+                    return null; // Remove
+                }
+                // A different channel is stored - this channel was already replaced
+                log.debug("NodeId {} has different channel stored, not removing", nodeId);
+                return storedChannel; // Keep the other channel
+            });
+        }
+
+        // BUG-P2P-005 FIX: Only remove from channels map if the stored channel is THIS channel.
+        // When a channel is replaced (due to duplicate detection), both old and new channels
+        // have the SAME remoteAddress. Without this check, the old channel's onChannelInactive()
+        // would remove the entry that now contains the replacement channel!
+        final boolean[] wasRemoved = {false};
+        channels.computeIfPresent(channel.getRemoteAddress(), (addr, storedChannel) -> {
+            if (storedChannel == channel) {
+                wasRemoved[0] = true;
+                return null; // Remove only if THIS channel
             }
+            log.debug("Channel {} has different channel stored (stored={}, disconnecting={}), not removing from channels map",
+                    addr, System.identityHashCode(storedChannel), System.identityHashCode(channel));
+            return storedChannel; // Keep the replacement channel
+        });
+
+        if (wasRemoved[0]) {
             activePeers.remove(channel);
             boolean isActive = channel.isActive();
             if (isActive) {
@@ -516,6 +881,8 @@ public class ChannelManager {
             } catch (Exception e) {
                 log.warn("Handler onDisconnect error: {}", e.getMessage());
             }
+        } else {
+            log.debug("Channel {} disconnect ignored - already replaced or not in channels map", channel.getRemoteAddress());
         }
     }
 

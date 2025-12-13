@@ -40,8 +40,8 @@ public class KeepAliveHandler extends ChannelDuplexHandler {
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
         if (evt instanceof IdleStateEvent) {
             IdleStateEvent e = (IdleStateEvent) evt;
-            if (e.state() == IdleState.WRITER_IDLE) {
-                log.trace("Writer idle, sending Ping");
+            if (e.state() == IdleState.WRITER_IDLE || e.state() == IdleState.READER_IDLE) {
+                log.info("{} idle, sending Ping to {}", e.state(), ctx.channel().remoteAddress());
                 writeMessage(ctx, new PingMessage());
                 lastPingTimestamp = System.currentTimeMillis();
             }
@@ -56,6 +56,12 @@ public class KeepAliveHandler extends ChannelDuplexHandler {
 
     private void writeMessage(ChannelHandlerContext ctx, io.xdag.p2p.message.Message msg) {
         XdagFrame frame = new XdagFrame(XdagFrame.VERSION, XdagFrame.COMPRESS_NONE, msg.getCode().toByte(), 0, msg.getBody().length, msg.getBody().length, msg.getBody());
-        ctx.writeAndFlush(frame);
+        ctx.writeAndFlush(frame).addListener(future -> {
+            if (future.isSuccess()) {
+                log.info("PING frame sent successfully to {}", ctx.channel().remoteAddress());
+            } else {
+                log.warn("PING frame send failed to {}", ctx.channel().remoteAddress(), future.cause());
+            }
+        });
     }
 }
