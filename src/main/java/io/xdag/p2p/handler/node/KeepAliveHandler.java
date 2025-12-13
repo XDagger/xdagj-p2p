@@ -56,6 +56,12 @@ public class KeepAliveHandler extends ChannelDuplexHandler {
 
     private void writeMessage(ChannelHandlerContext ctx, io.xdag.p2p.message.Message msg) {
         XdagFrame frame = new XdagFrame(XdagFrame.VERSION, XdagFrame.COMPRESS_NONE, msg.getCode().toByte(), 0, msg.getBody().length, msg.getBody().length, msg.getBody());
-        ctx.writeAndFlush(frame);
+        ctx.writeAndFlush(frame).addListener(future -> {
+            if (future.isSuccess()) {
+                log.info("PING frame sent successfully to {}", ctx.channel().remoteAddress());
+            } else {
+                log.warn("PING frame send failed to {}", ctx.channel().remoteAddress(), future.cause());
+            }
+        });
     }
 }

@@ -27,6 +27,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToMessageCodec;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.message.Message;
+import io.xdag.p2p.message.MessageCode;
 import io.xdag.p2p.message.MessageException;
 import io.xdag.p2p.message.MessageFactory;
 import java.io.IOException;
@@ -69,11 +70,20 @@ public class XdagMessageHandler extends MessageToMessageCodec<XdagFrame, Message
         }
 
         byte packetType = msg.getCode().toByte();
-        log.debug("Encode message: type=0x{}, bodyLen={}, compressedLen={}, to={}",
-                String.format("%02X", packetType),
-                data != null ? data.length : 0,
-                compressed.length,
-                ctx.channel().remoteAddress());
+        // Log PING/PONG at INFO level for debugging
+        if (packetType == MessageCode.PING.toByte() || packetType == MessageCode.PONG.toByte()) {
+            log.info("Encode message: type=0x{} ({}), bodyLen={}, to={}",
+                    String.format("%02X", packetType),
+                    packetType == MessageCode.PING.toByte() ? "PING" : "PONG",
+                    data != null ? data.length : 0,
+                    ctx.channel().remoteAddress());
+        } else {
+            log.debug("Encode message: type=0x{}, bodyLen={}, compressedLen={}, to={}",
+                    String.format("%02X", packetType),
+                    data != null ? data.length : 0,
+                    compressed.length,
+                    ctx.channel().remoteAddress());
+        }
         int packetId = packetCounter.incrementAndGet();
         int packetSize = compressed.length;
 
@@ -110,7 +120,17 @@ public class XdagMessageHandler extends MessageToMessageCodec<XdagFrame, Message
         if (frame == null) {
             throw new MessageException("Frame cannot be null");
         }
-        log.debug("Decode frame: type={}, id={}, bodyLen={}, from {}", frame.getPacketType(), frame.getPacketId(), frame.getBodySize(), ctx.channel().remoteAddress());
+
+        // Log PING/PONG frames at INFO level for debugging
+        byte packetType = frame.getPacketType();
+        if (packetType == MessageCode.PING.toByte() || packetType == MessageCode.PONG.toByte()) {
+            log.info("Decode frame: type=0x{} ({}), id={}, bodyLen={}, from {}",
+                    String.format("%02X", packetType),
+                    packetType == MessageCode.PING.toByte() ? "PING" : "PONG",
+                    frame.getPacketId(), frame.getBodySize(), ctx.channel().remoteAddress());
+        } else {
+            log.debug("Decode frame: type={}, id={}, bodyLen={}, from {}", frame.getPacketType(), frame.getPacketId(), frame.getBodySize(), ctx.channel().remoteAddress());
+        }
 
         Message decodedMsg;
         if (frame.isChunked()) {

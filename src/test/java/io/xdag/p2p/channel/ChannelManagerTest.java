@@ -206,6 +206,8 @@ public class ChannelManagerTest {
     io.netty.channel.Channel nettyChannel = mock(io.netty.channel.Channel.class);
     when(nettyChannel.remoteAddress()).thenReturn(remote);
     when(nettyChannel.isActive()).thenReturn(true);
+    when(nettyChannel.isOpen()).thenReturn(true);
+    when(nettyChannel.isWritable()).thenReturn(true);
     when(nettyChannel.attr(any())).thenAnswer(invocation -> {
       AttributeKey<Object> key = invocation.getArgument(0);
       return attributeMap.attr(key);
@@ -236,6 +238,8 @@ public class ChannelManagerTest {
     io.netty.channel.Channel nettyChannel = mock(io.netty.channel.Channel.class);
     when(nettyChannel.remoteAddress()).thenReturn(remote);
     when(nettyChannel.isActive()).thenReturn(true);
+    when(nettyChannel.isOpen()).thenReturn(true);
+    when(nettyChannel.isWritable()).thenReturn(true);
     when(nettyChannel.attr(any())).thenAnswer(invocation -> {
       AttributeKey<Object> key = invocation.getArgument(0);
       return attributeMap.attr(key);
@@ -1222,6 +1226,8 @@ public class ChannelManagerTest {
     when(existingChannel.getCtx()).thenReturn(existingCtx);
     when(existingCtx.channel()).thenReturn(nettyChannel);
     when(nettyChannel.isActive()).thenReturn(true);
+    when(nettyChannel.isOpen()).thenReturn(true);
+    when(nettyChannel.isWritable()).thenReturn(true);
 
     // Add existing channel first
     channelManager.onChannelActive(existingChannel);
@@ -1455,6 +1461,8 @@ public class ChannelManagerTest {
     when(existingChannel.getCtx()).thenReturn(existingCtx);
     when(existingCtx.channel()).thenReturn(existingNetty);
     when(existingNetty.isActive()).thenReturn(true);
+    when(existingNetty.isOpen()).thenReturn(true);
+    when(existingNetty.isWritable()).thenReturn(true);
 
     // Add existing channel
     channelManager.onChannelActive(existingChannel);
@@ -1516,6 +1524,8 @@ public class ChannelManagerTest {
     when(existingChannel.getCtx()).thenReturn(existingCtx);
     when(existingCtx.channel()).thenReturn(existingNetty);
     when(existingNetty.isActive()).thenReturn(true);
+    when(existingNetty.isOpen()).thenReturn(true);
+    when(existingNetty.isWritable()).thenReturn(true);
 
     // Add existing channel
     channelManager.onChannelActive(existingChannel);
@@ -1577,6 +1587,8 @@ public class ChannelManagerTest {
     when(existingChannel.getCtx()).thenReturn(existingCtx);
     when(existingCtx.channel()).thenReturn(existingNetty);
     when(existingNetty.isActive()).thenReturn(true);
+    when(existingNetty.isOpen()).thenReturn(true);
+    when(existingNetty.isWritable()).thenReturn(true);
 
     // Add existing channel
     channelManager.onChannelActive(existingChannel);
@@ -1638,6 +1650,8 @@ public class ChannelManagerTest {
     when(existingChannel.getCtx()).thenReturn(existingCtx);
     when(existingCtx.channel()).thenReturn(existingNetty);
     when(existingNetty.isActive()).thenReturn(true);
+    when(existingNetty.isOpen()).thenReturn(true);
+    when(existingNetty.isWritable()).thenReturn(true);
 
     // Add existing channel
     channelManager.onChannelActive(existingChannel);
@@ -1665,11 +1679,14 @@ public class ChannelManagerTest {
   }
 
   /**
-   * Test: When both connections have the same direction, fall back to first-come-first-served.
+   * Test: BUG-P2P-004 FIX - When both connections have the same direction, prefer NEW.
    *
    * Scenario:
    * - Existing is OUTBOUND, New is also OUTBOUND
-   * - Expected: Keep existing, close new (regardless of nodeId comparison)
+   * - Expected: Keep NEW (since existing might be half-open/stale), close existing
+   *
+   * Rationale: TCP half-open connections appear "active" but don't actually work.
+   * The NEW connection just completed handshake so is guaranteed to be alive.
    */
   @Test
   public void testDuplicateConnection_SameDirection_FirstComeFirstServed() throws Exception {
@@ -1695,6 +1712,8 @@ public class ChannelManagerTest {
     when(existingChannel.getCtx()).thenReturn(existingCtx);
     when(existingCtx.channel()).thenReturn(existingNetty);
     when(existingNetty.isActive()).thenReturn(true);
+    when(existingNetty.isOpen()).thenReturn(true);
+    when(existingNetty.isWritable()).thenReturn(true);
 
     channelManager.onChannelActive(existingChannel);
 
@@ -1705,9 +1724,9 @@ public class ChannelManagerTest {
 
     channelManager.onChannelActive(newChannel);
 
-    // When both are same direction, keep existing (first-come-first-served)
-    verify(existingChannel, times(0)).closeWithoutBan();
-    verify(newChannel, times(1)).closeWithoutBan();
+    // BUG-P2P-004 FIX: When both are same direction, prefer NEW (to avoid stale connections)
+    verify(existingChannel, times(1)).closeWithoutBan(); // existing closed via cleanupStaleChannel
+    verify(newChannel, times(0)).closeWithoutBan(); // new is kept
   }
 
   /**
@@ -1734,6 +1753,8 @@ public class ChannelManagerTest {
     when(existingChannel.getCtx()).thenReturn(existingCtx);
     when(existingCtx.channel()).thenReturn(existingNetty);
     when(existingNetty.isActive()).thenReturn(true);
+    when(existingNetty.isOpen()).thenReturn(true);
+    when(existingNetty.isWritable()).thenReturn(true);
 
     channelManager.onChannelActive(existingChannel);
 
@@ -1783,6 +1804,8 @@ public class ChannelManagerTest {
     when(node1Existing.getCtx()).thenReturn(ctx1e);
     when(ctx1e.channel()).thenReturn(netty1e);
     when(netty1e.isActive()).thenReturn(true);
+    when(netty1e.isOpen()).thenReturn(true);
+    when(netty1e.isWritable()).thenReturn(true);
     node1ChannelManager.onChannelActive(node1Existing);
 
     // Node1's new: outbound to Node2 (Node1's outbound)
@@ -1812,6 +1835,8 @@ public class ChannelManagerTest {
     when(node2Existing.getCtx()).thenReturn(ctx2e);
     when(ctx2e.channel()).thenReturn(netty2e);
     when(netty2e.isActive()).thenReturn(true);
+    when(netty2e.isOpen()).thenReturn(true);
+    when(netty2e.isWritable()).thenReturn(true);
     node2ChannelManager.onChannelActive(node2Existing);
 
     // Node2's new: outbound to Node1 (Node2's outbound)
@@ -1896,5 +1921,136 @@ public class ChannelManagerTest {
     assertNull(localNodeId, "localNodeId should remain null when nodeKey is not configured");
 
     cm.stop();
+  }
+
+  // ========== BUG-P2P-005: Fix for onChannelInactive removing replacement channel ==========
+
+  /**
+   * Test: BUG-P2P-005 - When a channel is replaced (due to duplicate detection),
+   * the old channel's onChannelInactive() should NOT remove the replacement channel
+   * from the channels map.
+   *
+   * Scenario:
+   * 1. Channel A connects with remoteAddress 192.168.1.100:8001
+   * 2. Channel B connects with SAME remoteAddress (duplicate detection replaces A with B)
+   * 3. Channel A receives disconnect event, calls onChannelInactive()
+   * 4. BUG (before fix): channels.remove(remoteAddress) removes Channel B
+   * 5. FIX: Check channel instance identity before removing
+   */
+  @Test
+  public void testOnChannelInactive_DoesNotRemoveReplacementChannel() {
+    InetSocketAddress remoteAddress = new InetSocketAddress("192.168.1.100", 8001);
+
+    // Create old channel (will be replaced)
+    Channel oldChannel = mock(Channel.class);
+    when(oldChannel.getRemoteAddress()).thenReturn(remoteAddress);
+    when(oldChannel.getInetAddress()).thenReturn(remoteAddress.getAddress());
+    when(oldChannel.isActive()).thenReturn(true);
+    when(oldChannel.getNodeId()).thenReturn("node-old");
+    when(oldChannel.getStartTime()).thenReturn(System.currentTimeMillis());
+
+    // Create replacement channel (same remoteAddress)
+    Channel newChannel = mock(Channel.class);
+    when(newChannel.getRemoteAddress()).thenReturn(remoteAddress);
+    when(newChannel.getInetAddress()).thenReturn(remoteAddress.getAddress());
+    when(newChannel.isActive()).thenReturn(true);
+    when(newChannel.getNodeId()).thenReturn("node-new");
+    when(newChannel.getStartTime()).thenReturn(System.currentTimeMillis());
+
+    // Simulate: old channel was active, then replaced by new channel
+    // First, manually put the NEW channel in the map (simulating replacement)
+    channelManager.getChannels().put(remoteAddress, newChannel);
+    assertEquals(1, channelManager.getChannels().size(), "Should have 1 channel");
+    assertEquals(newChannel, channelManager.getChannels().get(remoteAddress),
+        "New channel should be stored at remoteAddress");
+
+    // Now, old channel disconnects - this should NOT remove the new channel
+    channelManager.onChannelInactive(oldChannel);
+
+    // Verify: new channel is STILL in the map
+    assertEquals(1, channelManager.getChannels().size(),
+        "BUG-P2P-005: Replacement channel should NOT be removed by old channel's disconnect");
+    assertEquals(newChannel, channelManager.getChannels().get(remoteAddress),
+        "New channel should still be stored at remoteAddress");
+  }
+
+  /**
+   * Test: When the ACTUAL stored channel disconnects, it SHOULD be removed.
+   */
+  @Test
+  public void testOnChannelInactive_RemovesActualStoredChannel() {
+    InetSocketAddress remoteAddress = new InetSocketAddress("192.168.1.101", 8002);
+
+    // Create channel
+    Channel channel = mock(Channel.class);
+    when(channel.getRemoteAddress()).thenReturn(remoteAddress);
+    when(channel.getInetAddress()).thenReturn(remoteAddress.getAddress());
+    when(channel.isActive()).thenReturn(true);
+    when(channel.getNodeId()).thenReturn("node-actual");
+    when(channel.getStartTime()).thenReturn(System.currentTimeMillis());
+
+    // Add channel via onChannelActive
+    channelManager.onChannelActive(channel);
+    assertEquals(1, channelManager.getChannels().size(), "Should have 1 channel");
+    assertEquals(channel, channelManager.getChannels().get(remoteAddress));
+
+    // Channel disconnects - this SHOULD remove it
+    channelManager.onChannelInactive(channel);
+
+    // Verify: channel is removed
+    assertEquals(0, channelManager.getChannels().size(),
+        "Actual stored channel SHOULD be removed on disconnect");
+    assertFalse(channelManager.getChannels().containsKey(remoteAddress),
+        "RemoteAddress should no longer be in channels map");
+  }
+
+  /**
+   * Test: BUG-P2P-005 - Verify peer counts are correctly maintained after replacement.
+   *
+   * This test simulates the real-world scenario where:
+   * 1. Old channel was counted as active peer
+   * 2. New channel replaces it
+   * 3. Old channel disconnects
+   * 4. Only NEW channel should remain, counts should be correct
+   */
+  @Test
+  public void testOnChannelInactive_PeerCountsAfterReplacement() {
+    InetSocketAddress remoteAddress = new InetSocketAddress("192.168.1.102", 8003);
+
+    // Create old OUTBOUND channel
+    Channel oldChannel = mock(Channel.class);
+    when(oldChannel.getRemoteAddress()).thenReturn(remoteAddress);
+    when(oldChannel.getInetAddress()).thenReturn(remoteAddress.getAddress());
+    when(oldChannel.isActive()).thenReturn(true); // OUTBOUND
+    when(oldChannel.getNodeId()).thenReturn("node-replace-test");
+    when(oldChannel.getStartTime()).thenReturn(System.currentTimeMillis());
+
+    // Create new INBOUND channel (same nodeId, different port typically)
+    Channel newChannel = mock(Channel.class);
+    when(newChannel.getRemoteAddress()).thenReturn(remoteAddress);
+    when(newChannel.getInetAddress()).thenReturn(remoteAddress.getAddress());
+    when(newChannel.isActive()).thenReturn(false); // INBOUND
+    when(newChannel.getNodeId()).thenReturn("node-replace-test");
+    when(newChannel.getStartTime()).thenReturn(System.currentTimeMillis());
+
+    // Simulate: new channel is already in the map (replacement happened)
+    channelManager.getChannels().put(remoteAddress, newChannel);
+
+    // Record initial counts (should be 0 since we directly manipulated the map)
+    int initialActive = channelManager.getActivePeersCount();
+    int initialPassive = channelManager.getPassivePeersCount();
+
+    // Old channel disconnects - should NOT affect counts since it's not in the map
+    channelManager.onChannelInactive(oldChannel);
+
+    // Verify: counts unchanged (old channel was replaced, not actually removed)
+    assertEquals(initialActive, channelManager.getActivePeersCount(),
+        "Active peer count should be unchanged after old channel disconnect");
+    assertEquals(initialPassive, channelManager.getPassivePeersCount(),
+        "Passive peer count should be unchanged after old channel disconnect");
+
+    // Verify: new channel still in map
+    assertEquals(newChannel, channelManager.getChannels().get(remoteAddress),
+        "New channel should still be in channels map");
   }
 }

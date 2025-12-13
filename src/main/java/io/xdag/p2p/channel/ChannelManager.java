@@ -452,7 +452,14 @@ public class ChannelManager {
             if (existingChannel.getCtx() != null &&
                 existingChannel.getCtx().channel() != null &&
                 existingChannel.getCtx().channel().isActive()) {
+                log.debug("hasActiveConnectionTo({}) = TRUE (exact match in channels map)", targetAddress);
                 return true;
+            } else {
+                log.debug("hasActiveConnectionTo({}) - exact match found but channel inactive (ctx={}, netty={})",
+                        targetAddress,
+                        existingChannel.getCtx() != null,
+                        existingChannel.getCtx() != null && existingChannel.getCtx().channel() != null ?
+                            existingChannel.getCtx().channel().isActive() : "null");
             }
         }
 
@@ -460,6 +467,19 @@ public class ChannelManager {
         // a remoteAddress matching our target (handles outbound connections)
         InetAddress targetHost = targetAddress.getAddress();
         int targetPort = targetAddress.getPort();
+
+        // DIAGNOSTIC: Log the current state of connectedNodeIds
+        if (log.isDebugEnabled()) {
+            log.debug("hasActiveConnectionTo({}) - checking connectedNodeIds (size={})", targetAddress, connectedNodeIds.size());
+            for (Map.Entry<String, Channel> entry : connectedNodeIds.entrySet()) {
+                Channel ch = entry.getValue();
+                InetSocketAddress addr = ch.getRemoteAddress();
+                boolean isActive = ch.getCtx() != null && ch.getCtx().channel() != null && ch.getCtx().channel().isActive();
+                log.debug("  connectedNodeIds[{}]: remoteAddr={}, nodeId={}, isActive={}",
+                        entry.getKey().substring(0, Math.min(8, entry.getKey().length())) + "...",
+                        addr, ch.getNodeId(), isActive);
+            }
+        }
 
         for (Channel channel : connectedNodeIds.values()) {
             InetSocketAddress remoteAddr = channel.getRemoteAddress();
@@ -471,6 +491,7 @@ public class ChannelManager {
                     if (channel.getCtx() != null &&
                         channel.getCtx().channel() != null &&
                         channel.getCtx().channel().isActive()) {
+                        log.debug("hasActiveConnectionTo({}) = TRUE (exact match in connectedNodeIds)", targetAddress);
                         return true;
                     }
                 }
@@ -486,15 +507,25 @@ public class ChannelManager {
                         if (channel.getCtx() != null &&
                             channel.getCtx().channel() != null &&
                             channel.getCtx().channel().isActive()) {
-                            log.debug("Skipping connection to {} - already have active loopback connection from {} with nodeId {}",
+                            log.debug("hasActiveConnectionTo({}) = TRUE (loopback match: same IP {}, has nodeId {})",
                                     targetAddress, remoteAddr, channel.getNodeId());
                             return true;
+                        } else {
+                            log.debug("hasActiveConnectionTo({}) - loopback match but channel inactive (remoteAddr={}, nodeId={}, ctx={}, netty={})",
+                                    targetAddress, remoteAddr, channel.getNodeId(),
+                                    channel.getCtx() != null,
+                                    channel.getCtx() != null && channel.getCtx().channel() != null ?
+                                        channel.getCtx().channel().isActive() : "null");
                         }
+                    } else {
+                        log.debug("hasActiveConnectionTo({}) - loopback IP match but no nodeId (remoteAddr={})",
+                                targetAddress, remoteAddr);
                     }
                 }
             }
         }
 
+        log.debug("hasActiveConnectionTo({}) = FALSE (no matching active connection found)", targetAddress);
         return false;
     }
 
@@ -591,32 +622,49 @@ public class ChannelManager {
                     if (preferOutbound) {
                         // Local node has smaller ID → prefer outbound connection
                         if (newIsOutbound && !existingIsOutbound) {
-                            // New is outbound, existing is inbound → keep new
+                            // New is outbound, existing is inbound → keep new (preferred direction)
                             channelToKeep = channel;
                             channelToClose = existingChannel;
                         } else if (!newIsOutbound && existingIsOutbound) {
-                            // New is inbound, existing is outbound → keep existing
+                            // New is inbound, existing is outbound → keep existing (preferred direction)
                             channelToKeep = existingChannel;
                             channelToClose = channel;
+                        } else if (existingIsOutbound && newIsOutbound) {
+                            // BUG-P2P-004 FIX: Both outbound (our preferred direction)
+                            // Keep NEW connection (just completed handshake, guaranteed alive)
+                            // Existing might be half-open/stale
+                            log.info("  Both connections are OUTBOUND (our preferred) - keeping NEW (guaranteed alive)");
+                            channelToKeep = channel;
+                            channelToClose = existingChannel;
                         } else {
-                            // Both same direction → keep existing (first-come-first-served for same direction)
-                            channelToKeep = existingChannel;
-                            channelToClose = channel;
+                            // BUG-P2P-004 FIX: Both inbound (NOT our preferred direction)
+                            // Keep NEW connection (just completed handshake, guaranteed alive)
+                            log.info("  Both connections are INBOUND but we prefer OUTBOUND - keeping NEW (guaranteed alive)");
+                            channelToKeep = channel;
+                            channelToClose = existingChannel;
                         }
                     } else {
                         // Local node has larger ID → prefer inbound connection
                         if (!newIsOutbound && existingIsOutbound) {
-                            // New is inbound, existing is outbound → keep new
+                            // New is inbound, existing is outbound → keep new (preferred direction)
                             channelToKeep = channel;
                             channelToClose = existingChannel;
                         } else if (newIsOutbound && !existingIsOutbound) {
-                            // New is outbound, existing is inbound → keep existing
+                            // New is outbound, existing is inbound → keep existing (preferred direction)
                             channelToKeep = existingChannel;
                             channelToClose = channel;
+                        } else if (!existingIsOutbound && !newIsOutbound) {
+                            // BUG-P2P-004 FIX: Both inbound (our preferred direction)
+                            // Keep NEW connection (just completed handshake, guaranteed alive)
+                            log.info("  Both connections are INBOUND (our preferred) - keeping NEW (guaranteed alive)");
+                            channelToKeep = channel;
+                            channelToClose = existingChannel;
                         } else {
-                            // Both same direction → keep existing (first-come-first-served for same direction)
-                            channelToKeep = existingChannel;
-                            channelToClose = channel;
+                            // BUG-P2P-004 FIX: Both outbound (NOT our preferred direction)
+                            // Keep NEW connection (just completed handshake, guaranteed alive)
+                            log.info("  Both connections are OUTBOUND but we prefer INBOUND - keeping NEW (guaranteed alive)");
+                            channelToKeep = channel;
+                            channelToClose = existingChannel;
                         }
                     }
                 } else {
@@ -660,13 +708,27 @@ public class ChannelManager {
     }
 
     /**
-     * Check if a channel's underlying Netty channel is actually active.
+     * Check if a channel's underlying Netty channel is actually active and usable.
+     *
+     * <p>BUG-P2P-003 FIX: Enhanced check to detect dying connections.
+     * Previous implementation only checked isActive(), which returns true even for
+     * connections that are in the process of closing. This caused the duplicate
+     * connection algorithm to keep stale connections and reject new working ones.
+     *
+     * <p>Now we also check:
+     * <ul>
+     *   <li>isWritable() - False when connection is congested or closing</li>
+     *   <li>isOpen() - False when channel is closed</li>
+     * </ul>
      */
     private boolean isNettyChannelActive(Channel channel) {
-        return channel != null
-            && channel.getCtx() != null
-            && channel.getCtx().channel() != null
-            && channel.getCtx().channel().isActive();
+        if (channel == null || channel.getCtx() == null || channel.getCtx().channel() == null) {
+            return false;
+        }
+        io.netty.channel.Channel nettyChannel = channel.getCtx().channel();
+        // isActive alone is not enough - a dying connection may still report isActive=true
+        // We also check isOpen and isWritable for more accurate status
+        return nettyChannel.isActive() && nettyChannel.isOpen() && nettyChannel.isWritable();
     }
 
     /**
@@ -769,12 +831,39 @@ public class ChannelManager {
     }
 
     public void onChannelInactive(Channel channel) {
-        if (channels.remove(channel.getRemoteAddress()) != null) {
-            // Also remove from Node ID tracking map
-            String nodeId = channel.getNodeId();
-            if (nodeId != null && !nodeId.isEmpty()) {
-                connectedNodeIds.remove(nodeId);
+        // BUG-P2P-003 FIX: Always attempt to clean up from connectedNodeIds,
+        // regardless of whether channels.remove() succeeds.
+        // This prevents stale entries from blocking new connections.
+        String nodeId = channel.getNodeId();
+        if (nodeId != null && !nodeId.isEmpty()) {
+            // Only remove if the stored channel is THIS channel (not a replacement)
+            connectedNodeIds.computeIfPresent(nodeId, (key, storedChannel) -> {
+                if (storedChannel == channel) {
+                    log.debug("Removing nodeId {} from connectedNodeIds (channel {})", nodeId, channel.getRemoteAddress());
+                    return null; // Remove
+                }
+                // A different channel is stored - this channel was already replaced
+                log.debug("NodeId {} has different channel stored, not removing", nodeId);
+                return storedChannel; // Keep the other channel
+            });
+        }
+
+        // BUG-P2P-005 FIX: Only remove from channels map if the stored channel is THIS channel.
+        // When a channel is replaced (due to duplicate detection), both old and new channels
+        // have the SAME remoteAddress. Without this check, the old channel's onChannelInactive()
+        // would remove the entry that now contains the replacement channel!
+        final boolean[] wasRemoved = {false};
+        channels.computeIfPresent(channel.getRemoteAddress(), (addr, storedChannel) -> {
+            if (storedChannel == channel) {
+                wasRemoved[0] = true;
+                return null; // Remove only if THIS channel
             }
+            log.debug("Channel {} has different channel stored (stored={}, disconnecting={}), not removing from channels map",
+                    addr, System.identityHashCode(storedChannel), System.identityHashCode(channel));
+            return storedChannel; // Keep the replacement channel
+        });
+
+        if (wasRemoved[0]) {
             activePeers.remove(channel);
             boolean isActive = channel.isActive();
             if (isActive) {
@@ -792,6 +881,8 @@ public class ChannelManager {
             } catch (Exception e) {
                 log.warn("Handler onDisconnect error: {}", e.getMessage());
             }
+        } else {
+            log.debug("Channel {} disconnect ignored - already replaced or not in channels map", channel.getRemoteAddress());
         }
     }
 
