@@ -24,10 +24,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Set up JDK ${{ matrix.java }}
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v5
       with:
         java-version: ${{ matrix.java }}
         distribution: 'temurin'
@@ -44,7 +44,7 @@ jobs:
       run: mvn clean test jacoco:report
 
     - name: Upload test results
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       if: always()
       with:
         name: test-results-${{ matrix.os }}-java${{ matrix.java }}-${{ github.run_number }}
@@ -54,7 +54,7 @@ jobs:
         retention-days: 30
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
       if: matrix.os == 'ubuntu-latest' && matrix.java == '21'
       with:
         files: target/site/jacoco/jacoco.xml
@@ -71,10 +71,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Set up JDK 21
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v5
       with:
         java-version: '21'
         distribution: 'temurin'
@@ -90,7 +90,7 @@ jobs:
       run: mvn clean package -DskipTests
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: ${{ steps.project.outputs.ARTIFACT_ID }}-${{ steps.project.outputs.VERSION }}-build${{ github.run_number }}
         path: |
@@ -110,12 +110,12 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
 
     - name: Set up JDK 21
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v5
       with:
         java-version: '21'
         distribution: 'temurin'
