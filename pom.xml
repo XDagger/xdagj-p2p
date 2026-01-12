@@ -30,11 +30,11 @@
         <snappy-java.version>1.1.10.8</snappy-java.version>
 
         <!-- network -->
-        <netty.version>4.2.8.Final</netty.version>
+        <netty.version>4.2.9.Final</netty.version>
 
         <!-- dns -->
         <dnsjava.version>3.6.3</dnsjava.version>
-        <aws-dns.version>2.40.8</aws-dns.version>
+        <aws-dns.version>2.41.5</aws-dns.version>
 
 
         <!-- log -->
@@ -53,7 +53,7 @@
         <maven-assembly-plugin.version>3.8.0</maven-assembly-plugin.version>
         <maven-source-plugin.version>3.4.0</maven-source-plugin.version>
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
-        <central-publishing-plugin.version>0.9.0</central-publishing-plugin.version>
+        <central-publishing-plugin.version>0.10.0</central-publishing-plugin.version>
         <nexus-staging-plugin.version>1.7.0</nexus-staging-plugin.version>
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <jacoco-maven-plugin.version>0.8.14</jacoco-maven-plugin.version>
