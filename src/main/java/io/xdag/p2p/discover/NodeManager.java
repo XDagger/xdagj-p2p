@@ -55,8 +55,9 @@ public class NodeManager {
     }
   }
 
+  /** Nodes that may be dialled; none before {@link #init()}. */
   public List<Node> getConnectableNodes() {
-    return discoverService.getConnectableNodes();
+    return discoverService != null ? discoverService.getConnectableNodes() : List.of();
   }
 
   public Node getHomeNode() {
@@ -68,11 +69,16 @@ public class NodeManager {
   }
 
   public List<Node> getTableNodes() {
-    return discoverService.getTableNodes();
+    return discoverService != null ? discoverService.getTableNodes() : List.of();
   }
 
   public List<Node> getAllNodes() {
-    return discoverService.getAllNodes();
+    return discoverService != null ? discoverService.getAllNodes() : List.of();
+  }
+
+  /** Whether discovery is enabled and its socket is bound. */
+  public boolean isDiscoveryListening() {
+    return discoverServer != null && discoverServer.isListening();
   }
 
   // Expose boot nodes via KadService when needed

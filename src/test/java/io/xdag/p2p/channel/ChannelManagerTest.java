@@ -23,6 +23,7 @@
  */
 package io.xdag.p2p.channel;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -30,10 +31,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.netty.channel.ChannelHandlerContext;
@@ -343,6 +347,31 @@ public class ChannelManagerTest {
 
     // Clean up
     channelManager.stop();
+  }
+
+  @Test
+  public void triggerImmediateConnectOnlyWorksWhileRunning() throws InterruptedException {
+    NodeManager nodes = mock(NodeManager.class);
+    ChannelManager manager = new ChannelManager(p2pConfig, nodes);
+    try {
+      // Not started: there is nothing to dial with and no node table to look into. (The connect loop used to
+      // run all the same, and ended in a NullPointerException that was logged as a warning.)
+      manager.triggerImmediateConnect();
+      Thread.sleep(300);
+      verifyNoInteractions(nodes);
+
+      // Running: the loop looks for nodes to dial at once
+      manager.start(mock(PeerClient.class));
+      manager.triggerImmediateConnect();
+      verify(nodes, timeout(2000).atLeastOnce()).getBootNodes();
+    } finally {
+      manager.stop();
+    }
+    // Stopped: nothing happens, and nothing is thrown
+    clearInvocations(nodes);
+    assertDoesNotThrow(manager::triggerImmediateConnect);
+    Thread.sleep(300);
+    verifyNoInteractions(nodes);
   }
 
   @Test
@@ -985,10 +1014,11 @@ public class ChannelManagerTest {
     InetSocketAddress existingAddress = new InetSocketAddress("127.0.0.1", 9999);
     String nodeId = "test-loopback-node";
 
-    // Create a mock channel with different port but same loopback IP
+    // Create a mock channel with different port but same loopback IP; it announced port 8080 as its listening port
     Channel mockChannel = mock(Channel.class);
     when(mockChannel.getRemoteAddress()).thenReturn(existingAddress);
     when(mockChannel.getNodeId()).thenReturn(nodeId);
+    when(mockChannel.getListenAddress()).thenReturn(targetAddress);
 
     io.netty.channel.ChannelHandlerContext mockCtx = mock(io.netty.channel.ChannelHandlerContext.class);
     io.netty.channel.Channel mockNettyChannel = mock(io.netty.channel.Channel.class);
@@ -999,9 +1029,11 @@ public class ChannelManagerTest {
     // Add to connectedNodeIds map
     connectedNodeIds.put(nodeId, mockChannel);
 
-    // Test - should return true for loopback address with same IP (even different port) if nodeId exists
+    // Test - should return true: the peer listens on the target address
     boolean result = (boolean) method.invoke(channelManager, targetAddress);
     assertTrue(result, "Should return true for loopback address with same IP and valid nodeId");
+    // ... and false for another listening port on the same machine (another node)
+    assertFalse((boolean) method.invoke(channelManager, new InetSocketAddress("127.0.0.1", 8081)));
   }
 
   @Test

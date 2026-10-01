@@ -23,366 +23,224 @@
  */
 package io.xdag.p2p.handler.discover;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.channel.socket.DatagramPacket;
+import io.xdag.crypto.keys.ECKeyPair;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
+import io.xdag.p2p.message.Message;
 import io.xdag.p2p.message.MessageCode;
+import io.xdag.p2p.message.discover.KadFindNodeMessage;
+import io.xdag.p2p.message.discover.KadNeighborsMessage;
+import io.xdag.p2p.message.discover.KadPacket;
 import io.xdag.p2p.message.discover.KadPingMessage;
 import io.xdag.p2p.message.discover.KadPongMessage;
+import io.xdag.p2p.message.node.PingMessage;
+import java.net.InetSocketAddress;
+import java.util.List;
 import org.apache.tuweni.bytes.Bytes;
+import org.apache.tuweni.bytes.Bytes32;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.net.InetSocketAddress;
-
-import static org.junit.jupiter.api.Assertions.*;
-
+/**
+ * Datagram -&gt; event: only well-formed, correctly signed discovery messages of this network get through.
+ */
 class P2pPacketDecoderTest {
 
     private P2pConfig config;
     private EmbeddedChannel channel;
     private InetSocketAddress senderAddress;
     private InetSocketAddress localAddress;
+    private ECKeyPair senderKey;
     private Node fromNode;
     private Node toNode;
 
     @BeforeEach
     void setUp() {
         config = new P2pConfig();
-        P2pPacketDecoder decoder = new P2pPacketDecoder(config);
-        channel = new EmbeddedChannel(decoder);
+        config.setNetworkId((byte) 2);
+        channel = new EmbeddedChannel(new P2pPacketDecoder(config));
 
         senderAddress = new InetSocketAddress("127.0.0.1", 8080);
         localAddress = new InetSocketAddress("0.0.0.0", 30303);
 
-        // Create test nodes with random IDs
-        String fromId = Bytes.random(20).toUnprefixedHexString();
-        String toId = Bytes.random(20).toUnprefixedHexString();
-        fromNode = new Node(fromId, "192.168.1.100", null, 30303);
-        toNode = new Node(toId, "192.168.1.101", null, 30303);
+        senderKey = ECKeyPair.generate();
+        fromNode = new Node(senderKey.toAddress().toHexString(), "192.168.1.100", null, 30303);
+        toNode = new Node(ECKeyPair.generate().toAddress().toHexString(), "192.168.1.101", null, 30303);
     }
 
-    // ==================== Basic Decode Tests ====================
+    @AfterEach
+    void tearDown() {
+        channel.finishAndReleaseAll();
+    }
+
+    private DatagramPacket packetOf(Bytes wire) {
+        return new DatagramPacket(Unpooled.wrappedBuffer(wire.toArray()), localAddress, senderAddress);
+    }
+
+    private DatagramPacket signed(Message message) {
+        return packetOf(KadPacket.encode(message, config.getNetworkId(), senderKey));
+    }
+
+    private UdpEvent decode(DatagramPacket packet) {
+        channel.writeInbound(packet);
+        return channel.readInbound();
+    }
 
     @Test
     void testDecodeValidKadPingMessage() {
-        // Create a valid KAD_PING message
-        KadPingMessage ping = new KadPingMessage(fromNode, toNode);
-
-        // Create packet: message code + body
-        byte[] data = new byte[ping.getBody().length + 1];
-        data[0] = ping.getCode().toByte();
-        System.arraycopy(ping.getBody(), 0, data, 1, ping.getBody().length);
-
-        ByteBuf buf = Unpooled.wrappedBuffer(data);
-        DatagramPacket packet = new DatagramPacket(buf, localAddress, senderAddress);
-
-        // Decode
-        channel.writeInbound(packet);
-
-        // Verify
-        UdpEvent event = channel.readInbound();
+        UdpEvent event = decode(signed(new KadPingMessage(fromNode, toNode)));
         assertNotNull(event);
-        assertNotNull(event.getMessage());
+        assertInstanceOf(KadPingMessage.class, event.getMessage());
         assertEquals(MessageCode.KAD_PING, event.getMessage().getCode());
         assertEquals(senderAddress, event.getAddress());
-        assertInstanceOf(KadPingMessage.class, event.getMessage());
+        assertEquals(senderKey.toAddress().toHexString(), event.getNodeId(), "the signer is the sender");
+        assertNotNull(event.getHash());
     }
 
     @Test
     void testDecodeValidKadPongMessage() {
-        // Create a valid KAD_PONG message
-        KadPongMessage pong = new KadPongMessage((Node) null);
-
-        // Create packet: message code + body
-        byte[] data = new byte[pong.getBody().length + 1];
-        data[0] = pong.getCode().toByte();
-        System.arraycopy(pong.getBody(), 0, data, 1, pong.getBody().length);
-
-        ByteBuf buf = Unpooled.wrappedBuffer(data);
-        DatagramPacket packet = new DatagramPacket(buf, localAddress, senderAddress);
-
-        // Decode
-        channel.writeInbound(packet);
-
-        // Verify
-        UdpEvent event = channel.readInbound();
+        Bytes32 echo = Bytes32.random();
+        UdpEvent event = decode(signed(new KadPongMessage(fromNode, echo)));
         assertNotNull(event);
-        assertNotNull(event.getMessage());
-        assertEquals(MessageCode.KAD_PONG, event.getMessage().getCode());
-        assertEquals(senderAddress, event.getAddress());
         assertInstanceOf(KadPongMessage.class, event.getMessage());
-    }
-
-    @Test
-    void testDecodeMultiplePackets() {
-        // Decode multiple packets
-        for (int i = 0; i < 5; i++) {
-            KadPingMessage ping = new KadPingMessage(fromNode, toNode);
-
-            byte[] data = new byte[ping.getBody().length + 1];
-            data[0] = ping.getCode().toByte();
-            System.arraycopy(ping.getBody(), 0, data, 1, ping.getBody().length);
-
-            ByteBuf buf = Unpooled.wrappedBuffer(data);
-            DatagramPacket packet = new DatagramPacket(buf, localAddress, senderAddress);
-
-            channel.writeInbound(packet);
-
-            UdpEvent event = channel.readInbound();
-            assertNotNull(event);
-            assertEquals(MessageCode.KAD_PING, event.getMessage().getCode());
-        }
-    }
-
-    // ==================== Error Handling Tests ====================
-
-    @Test
-    void testDecodeEmptyPacket() {
-        // Empty packet (length = 0)
-        ByteBuf buf = Unpooled.buffer(0);
-        DatagramPacket packet = new DatagramPacket(buf, localAddress, senderAddress);
-
-        // Decode
-        channel.writeInbound(packet);
-
-        // Should not produce output
-        UdpEvent event = channel.readInbound();
-        assertNull(event, "Empty packet should be ignored");
-    }
-
-    @Test
-    void testDecodeSingleBytePacket() {
-        // Packet with only 1 byte (length = 1, should be rejected)
-        ByteBuf buf = Unpooled.buffer(1);
-        buf.writeByte(0x00);
-        DatagramPacket packet = new DatagramPacket(buf, localAddress, senderAddress);
-
-        // Decode
-        channel.writeInbound(packet);
-
-        // Should not produce output
-        UdpEvent event = channel.readInbound();
-        assertNull(event, "Single byte packet should be ignored");
-    }
-
-    @Test
-    void testDecodeOversizedPacket() {
-        // Packet larger than MAXSIZE (2048 bytes)
-        int oversizedLength = P2pPacketDecoder.MAXSIZE + 10;
-        ByteBuf buf = Unpooled.buffer(oversizedLength);
-        for (int i = 0; i < oversizedLength; i++) {
-            buf.writeByte(0);
-        }
-        DatagramPacket packet = new DatagramPacket(buf, localAddress, senderAddress);
-
-        // Decode
-        channel.writeInbound(packet);
-
-        // Should not produce output
-        UdpEvent event = channel.readInbound();
-        assertNull(event, "Oversized packet should be ignored");
-    }
-
-    @Test
-    void testDecodeExactlyMaxSizePacket() {
-        // Packet exactly at MAXSIZE boundary (should be rejected)
-        int maxLength = P2pPacketDecoder.MAXSIZE;
-        ByteBuf buf = Unpooled.buffer(maxLength);
-        for (int i = 0; i < maxLength; i++) {
-            buf.writeByte(0);
-        }
-        DatagramPacket packet = new DatagramPacket(buf, localAddress, senderAddress);
-
-        // Decode
-        channel.writeInbound(packet);
-
-        // Should not produce output
-        UdpEvent event = channel.readInbound();
-        assertNull(event, "Packet at max size should be ignored");
-    }
-
-    @Test
-    void testDecodeInvalidMessageCode() {
-        // Packet with invalid message code
-        ByteBuf buf = Unpooled.buffer(10);
-        buf.writeByte((byte) 0xFF); // Invalid message code
-        for (int i = 0; i < 9; i++) {
-            buf.writeByte(0);
-        }
-        DatagramPacket packet = new DatagramPacket(buf, localAddress, senderAddress);
-
-        // Decode
-        channel.writeInbound(packet);
-
-        // Should produce UdpEvent with null message (MessageFactory returns null for unknown codes)
-        UdpEvent event = channel.readInbound();
-        assertNotNull(event, "Should produce UdpEvent even for invalid code");
-        assertNull(event.getMessage(), "Message should be null for invalid message code");
-        assertEquals(senderAddress, event.getAddress());
-    }
-
-    @Test
-    void testDecodeCorruptedMessageBody() {
-        // Packet with valid code but corrupted body
-        ByteBuf buf = Unpooled.buffer(10);
-        buf.writeByte(MessageCode.KAD_PING.toByte()); // Valid code
-        // Add garbage data that can't be decoded as KadPingMessage
-        for (int i = 0; i < 9; i++) {
-            buf.writeByte((byte) 0xFF);
-        }
-        DatagramPacket packet = new DatagramPacket(buf, localAddress, senderAddress);
-
-        // Decode
-        channel.writeInbound(packet);
-
-        // Should not produce output (exception is caught and logged)
-        UdpEvent event = channel.readInbound();
-        assertNull(event, "Corrupted message body should be caught");
-    }
-
-    // ==================== Edge Cases ====================
-
-    @Test
-    void testDecodeMinimalValidPacket() {
-        // Minimal valid packet (2 bytes: code + minimal body)
-        ByteBuf buf = Unpooled.buffer(2);
-        buf.writeByte(MessageCode.KAD_PING.toByte());
-        buf.writeByte(0x00); // Minimal body
-        DatagramPacket packet = new DatagramPacket(buf, localAddress, senderAddress);
-
-        // Decode - should fail to parse but not crash
-        channel.writeInbound(packet);
-
-        // May or may not produce output depending on parsing
-        // The important thing is no exception crashes the decoder
-        assertDoesNotThrow(() -> channel.checkException());
-    }
-
-    @Test
-    void testDecodeNearMaxSizePacket() {
-        // Packet just under MAXSIZE (should be accepted if valid)
-        KadPingMessage ping = new KadPingMessage(fromNode, toNode);
-
-        byte[] data = new byte[ping.getBody().length + 1];
-        data[0] = ping.getCode().toByte();
-        System.arraycopy(ping.getBody(), 0, data, 1, ping.getBody().length);
-
-        // Verify it's under MAXSIZE
-        assertTrue(data.length < P2pPacketDecoder.MAXSIZE);
-
-        ByteBuf buf = Unpooled.wrappedBuffer(data);
-        DatagramPacket packet = new DatagramPacket(buf, localAddress, senderAddress);
-
-        // Decode
-        channel.writeInbound(packet);
-
-        // Should produce output
-        UdpEvent event = channel.readInbound();
-        assertNotNull(event, "Valid packet under MAXSIZE should be decoded");
-    }
-
-    @Test
-    void testDecodeDifferentSenderAddresses() {
-        // Test packets from different senders
-        InetSocketAddress sender1 = new InetSocketAddress("192.168.1.1", 30303);
-        InetSocketAddress sender2 = new InetSocketAddress("192.168.1.2", 30304);
-        InetSocketAddress sender3 = new InetSocketAddress("10.0.0.1", 40000);
-
-        for (InetSocketAddress sender : new InetSocketAddress[]{sender1, sender2, sender3}) {
-            KadPingMessage ping = new KadPingMessage(fromNode, toNode);
-
-            byte[] data = new byte[ping.getBody().length + 1];
-            data[0] = ping.getCode().toByte();
-            System.arraycopy(ping.getBody(), 0, data, 1, ping.getBody().length);
-
-            ByteBuf buf = Unpooled.wrappedBuffer(data);
-            DatagramPacket packet = new DatagramPacket(buf, localAddress, sender);
-
-            channel.writeInbound(packet);
-
-            UdpEvent event = channel.readInbound();
-            assertNotNull(event);
-            assertEquals(sender, event.getAddress(), "Sender address should match");
-        }
+        assertEquals(echo, ((KadPongMessage) event.getMessage()).getEcho());
     }
 
     @Test
     void testDecodeAllKadMessageTypes() {
-        // Test decoding KAD_PING
-        KadPingMessage ping = new KadPingMessage(fromNode, toNode);
-        byte[] pingData = new byte[ping.getBody().length + 1];
-        pingData[0] = ping.getCode().toByte();
-        System.arraycopy(ping.getBody(), 0, pingData, 1, ping.getBody().length);
-
-        ByteBuf buf1 = Unpooled.wrappedBuffer(pingData);
-        DatagramPacket packet1 = new DatagramPacket(buf1, localAddress, senderAddress);
-        channel.writeInbound(packet1);
-
-        UdpEvent event1 = channel.readInbound();
-        assertNotNull(event1, "Should decode KAD_PING");
-        assertEquals(MessageCode.KAD_PING, event1.getMessage().getCode());
-
-        // Test decoding KAD_PONG
-        KadPongMessage pong = new KadPongMessage((Node) null);
-        byte[] pongData = new byte[pong.getBody().length + 1];
-        pongData[0] = pong.getCode().toByte();
-        System.arraycopy(pong.getBody(), 0, pongData, 1, pong.getBody().length);
-
-        ByteBuf buf2 = Unpooled.wrappedBuffer(pongData);
-        DatagramPacket packet2 = new DatagramPacket(buf2, localAddress, senderAddress);
-        channel.writeInbound(packet2);
-
-        UdpEvent event2 = channel.readInbound();
-        assertNotNull(event2, "Should decode KAD_PONG");
-        assertEquals(MessageCode.KAD_PONG, event2.getMessage().getCode());
-    }
-
-    // ==================== Boundary Tests ====================
-
-    @Test
-    void testDecodeBoundaryLength2() {
-        // Length = 2 (minimum valid length)
-        ByteBuf buf = Unpooled.buffer(2);
-        buf.writeByte(MessageCode.KAD_PING.toByte());
-        buf.writeByte(0x00);
-        DatagramPacket packet = new DatagramPacket(buf, localAddress, senderAddress);
-
-        channel.writeInbound(packet);
-
-        // Should attempt to decode (may fail parsing but shouldn't crash)
-        assertDoesNotThrow(() -> channel.checkException());
+        assertInstanceOf(KadPingMessage.class, decode(signed(new KadPingMessage(fromNode, toNode))).getMessage());
+        assertInstanceOf(KadPongMessage.class, decode(signed(new KadPongMessage(fromNode, Bytes32.ZERO))).getMessage());
+        assertInstanceOf(KadFindNodeMessage.class,
+                decode(signed(new KadFindNodeMessage(fromNode, Bytes.random(KadFindNodeMessage.TARGET_LENGTH)))).getMessage());
+        assertInstanceOf(KadNeighborsMessage.class,
+                decode(signed(new KadNeighborsMessage(fromNode, List.of(toNode)))).getMessage());
     }
 
     @Test
-    void testDecodeBoundaryLength2047() {
-        // Length = 2047 (MAXSIZE - 1, maximum valid length)
-        int validMaxLength = P2pPacketDecoder.MAXSIZE - 1;
-        ByteBuf buf = Unpooled.buffer(validMaxLength);
-        buf.writeByte(MessageCode.KAD_PING.toByte());
-        for (int i = 1; i < validMaxLength; i++) {
-            buf.writeByte(0);
+    void testDecodeMultiplePackets() {
+        for (int i = 0; i < 5; i++) {
+            assertNotNull(decode(signed(new KadPingMessage(fromNode, toNode))));
         }
-        DatagramPacket packet = new DatagramPacket(buf, localAddress, senderAddress);
-
-        channel.writeInbound(packet);
-
-        // Should attempt to decode (will fail parsing but shouldn't crash)
-        assertDoesNotThrow(() -> channel.checkException());
     }
 
     @Test
-    void testDecodeZeroLengthBuffer() {
-        // ByteBuf with 0 readable bytes
-        ByteBuf buf = Unpooled.buffer(0);
-        DatagramPacket packet = new DatagramPacket(buf, localAddress, senderAddress);
+    void testDecodeDifferentSenderAddresses() {
+        for (String host : new String[]{"127.0.0.1", "10.0.0.1", "8.8.8.8"}) {
+            InetSocketAddress sender = new InetSocketAddress(host, 40000);
+            channel.writeInbound(new DatagramPacket(
+                    Unpooled.wrappedBuffer(KadPacket.encode(new KadPingMessage(fromNode, toNode), config.getNetworkId(), senderKey).toArray()),
+                    localAddress, sender));
+            UdpEvent event = channel.readInbound();
+            assertNotNull(event);
+            assertEquals(sender, event.getAddress(), "the address is where the datagram came from");
+        }
+    }
 
-        channel.writeInbound(packet);
+    @Test
+    void testUnsignedPacketIsDropped() {
+        KadPingMessage ping = new KadPingMessage(fromNode, toNode);
+        Bytes wire = Bytes.concatenate(Bytes.of(ping.getCode().toByte()), Bytes.wrap(ping.getBody()));
+        assertFalse(channel.writeInbound(packetOf(wire)));
+        assertNull(channel.readInbound());
+    }
 
+    @Test
+    void testTamperedPacketIsDropped() {
+        byte[] wire = KadPacket.encode(new KadPingMessage(fromNode, toNode), config.getNetworkId(), senderKey).toArray();
+        wire[wire.length - 1] ^= 0x01; // one bit of the body
+        assertFalse(channel.writeInbound(packetOf(Bytes.wrap(wire))));
+        assertNull(channel.readInbound());
+        byte[] wire2 = KadPacket.encode(new KadPingMessage(fromNode, toNode), config.getNetworkId(), senderKey).toArray();
+        wire2[10] ^= 0x01; // one bit of the signature
+        assertFalse(channel.writeInbound(packetOf(Bytes.wrap(wire2))));
+    }
+
+    @Test
+    void testPacketOfAnotherNetworkIsDropped() {
+        Bytes wire = KadPacket.encode(new KadPingMessage(fromNode, toNode), (byte) 7, senderKey);
+        assertFalse(channel.writeInbound(packetOf(wire)));
+        assertNull(channel.readInbound());
+    }
+
+    @Test
+    void testNonDiscoveryMessageIsDropped() {
+        // a TCP-level message signed like a discovery packet is still not a discovery packet
+        PingMessage ping = new PingMessage();
+        assertTrue(org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> KadPacket.encode(ping, config.getNetworkId(), senderKey)).getMessage().contains("not a discovery"));
+        Bytes wire = Bytes.concatenate(Bytes.of(ping.getCode().toByte()), Bytes.random(65), Bytes.wrap(ping.getBody()));
+        assertFalse(channel.writeInbound(packetOf(wire)));
+    }
+
+    @Test
+    void testDecodeEmptyPacket() {
+        assertFalse(channel.writeInbound(packetOf(Bytes.EMPTY)));
+        assertNull(channel.readInbound());
+    }
+
+    @Test
+    void testDecodeSingleBytePacket() {
+        assertFalse(channel.writeInbound(packetOf(Bytes.of(0))));
+    }
+
+    @Test
+    void testDecodeHeaderOnlyPacket() {
+        assertFalse(channel.writeInbound(packetOf(Bytes.random(KadPacket.HEADER_LENGTH))));
+    }
+
+    @Test
+    void testDecodeOversizedPacket() {
+        assertFalse(channel.writeInbound(packetOf(Bytes.random(P2pPacketDecoder.MAXSIZE + 1))));
+        assertNull(channel.readInbound());
+    }
+
+    @Test
+    void testDecodeCorruptedMessageBody() {
+        // a valid signature over a body that does not decode: dropped without an exception reaching the socket
+        Bytes wire = Bytes.concatenate(Bytes.of(MessageCode.KAD_PING.toByte()), Bytes.random(65), Bytes.random(20));
+        assertFalse(channel.writeInbound(packetOf(wire)));
+        assertTrue(channel.isOpen());
+    }
+
+    @Test
+    void testDecodeNearMaxSizePacket() {
+        // the largest neighbours message that fits is still decoded
+        java.util.ArrayList<Node> many = new java.util.ArrayList<>();
+        for (int i = 0; i < io.xdag.p2p.discover.kad.NodeHandler.NEIGHBORS_PER_PACKET; i++) {
+            // IPv6 hosts: the longest a node description gets
+            many.add(new Node(ECKeyPair.generate().toAddress().toHexString(), null, "2001:db8:ffff:ffff:ffff:ffff:ffff:" + Integer.toHexString(i + 1), 30303));
+        }
+        Bytes wire = KadPacket.encode(new KadNeighborsMessage(fromNode, many), config.getNetworkId(), senderKey);
+        assertTrue(wire.size() <= KadPacket.MAX_LENGTH);
+        ByteBuf buf = Unpooled.wrappedBuffer(wire.toArray());
+        channel.writeInbound(new DatagramPacket(buf, localAddress, senderAddress));
         UdpEvent event = channel.readInbound();
-        assertNull(event, "Zero-length packet should be ignored");
+        assertNotNull(event);
+        assertEquals(io.xdag.p2p.discover.kad.NodeHandler.NEIGHBORS_PER_PACKET, ((KadNeighborsMessage) event.getMessage()).getNeighbors().size());
+    }
+
+    @Test
+    void testTooManyNeighboursOnTheWireAreRefused() {
+        // 17 nodes cannot be built with the constructor; write the count by hand
+        io.xdag.p2p.utils.SimpleEncoder enc = new io.xdag.p2p.utils.SimpleEncoder();
+        enc.writeBytes(fromNode.toBytes());
+        enc.writeInt(KadNeighborsMessage.MAX_NEIGHBORS + 1);
+        for (int i = 0; i < KadNeighborsMessage.MAX_NEIGHBORS + 1; i++) {
+            enc.writeBytes(toNode.toBytes());
+        }
+        enc.writeLong(System.currentTimeMillis());
+        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class, () -> new KadNeighborsMessage(enc.toBytes()));
     }
 }

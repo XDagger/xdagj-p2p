@@ -7,6 +7,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-10-01
+
+Start-up fixes. No change on the wire: 0.1.8 and 0.1.7 nodes talk to each other.
+
+### Fixed
+- `P2pService.start()` returned while the TCP listener and the discovery socket were still being
+  bound on their own threads: a node started right after another dialled too early, was refused,
+  and tried again 30 s later; `stop()` / `close()` called early found nothing to close and left
+  the socket open for the life of the process. `PeerServer.start()` and `DiscoverServer.init()`
+  now return when the socket is bound (or could not be, which is logged and reported by
+  `isListening()`); `start()` twice starts once.
+- `P2pService.setPermissionless(true)` before `start()` ran the connect loop on a service without
+  a node table or a client (a `NullPointerException`, logged as a warning). On a service that is
+  not running only the setting changes; `ChannelManager.triggerImmediateConnect()` does nothing
+  before `start` and after `stop`; `NodeManager` returns empty node lists before `init()`.
+
+### Added
+- `PeerServer.isListening()`, `NodeManager.isDiscoveryListening()`, `P2pService.isStarted()`.
+
+## [0.1.7] - 2026-09-30
+
+Security hardening for open (permissionless) networks. The wire protocol changes
+(frame version 2, mutual handshake, signed discovery): 0.1.7 nodes do not talk to
+0.1.6 nodes. Details and the reasoning are in xdagj's `docs/SECURITY_AUDIT_OPEN_NETWORK.md`.
+
+### Security
+- **Signed discovery** (`KadPacket`): every UDP datagram is signed with the node key over
+  `sha256("xdag-discovery-v2" | networkId | code | body)`; the sender's identity is recovered
+  from the signature and must match the id the packet claims. Addresses a node claims for
+  itself are ignored - a node is reached where its datagrams come from.
+- **Endpoint proof**: a node enters the table, is dialled or gets `FIND_NODE` answered only
+  after it answered a ping of ours with a pong that echoes the hash of that ping
+  (`KadPongMessage.echo`). Bonds expire after 12 h.
+- **Mutual handshake**: both sides issue a nonce (`INIT` both ways); `HELLO` signs the
+  dialler's nonce, `WORLD` signs `sha256(acceptor nonce | acceptor id)`. A recorded `WORLD`
+  cannot be replayed; self-connections are detected.
+- **Admission control** before any handler sees a byte (`ChannelManager.admit`): bans
+  enforced on inbound connections, closed-network mode (configured peers only), limits on
+  total / inbound / pending-handshake / per-IP / per-subnet connections, handshake timeout.
+- **Bounds everywhere**: counts read off the wire are checked before allocation
+  (`SimpleDecoder.readCount`); neighbours ≤ 16 per message, capabilities ≤ 32, DNS nodes ≤ 1024;
+  strict frame codec (no resync on garbage); one packet in flight per connection; discovery
+  datagrams ≤ 1280 bytes; per-source rate limits before signature verification; bounded
+  numbers of tracked nodes per IP / subnet / unverified / total; table limits per IP and subnet.
+- **Backpressure**: inbound byte rate guard, outbound queue bound, Netty water marks,
+  `Channel.isWritable()` and `P2pEventHandler.onWritabilityChanged`.
+- Host strings from other nodes are never resolved (`Node.isWellFormed`: IP literals only).
+- `ReputationManager` no longer uses Java serialisation; bounded to 20 000 entries.
+- `P2pConfig` performs no network access on construction; external-IP detection is explicit,
+  HTTPS only, with timeouts.
+
+### Fixed
+- Ban duration overflow after ~48 offences (the ban expired before it began).
+- `Channel.send(Bytes)` wrote unframed bytes to the socket.
+- Node ids in discovery (hex) and in the handshake (Base58) never matched, defeating
+  duplicate-connection detection; peers are now identified by the listen address they announce
+  (the "any connection from the loopback address is this node" heuristic prevented a node from
+  connecting to a second neighbour on one machine).
+- `getConnectableNodes()` returned unverified nodes.
+- `PeerClient.connect(host, port)` blocked until the connection closed; `stop()` without
+  `start()` threw.
+- Remote-triggered log lines at INFO/WARN downgraded.
+- Tests are hermetic (no fixed ports leaked, no internet needed).
+
+### Added
+- `P2pService.setPermissionless(boolean)`: open or close the network at run time.
+- `P2pConfig`: `permissionless`, `bindIp`, `maxInboundConnections`, `maxConnectionsPerIp`,
+  `maxConnectionsPerSubnet`, `maxPendingHandshakes`, `netHandshakeTimeout`,
+  `allowPrivateAddresses`, inbound/outbound byte bounds, discovery rate limits,
+  `latestBlockNumberSupplier`, `isConfiguredPeer`.
+
 ## [0.1.6] - 2025-11-10
 
 ### Fixed

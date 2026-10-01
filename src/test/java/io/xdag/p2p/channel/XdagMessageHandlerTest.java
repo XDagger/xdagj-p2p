@@ -377,36 +377,28 @@ class XdagMessageHandlerTest {
     // ==================== Backpressure Tests ====================
 
     @Test
-    void testMaxInflightPacketsBackpressure() {
-        // Send many incomplete chunked packets to trigger backpressure
-        for (int i = 0; i < 70; i++) {
-            XdagFrame frame = new XdagFrame(
-                    XdagFrame.VERSION,
-                    XdagFrame.COMPRESS_NONE,
-                    (byte) 0x14,
-                    i, // Different packet IDs
-                    200,
-                    100, // Only half the data
-                    new byte[100]
-            );
-            channel.writeInbound(frame);
-        }
+    void testInterleavedPacketsAreAProtocolViolation() {
+        // At most one split packet is being put together per connection. A frame of a second packet before the
+        // first one is complete is a protocol violation that closes the connection (it used to be kept in a map
+        // that a peer could fill with as many half packets as it liked).
+        XdagFrame first = new XdagFrame(XdagFrame.VERSION, XdagFrame.COMPRESS_NONE, (byte) 0x14, 0, 200, 100, new byte[100]);
+        XdagFrame other = new XdagFrame(XdagFrame.VERSION, XdagFrame.COMPRESS_NONE, (byte) 0x14, 1, 200, 100, new byte[100]);
+        channel.writeInbound(first);
+        assertThrows(io.netty.handler.codec.DecoderException.class, () -> channel.writeInbound(other));
+    }
 
-        // Complete one packet - should trigger cleanup when > 64 inflight
-        XdagFrame completeFrame = new XdagFrame(
-                XdagFrame.VERSION,
-                XdagFrame.COMPRESS_NONE,
-                (byte) 0x14,
-                0,
-                200,
-                100,
-                new byte[100]
-        );
+    @Test
+    void testEmptyFrameOfSplitPacketIsRefused() {
+        XdagFrame empty = new XdagFrame(XdagFrame.VERSION, XdagFrame.COMPRESS_NONE, (byte) 0x14, 0, 200, 0, new byte[0]);
+        assertThrows(io.netty.handler.codec.DecoderException.class, () -> channel.writeInbound(empty));
+    }
 
-        assertDoesNotThrow(() -> {
-            channel.writeInbound(completeFrame);
-            channel.checkException();
-        });
+    @Test
+    void testSplitPacketLongerThanAnnouncedIsRefused() {
+        XdagFrame a = new XdagFrame(XdagFrame.VERSION, XdagFrame.COMPRESS_NONE, (byte) 0x14, 0, 150, 100, new byte[100]);
+        XdagFrame b = new XdagFrame(XdagFrame.VERSION, XdagFrame.COMPRESS_NONE, (byte) 0x14, 0, 150, 100, new byte[100]);
+        channel.writeInbound(a);
+        assertThrows(io.netty.handler.codec.DecoderException.class, () -> channel.writeInbound(b));
     }
 
     // ==================== Packet ID Tests ====================

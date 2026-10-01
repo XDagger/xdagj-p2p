@@ -113,13 +113,34 @@ public class P2pServiceTest {
   /** Test connectable nodes retrieval. */
   @Test
   void testGetConnectableNodes() {
-    // Note: getConnectableNodes requires DiscoverService which is only initialized
-    // when NodeManager.init() is called. This is done during p2pService.start().
-    // Without calling start(), this method will throw NullPointerException.
-    // We can test that the method exists but requires initialization.
-    assertThrows(
-        NullPointerException.class,
-        () -> p2pService.getConnectableNodes(),
-        "Should throw NPE when service not started");
+    // The node table only exists once the service is started; before that no node is known.
+    // (This used to be a NullPointerException.)
+    assertTrue(p2pService.getConnectableNodes().isEmpty(), "No connectable nodes before start");
+    assertTrue(p2pService.getNodeManager().getTableNodes().isEmpty());
+    assertTrue(p2pService.getNodeManager().getAllNodes().isEmpty());
+  }
+
+  /** The mode can be chosen before the service runs; nothing but the setting changes then. */
+  @Test
+  void testSetPermissionlessBeforeStart() {
+    assertFalse(p2pService.isStarted());
+
+    assertDoesNotThrow(() -> p2pService.setPermissionless(false));
+    assertFalse(p2pService.isPermissionless());
+    assertDoesNotThrow(() -> p2pService.setPermissionless(true));
+    assertTrue(p2pService.isPermissionless());
+
+    assertFalse(p2pService.isStarted(), "setting the mode does not start anything");
+  }
+
+  /** ... and after it has stopped. */
+  @Test
+  void testSetPermissionlessAfterStop() {
+    p2pService.stop();
+
+    assertDoesNotThrow(() -> p2pService.setPermissionless(false));
+    assertFalse(p2pService.isPermissionless());
+    assertDoesNotThrow(() -> p2pService.setPermissionless(true));
+    assertTrue(p2pService.isPermissionless());
   }
 }

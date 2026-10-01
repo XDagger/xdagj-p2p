@@ -44,6 +44,7 @@ public class P2pService {
     private PeerServer peerServer;
     private PeerClient peerClient;
 
+    private volatile boolean started = false;
     private volatile boolean isShutdown = false;
 
     public P2pService(final P2pConfig config) {
@@ -52,9 +53,18 @@ public class P2pService {
         this.channelManager = new ChannelManager(config, nodeManager);
     }
 
-    public void start() {
+    /**
+     * Starts discovery, the listener and the dialling of peers. When this returns the node can be reached: the
+     * TCP listener and the discovery socket are bound (or could not be, which is logged - see
+     * {@link PeerServer#isListening()}).
+     */
+    public synchronized void start() {
         if (isShutdown) {
             log.warn("P2P service is already shut down.");
+            return;
+        }
+        if (started) {
+            log.warn("P2P service is already running.");
             return;
         }
 
@@ -77,14 +87,20 @@ public class P2pService {
         peerClient.start();
 
         channelManager.start(peerClient);
+        started = true;
         // Trigger an immediate connect attempt to seeds (don't wait for scheduler)
         channelManager.triggerImmediateConnect();
 
-        log.info("P2P service started successfully.");
+        if (config.getPort() > 0 && !peerServer.isListening()) {
+            log.warn("P2P service started without a TCP listener (port {} could not be bound): "
+                    + "no peer can connect to this node", config.getPort());
+        } else {
+            log.info("P2P service started successfully.");
+        }
         Runtime.getRuntime().addShutdownHook(new Thread(this::stop, "p2p-shutdown"));
     }
 
-    public void stop() {
+    public synchronized void stop() {
         if (isShutdown) {
             return;
         }
@@ -101,6 +117,34 @@ public class P2pService {
         }
         nodeManager.close();
         log.info("P2P service stopped.");
+    }
+
+    /**
+     * Opens or closes the network. Closed: only the configured seed / active / trust nodes are talked to
+     * (existing connections with anybody else are dropped, discovery ignores everybody else). Open: anybody may
+     * connect and discovered nodes are dialled.
+     *
+     * <p>May be called at any time. On a service that is not running (not started yet, or stopped) only the
+     * setting changes: there are no connections to drop and nothing to dial with, and {@link #start()} begins
+     * in the mode that is set by then.
+     */
+    public void setPermissionless(boolean permissionless) {
+        boolean was = config.isPermissionless();
+        config.setPermissionless(permissionless);
+        if (!started || isShutdown) {
+            return;
+        }
+        if (was && !permissionless) {
+            log.info("P2P network closed: only configured peers from now on");
+            channelManager.closeUnconfiguredPeers();
+        } else if (!was && permissionless) {
+            log.info("P2P network open: accepting and discovering peers");
+            channelManager.triggerImmediateConnect();
+        }
+    }
+
+    public boolean isPermissionless() {
+        return config.isPermissionless();
     }
 
     public ChannelFuture connect(InetSocketAddress remoteAddress) {

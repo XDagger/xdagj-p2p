@@ -255,12 +255,10 @@ class PeerClientTest {
   }
 
   @Test
-  void testStopWithoutStartShouldThrowNullPointer() {
+  void testStopWithoutStartIsHarmless() {
     // Given - PeerClient not started (workerGroup is null)
 
     // When & Then
-    // The current implementation doesn't handle null workerGroup gracefully
-    // This test documents the current behavior - it throws NullPointerException
-    assertThrows(NullPointerException.class, () -> peerClient.stop());
+    assertDoesNotThrow(() -> peerClient.stop());
   }
 }

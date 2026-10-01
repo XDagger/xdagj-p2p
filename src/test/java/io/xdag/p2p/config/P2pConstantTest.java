@@ -43,12 +43,12 @@ public class P2pConstantTest {
     for (String url : P2pConstant.ipV4Urls) {
       assertNotNull(url);
       assertFalse(url.trim().isEmpty());
-      assertTrue(url.startsWith("http"));
+      assertTrue(url.startsWith("https://"), "a third party must not see the request in the clear: " + url);
     }
 
     // Verify specific URLs
-    assertTrue(P2pConstant.ipV4Urls.contains("http://checkip.amazonaws.com"));
-    assertTrue(P2pConstant.ipV4Urls.contains("https://ifconfig.me/"));
+    assertTrue(P2pConstant.ipV4Urls.contains("https://checkip.amazonaws.com"));
+    assertTrue(P2pConstant.ipV4Urls.contains("https://ifconfig.me/ip"));
     assertTrue(P2pConstant.ipV4Urls.contains("https://4.ipw.cn/"));
   }
 
@@ -62,12 +62,12 @@ public class P2pConstantTest {
     for (String url : P2pConstant.ipV6Urls) {
       assertNotNull(url);
       assertFalse(url.trim().isEmpty());
-      assertTrue(url.startsWith("http"));
+      assertTrue(url.startsWith("https://"), "a third party must not see the request in the clear: " + url);
     }
 
     // Verify specific URLs
     assertTrue(P2pConstant.ipV6Urls.contains("https://v6.ident.me"));
-    assertTrue(P2pConstant.ipV6Urls.contains("http://6.ipw.cn/"));
+    assertTrue(P2pConstant.ipV6Urls.contains("https://6.ipw.cn/"));
   }
 
   @Test

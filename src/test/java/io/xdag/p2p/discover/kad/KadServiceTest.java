@@ -46,6 +46,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.apache.tuweni.bytes.Bytes;
+import org.apache.tuweni.bytes.Bytes32;
+import io.xdag.p2p.message.MessageCode;
+import io.xdag.p2p.message.discover.KadFindNodeMessage;
+import io.xdag.p2p.message.discover.KadPongMessage;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -106,29 +111,6 @@ public class KadServiceTest {
         NodeHandler handler2 = kadService.getNodeHandler(remoteNode);
         assertSame(handler1, handler2, "Should return the same handler instance for the same node");
         assertEquals(1, kadService.getAllNodes().size());
-    }
-
-    @Test
-    public void testHandleEventPing() {
-        // Spy on the real KadService to verify internal method calls
-        KadService spiedService = spy(kadService);
-        NodeHandler mockNodeHandler = mock(NodeHandler.class);
-
-        doAnswer(invocation -> {
-            Node arg = invocation.getArgument(0);
-            assertEquals(remoteNode.getId(), arg.getId());
-            return mockNodeHandler;
-        }).when(spiedService).getNodeHandler(any(Node.class));
-
-        when(mockNodeHandler.getNode()).thenReturn(remoteNode);
-
-        KadPingMessage ping = new KadPingMessage(remoteNode, homeNode);
-        UdpEvent event = new UdpEvent(ping, remoteNode.getInetSocketAddressV4());
-
-        spiedService.handleEvent(event);
-
-        verify(mockNodeHandler).handlePing(ping);
-        verify(mockNodeHandler).getNode();
     }
 
     @Test
@@ -197,78 +179,6 @@ public class KadServiceTest {
     }
 
     // ==================== Additional Tests for Coverage ====================
-
-    @Test
-    public void testHandleEventPong() {
-        KadService spiedService = spy(kadService);
-        NodeHandler mockNodeHandler = mock(NodeHandler.class);
-
-        doAnswer(invocation -> mockNodeHandler).when(spiedService).getNodeHandler(any(Node.class));
-        when(mockNodeHandler.getNode()).thenReturn(remoteNode);
-
-        io.xdag.p2p.message.discover.KadPongMessage pong =
-            new io.xdag.p2p.message.discover.KadPongMessage(remoteNode);
-        UdpEvent event = new UdpEvent(pong, remoteNode.getInetSocketAddressV4());
-
-        spiedService.handleEvent(event);
-
-        verify(mockNodeHandler).handlePong(pong);
-        verify(mockNodeHandler).getNode();
-    }
-
-    @Test
-    public void testHandleEventFindNode() {
-        KadService spiedService = spy(kadService);
-        NodeHandler mockNodeHandler = mock(NodeHandler.class);
-
-        doAnswer(invocation -> mockNodeHandler).when(spiedService).getNodeHandler(any(Node.class));
-        when(mockNodeHandler.getNode()).thenReturn(remoteNode);
-
-        Bytes targetId = Bytes.fromHexString(homeNode.getId());
-        io.xdag.p2p.message.discover.KadFindNodeMessage findNode =
-            new io.xdag.p2p.message.discover.KadFindNodeMessage(remoteNode, targetId);
-        UdpEvent event = new UdpEvent(findNode, remoteNode.getInetSocketAddressV4());
-
-        spiedService.handleEvent(event);
-
-        verify(mockNodeHandler).handleFindNode(findNode);
-        verify(mockNodeHandler).getNode();
-    }
-
-    @Test
-    public void testHandleEventNeighbors() {
-        KadService spiedService = spy(kadService);
-        NodeHandler mockNodeHandler = mock(NodeHandler.class);
-
-        doAnswer(invocation -> mockNodeHandler).when(spiedService).getNodeHandler(any(Node.class));
-        when(mockNodeHandler.getNode()).thenReturn(remoteNode);
-
-        List<Node> neighbors = new ArrayList<>();
-        neighbors.add(new Node(Bytes.random(20).toUnprefixedHexString(),
-                               new InetSocketAddress("127.0.0.1", 33333)));
-
-        io.xdag.p2p.message.discover.KadNeighborsMessage neighborsMsg =
-            new io.xdag.p2p.message.discover.KadNeighborsMessage(remoteNode, neighbors);
-        UdpEvent event = new UdpEvent(neighborsMsg, remoteNode.getInetSocketAddressV4());
-
-        spiedService.handleEvent(event);
-
-        verify(mockNodeHandler).handleNeighbours(neighborsMsg);
-        verify(mockNodeHandler).getNode();
-    }
-
-    @Test
-    public void testGetConnectableNodesWithDiscoveredNodes() {
-        // Create a discovered node with a node handler
-        NodeHandler handler = kadService.getNodeHandler(remoteNode);
-        assertNotNull(handler);
-
-        List<Node> connectable = kadService.getConnectableNodes();
-
-        assertTrue(connectable.size() >= 1, "Should have at least one connectable node");
-        assertTrue(connectable.stream().anyMatch(n -> n.getId().equals(remoteNode.getId())),
-                   "Should include discovered node");
-    }
 
     @Test
     public void testGetConnectableNodesWithBootNodesOnly() throws Exception {
@@ -376,25 +286,6 @@ public class KadServiceTest {
     }
 
     @Test
-    public void testHandleEventWithNodeInfoUpdate() {
-        // Create a ping message with full node information
-        Node fullInfoNode = new Node(Bytes.random(20).toUnprefixedHexString(),
-                                     "10.0.0.1", "2001:db8::100", 30303);
-        fullInfoNode.setNetworkId(p2pConfig.getNetworkId());
-        fullInfoNode.setNetworkVersion(p2pConfig.getNetworkVersion());
-
-        KadPingMessage ping = new KadPingMessage(fullInfoNode, homeNode);
-        UdpEvent event = new UdpEvent(ping, fullInfoNode.getInetSocketAddressV4());
-
-        kadService.handleEvent(event);
-
-        // Verify the node was registered
-        List<Node> allNodes = kadService.getAllNodes();
-        assertTrue(allNodes.stream().anyMatch(n -> n.getId().equals(fullInfoNode.getId())),
-                   "Node should be registered in the system");
-    }
-
-    @Test
     public void testChannelActivatedIdempotence() throws Exception {
         // Set up bootnodes
         List<InetSocketAddress> bootnodeAddresses = new ArrayList<>();
@@ -482,5 +373,170 @@ public class KadServiceTest {
         Field mapField = KadService.class.getDeclaredField("nodeHandlerMap");
         mapField.setAccessible(true);
         return (Map<InetSocketAddress, NodeHandler>) mapField.get(service);
+    }
+
+    // ==================== signed events ====================
+
+    private static final byte NETWORK = 2;
+
+    /** What the packet decoder produces for a datagram signed by {@code key} and sent from {@code from}. */
+    private static UdpEvent signed(io.xdag.p2p.message.Message message, InetSocketAddress from,
+            io.xdag.crypto.keys.ECKeyPair key, byte networkId) {
+        io.xdag.p2p.message.discover.KadPacket packet;
+        try {
+            packet = io.xdag.p2p.message.discover.KadPacket.decode(
+                    io.xdag.p2p.message.discover.KadPacket.encode(message, networkId, key), networkId);
+        } catch (io.xdag.p2p.message.MessageException e) {
+            throw new AssertionError(e);
+        }
+        return new UdpEvent(packet.getMessage(), from, packet.getNodeId(), packet.getHash());
+    }
+
+    private Node nodeOf(io.xdag.crypto.keys.ECKeyPair key, String host, int port) {
+        Node n = new Node(key.toAddress().toHexString(), host, null, port);
+        n.setNetworkId(p2pConfig.getNetworkId());
+        n.setNetworkVersion(p2pConfig.getNetworkVersion());
+        return n;
+    }
+
+    private List<UdpEvent> outbound(KadService service) {
+        List<UdpEvent> events = new ArrayList<>();
+        p2pConfig.setDiscoverEnable(true); // sending is gated on it; the discovery task was not started
+        service.setMessageSender(events::add);
+        return events;
+    }
+
+    @Test
+    public void pingFromAStrangerIsAnsweredAndTheStrangerIsPingedBack() {
+        p2pConfig.setAllowPrivateAddresses(true);
+        List<UdpEvent> out = outbound(kadService);
+        io.xdag.crypto.keys.ECKeyPair key = io.xdag.crypto.keys.ECKeyPair.generate();
+        InetSocketAddress from = new InetSocketAddress("127.0.0.1", 22222);
+        Node claimed = nodeOf(key, "8.8.8.8", 22222); // what it says about its address is not used
+
+        kadService.handleEvent(signed(new KadPingMessage(claimed, homeNode), from, key, p2pConfig.getNetworkId()));
+
+        // the stranger is pinged back (verification) and its ping is answered, both where the datagram came from
+        assertEquals(2, out.size());
+        assertEquals(MessageCode.KAD_PING, out.get(0).getMessage().getCode());
+        assertEquals(from, out.get(0).getAddress());
+        assertEquals(MessageCode.KAD_PONG, out.get(1).getMessage().getCode());
+        assertEquals(from, out.get(1).getAddress(), "answered where the datagram came from");
+        Node tracked = kadService.getAllNodes().getFirst();
+        assertEquals(key.toAddress().toHexString(), tracked.getId(), "identified by the key that signed");
+        assertEquals("127.0.0.1", tracked.getHostV4());
+        assertTrue(kadService.getConnectableNodes().isEmpty() || kadService.getConnectableNodes().equals(kadService.getBootNodes()),
+                "not connectable until verified");
+    }
+
+    @Test
+    public void pongVerifiesTheEndpointAndMakesItConnectable() {
+        p2pConfig.setAllowPrivateAddresses(true);
+        List<UdpEvent> out = outbound(kadService);
+        io.xdag.crypto.keys.ECKeyPair key = io.xdag.crypto.keys.ECKeyPair.generate();
+        InetSocketAddress from = new InetSocketAddress("127.0.0.1", 22223);
+        Node remote = nodeOf(key, "127.0.0.1", 22223);
+
+        NodeHandler handler = kadService.getNodeHandler(remote);
+        assertNotNull(handler);
+        KadPingMessage ourPing = (KadPingMessage) out.getLast().getMessage();
+        Bytes32 echo = io.xdag.p2p.message.discover.KadPacket.hashOf(ourPing, p2pConfig.getNetworkId());
+
+        // a pong with the wrong echo proves nothing
+        kadService.handleEvent(signed(new KadPongMessage(remote, Bytes32.random()), from, key, p2pConfig.getNetworkId()));
+        assertFalse(handler.isVerified());
+
+        kadService.handleEvent(signed(new KadPongMessage(remote, echo), from, key, p2pConfig.getNetworkId()));
+        assertTrue(handler.isVerified());
+        assertTrue(kadService.getConnectableNodes().stream().anyMatch(n -> key.toAddress().toHexString().equals(n.getId())));
+    }
+
+    @Test
+    public void findNodeFromAnUnverifiedSenderIsNotAnswered() {
+        p2pConfig.setAllowPrivateAddresses(true);
+        List<UdpEvent> out = outbound(kadService);
+        io.xdag.crypto.keys.ECKeyPair key = io.xdag.crypto.keys.ECKeyPair.generate();
+        InetSocketAddress from = new InetSocketAddress("127.0.0.1", 22224);
+        Node remote = nodeOf(key, "127.0.0.1", 22224);
+        KadFindNodeMessage find = new KadFindNodeMessage(remote, Bytes.random(KadFindNodeMessage.TARGET_LENGTH));
+
+        kadService.handleEvent(signed(find, from, key, p2pConfig.getNetworkId()));
+        assertTrue(out.stream().noneMatch(e -> e.getMessage().getCode() == MessageCode.KAD_NEIGHBORS));
+    }
+
+    @Test
+    public void eventsWithoutASignerOrFromAnotherNetworkAreDropped() {
+        p2pConfig.setAllowPrivateAddresses(true);
+        List<UdpEvent> out = outbound(kadService);
+        io.xdag.crypto.keys.ECKeyPair key = io.xdag.crypto.keys.ECKeyPair.generate();
+        InetSocketAddress from = new InetSocketAddress("127.0.0.1", 22225);
+        Node remote = nodeOf(key, "127.0.0.1", 22225);
+
+        kadService.handleEvent(new UdpEvent(new KadPingMessage(remote, homeNode), from));
+        assertTrue(out.isEmpty(), "an event without a verified sender is ignored");
+        assertTrue(kadService.getAllNodes().isEmpty());
+    }
+
+    @Test
+    public void staleEventsAreDropped() throws Exception {
+        p2pConfig.setAllowPrivateAddresses(true);
+        List<UdpEvent> out = outbound(kadService);
+        io.xdag.crypto.keys.ECKeyPair key = io.xdag.crypto.keys.ECKeyPair.generate();
+        InetSocketAddress from = new InetSocketAddress("127.0.0.1", 22226);
+        Node remote = nodeOf(key, "127.0.0.1", 22226);
+        KadPingMessage old = new KadPingMessage(remote, homeNode);
+        java.lang.reflect.Field ts = KadPingMessage.class.getDeclaredField("timestamp");
+        ts.setAccessible(true);
+        ts.set(old, System.currentTimeMillis() - 10 * KadService.MAX_CLOCK_SKEW_MS);
+        java.lang.reflect.Field body = io.xdag.p2p.message.Message.class.getDeclaredField("body");
+        body.setAccessible(true);
+        io.xdag.p2p.utils.SimpleEncoder enc = new io.xdag.p2p.utils.SimpleEncoder();
+        old.encode(enc);
+        body.set(old, enc.toBytes());
+
+        kadService.handleEvent(signed(old, from, key, p2pConfig.getNetworkId()));
+        assertTrue(out.isEmpty());
+    }
+
+    @Test
+    public void aNewKeyAtAKnownEndpointIsANewNode() {
+        p2pConfig.setAllowPrivateAddresses(true);
+        outbound(kadService);
+        io.xdag.crypto.keys.ECKeyPair first = io.xdag.crypto.keys.ECKeyPair.generate();
+        io.xdag.crypto.keys.ECKeyPair second = io.xdag.crypto.keys.ECKeyPair.generate();
+        InetSocketAddress from = new InetSocketAddress("127.0.0.1", 22227);
+
+        kadService.handleEvent(signed(new KadPingMessage(nodeOf(first, "127.0.0.1", 22227), homeNode), from, first, p2pConfig.getNetworkId()));
+        kadService.handleEvent(signed(new KadPingMessage(nodeOf(second, "127.0.0.1", 22227), homeNode), from, second, p2pConfig.getNetworkId()));
+        assertEquals(1, kadService.getAllNodes().size());
+        assertEquals(second.toAddress().toHexString(), kadService.getAllNodes().getFirst().getId());
+    }
+
+    @Test
+    public void privateAddressesFromOthersAreNotContactedUnlessAllowed() {
+        p2pConfig.setAllowPrivateAddresses(false);
+        Node privateNode = nodeOf(io.xdag.crypto.keys.ECKeyPair.generate(), "192.168.1.9", 30303);
+        assertFalse(kadService.mayContact(privateNode));
+        Node publicNode = nodeOf(io.xdag.crypto.keys.ECKeyPair.generate(), "8.8.8.8", 30303);
+        assertTrue(kadService.mayContact(publicNode));
+        Node named = new Node(publicNode.getId(), "example.invalid", null, 30303);
+        assertFalse(kadService.mayContact(named), "names are never resolved");
+        assertFalse(kadService.mayContact(homeNode));
+    }
+
+    @Test
+    public void rateLimitDropsFloods() {
+        p2pConfig.setAllowPrivateAddresses(true);
+        p2pConfig.setMaxDiscoveryBurst(3);
+        p2pConfig.setMaxDiscoveryPacketsPerSecond(1);
+        List<UdpEvent> out = outbound(kadService);
+        io.xdag.crypto.keys.ECKeyPair key = io.xdag.crypto.keys.ECKeyPair.generate();
+        InetSocketAddress from = new InetSocketAddress("127.0.0.1", 22228);
+        Node remote = nodeOf(key, "127.0.0.1", 22228);
+        for (int i = 0; i < 10; i++) {
+            kadService.handleEvent(signed(new KadPingMessage(remote, homeNode), from, key, p2pConfig.getNetworkId()));
+        }
+        long pongs = out.stream().filter(e -> e.getMessage().getCode() == MessageCode.KAD_PONG).count();
+        assertEquals(3, pongs, "only the burst is answered");
     }
 }

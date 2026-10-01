@@ -3,18 +3,32 @@
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://openjdk.java.net/)
 [![Maven](https://img.shields.io/badge/Maven-3.6+-blue.svg)](https://maven.apache.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-913%20Total-brightgreen.svg)](#testing)
-[![Coverage](https://img.shields.io/badge/Coverage-76%25-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/Tests-923%20Total-brightgreen.svg)](#testing)
+[![Coverage](https://img.shields.io/badge/Coverage-75%25-brightgreen.svg)](#testing)
 
 High-performance Java P2P networking library for the XDAG blockchain ecosystem, built with modern Java technologies and comprehensive testing.
 
-**Key Features:** Kademlia DHT discovery • Persistent reputation system • Graduated ban management • Layered network statistics • Production-ready with 913 tests
+**Key Features:** Kademlia DHT discovery • Persistent reputation system • Graduated ban management • Layered network statistics • Production-ready with 923 tests
 
 ---
 
-## What's New in v0.1.6
+## What's New in v0.1.8
 
-### Protocol Extensibility Framework
+- **`P2pService.start()` returns when the node can be reached**: the TCP listener and the discovery socket are bound when the call is back (`PeerServer.isListening()`, `NodeManager.isDiscoveryListening()`). A node started right after another no longer dials too early.
+- **`P2pService.setPermissionless()` may be called before `start()`**: it then only changes the setting.
+
+Wire-compatible with v0.1.7. Details: [CHANGELOG](CHANGELOG.md).
+
+### Previous Release (v0.1.7): hardened for open networks
+
+- **Signed discovery with endpoint proof**, **mutual handshake**, **admission control** (bans, connection limits, closed/open network mode via `setPermissionless`), bounds on everything read off the wire, backpressure.
+- ⚠️ **Not wire-compatible with v0.1.6 and earlier** (frame version 2, signed discovery, mutual handshake).
+
+Details: [CHANGELOG](CHANGELOG.md).
+
+### Earlier Release (v0.1.6)
+
+#### Protocol Extensibility Framework
 - **Introduced `IMessageCode` Interface**: Enables application layers to define custom message codes without modifying the P2P framework
 - **Reserved Message Code Ranges**:
   - `0x00-0x0F`: KAD protocol (P2P framework internal)
@@ -23,13 +37,13 @@ High-performance Java P2P networking library for the XDAG blockchain ecosystem, 
 - **Built-in Helper Methods**: `isFrameworkMessage()`, `isApplicationMessage()`, `toInt()`
 - **Full Backward Compatibility**: Existing code continues to work without any changes
 
-### Message System Enhancements
+#### Message System Enhancements
 - **Flexible Message Code System**: `Message` class now uses `IMessageCode` interface for extensibility
 - **New API Methods**: Added `getCodeByte()` for direct byte access
 - **Improved Logging**: Enhanced message logging logic to support application layer messages
 - **Clean Code Organization**: Added static imports in `KadService` for better readability
 
-### What This Means for Developers
+#### What This Means for Developers
 Application layers (like XDAG blockchain) can now define their own message types by implementing `IMessageCode`:
 
 ```java
@@ -45,7 +59,7 @@ public enum MyMessageCode implements IMessageCode {
 }
 ```
 
-### Previous Release (v0.1.4)
+### Earlier Release (v0.1.4)
 
 #### Handshake Stability & Release Quality
 - **Handshake Lifecycle Fixes**: ensure `Channel.isFinishHandshake()` and `isActive()` are set once the handshake succeeds, restoring accurate connection state reporting
@@ -97,11 +111,11 @@ See [CHANGELOG.md](CHANGELOG.md) for complete release notes.
 <dependency>
     <groupId>io.xdag</groupId>
     <artifactId>xdagj-p2p</artifactId>
-    <version>0.1.6</version>
+    <version>0.1.8</version>
 </dependency>
 ```
 
-> **⚠️ Breaking Change**: Node ID format changed from 520-bit to 160-bit XDAG address. Not compatible with v0.1.0/0.1.1 nodes.
+> **⚠️ Breaking Changes**: v0.1.7 and later do not talk to v0.1.6 and earlier (frame version 2, signed discovery, mutual handshake). Node ID format changed from 520-bit to 160-bit XDAG address in v0.1.2: not compatible with v0.1.0/0.1.1 nodes.
 
 ### Basic Usage
 
@@ -155,7 +169,7 @@ p2pService.start();
 mvn clean package -DskipTests
 
 # Run P2P node
-java -jar target/xdagj-p2p-0.1.6-jar-with-dependencies.jar \
+java -jar target/xdagj-p2p-0.1.8-jar-with-dependencies.jar \
   -p 16783 \
   -s <SEED_NODE_IP>:16783
 ```
@@ -211,11 +225,11 @@ Error Rate:            0% (7M+ messages tested)
 
 ### Test Coverage
 ```
-Tests:          913 test cases (100% pass rate)
-Instructions:   76% (12,162 / 15,810)
-Branches:       64% (911 / 1,409)
-Lines:          77% (2,851 / 3,669)
-Execution:      ~30 seconds, zero flaky tests
+Tests:          923 test cases (100% pass rate; 2 are skipped without internet access)
+Instructions:   75.5% (15,100 / 19,994)
+Branches:       59.8% (1,366 / 2,286)
+Lines:          75.5% (3,396 / 4,500)
+Execution:      ~1.5 minutes (mvn test), zero flaky tests
 ```
 
 **See [docs/PERFORMANCE.md](docs/PERFORMANCE.md) for detailed benchmark methodology and results.**
@@ -284,8 +298,8 @@ graph TB
 - **Tuweni 2.7.0**: Packet processing utilities
 
 ### Testing
-- **JUnit 5.12.2 + Mockito 5.14.2**: 913 comprehensive tests
-- **JaCoCo**: 76% instruction coverage
+- **JUnit 5.12.2 + Mockito 5.14.2**: 923 comprehensive tests
+- **JaCoCo**: 75% instruction coverage
 - **Professional test suite**: Multi-node network testing
 
 ---
@@ -329,7 +343,7 @@ Connection Success:  >99% reliability
 
 ### Run Unit Tests
 ```bash
-# All 913 tests
+# All 923 tests
 mvn test
 
 # Generate coverage report
@@ -383,11 +397,11 @@ python3 analyze-network-performance.py --logs-dir logs
 
 XDAGJ-P2P uses **Kademlia DHT** for fully decentralized peer-to-peer discovery.
 
-### Current Method (v0.1.6)
+### Current Method (v0.1.8)
 
 ```bash
 # Start node with seed nodes
-java -jar xdagj-p2p-0.1.6-jar-with-dependencies.jar \
+java -jar xdagj-p2p-0.1.8-jar-with-dependencies.jar \
   -p 16783 \
   -s <SEED_NODE_IP_1>:16783,<SEED_NODE_IP_2>:16783
 ```
@@ -409,21 +423,21 @@ java -jar xdagj-p2p-0.1.6-jar-with-dependencies.jar \
 
 **Production (24/7 nodes):**
 ```bash
-java -jar xdagj-p2p-0.1.6-jar-with-dependencies.jar \
+java -jar xdagj-p2p-0.1.8-jar-with-dependencies.jar \
   -p 16783 \
   -s <SEED_NODE_IP_1>:16783,<SEED_NODE_IP_2>:16783,<SEED_NODE_IP_3>:16783
 ```
 
 **Development/Testing:**
 ```bash
-java -jar xdagj-p2p-0.1.6-jar-with-dependencies.jar \
+java -jar xdagj-p2p-0.1.8-jar-with-dependencies.jar \
   -p 16783 \
   -s 127.0.0.1:10000,192.168.1.100:16783
 ```
 
 **Private Networks:**
 ```bash
-java -jar xdagj-p2p-0.1.6-jar-with-dependencies.jar \
+java -jar xdagj-p2p-0.1.8-jar-with-dependencies.jar \
   -p 16783 \
   -s 10.0.1.10:16783,10.0.1.11:16783
 ```
@@ -480,4 +494,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Status:** v0.1.6 Production-Ready | **Tests:** 913 passing | **Coverage:** 76%
+**Status:** v0.1.8 Production-Ready | **Tests:** 923 passing | **Coverage:** 75%

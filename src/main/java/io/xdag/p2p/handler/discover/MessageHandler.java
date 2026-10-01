@@ -29,6 +29,8 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.socket.DatagramPacket;
 import io.netty.channel.socket.nio.NioDatagramChannel;
+import io.xdag.p2p.config.P2pConfig;
+import io.xdag.p2p.message.discover.KadPacket;
 import java.net.InetSocketAddress;
 import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
@@ -42,9 +44,12 @@ public class MessageHandler extends SimpleChannelInboundHandler<UdpEvent>
 
   private final EventHandler eventHandler;
 
-  public MessageHandler(NioDatagramChannel channel, EventHandler eventHandler) {
+  private final P2pConfig config;
+
+  public MessageHandler(NioDatagramChannel channel, EventHandler eventHandler, P2pConfig config) {
     this.channel = channel;
     this.eventHandler = eventHandler;
+    this.config = config;
   }
 
   @Override
@@ -55,26 +60,31 @@ public class MessageHandler extends SimpleChannelInboundHandler<UdpEvent>
 
   @Override
   public void channelRead0(ChannelHandlerContext ctx, UdpEvent udpEvent) {
-    log.debug(
-        "Rcv udp msg type {}, len {} from {} ",
-        udpEvent.getMessage().getType(),
-        udpEvent.getMessage().getSendData().size(),
-        udpEvent.getAddress());
-    eventHandler.handleEvent(udpEvent);
+    log.trace("Rcv udp msg type {} from {} ", udpEvent.getMessage().getCode(), udpEvent.getAddress());
+    try {
+      eventHandler.handleEvent(udpEvent);
+    } catch (RuntimeException e) {
+      // one bad packet must not take the discovery socket down with it
+      log.debug("Handling UDP message from {} failed: {}", udpEvent.getAddress(), e.toString());
+    }
   }
 
   @Override
   public void accept(UdpEvent udpEvent) {
-    log.debug(
-        "Send udp msg type {}, len {} to {} ",
-        udpEvent.getMessage().getType(),
-        udpEvent.getMessage().getSendData().size(),
-        udpEvent.getAddress());
     InetSocketAddress address = udpEvent.getAddress();
-    sendPacketFromBytes(udpEvent.getMessage().getSendData(), address);
+    if (address == null || address.isUnresolved() || config == null || config.getNodeKey() == null) {
+      return;
+    }
+    log.trace("Send udp msg type {} to {} ", udpEvent.getMessage().getCode(), address);
+    try {
+      Bytes wire = KadPacket.encode(udpEvent.getMessage(), config.getNetworkId(), config.getNodeKey());
+      sendPacketFromBytes(wire, address);
+    } catch (RuntimeException e) {
+      log.debug("Not sending UDP message to {}: {}", address, e.getMessage());
+    }
   }
 
-  /** Alternative method for sending with Tuweni Bytes input */
+  /** Sends bytes as one datagram. */
   void sendPacketFromBytes(Bytes wireBytes, InetSocketAddress address) {
     DatagramPacket packet =
         new DatagramPacket(Unpooled.wrappedBuffer(wireBytes.toArray()), address);
@@ -89,6 +99,6 @@ public class MessageHandler extends SimpleChannelInboundHandler<UdpEvent>
 
   @Override
   public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-    log.warn("UDP message handler exception", cause);
+    log.debug("UDP message handler exception: {}", String.valueOf(cause));
   }
 }

@@ -20,7 +20,7 @@ This document is designed to help AI models understand and use the xdagj-p2p lib
 ### Basic Information
 
 - **Project Name**: xdagj-p2p
-- **Version**: 0.1.6
+- **Version**: 0.1.8
 - **Purpose**: High-performance Java P2P networking library for the XDAG blockchain ecosystem
 - **Language**: Java 21+
 - **License**: MIT
@@ -68,7 +68,7 @@ This document is designed to help AI models understand and use the xdagj-p2p lib
 <dependency>
     <groupId>io.xdag</groupId>
     <artifactId>xdagj-p2p</artifactId>
-    <version>0.1.6</version>
+    <version>0.1.8</version>
 </dependency>
 ```
 
@@ -144,6 +144,8 @@ Creates a new P2P service instance with the given configuration.
   - Starts PeerServer and PeerClient
   - Begins connection attempts to seed nodes
   - Registers shutdown hook
+  - Returns when the TCP listener and the discovery socket are bound (a port that cannot be
+    bound is logged; `getPeerServer().isListening()` tells)
 - **Usage**: Call after configuration and event handler registration
 
 **stop()**

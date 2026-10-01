@@ -30,36 +30,39 @@ import io.xdag.p2p.message.MessageCode;
 import io.xdag.p2p.utils.SimpleDecoder;
 import io.xdag.p2p.utils.SimpleEncoder;
 import lombok.Getter;
-import lombok.Setter;
+import org.apache.tuweni.bytes.Bytes32;
 
+/**
+ * Answer to a ping. It carries the hash of the ping it answers ({@link #getEcho()}): a pong that does not
+ * echo a ping we sent to that very address proves nothing about it.
+ */
 @Getter
-@Setter
 public class KadPongMessage extends Message {
 
   private final byte networkId;
   private final short networkVersion;
   private final long timestamp;
   private final Node from;
+  /** Hash of the ping packet this pong answers ({@link KadPacket#getHash()}). */
+  private final Bytes32 echo;
 
-  public KadPongMessage(Node from) {
+  public KadPongMessage(Node from, Bytes32 echo) {
     super(MessageCode.KAD_PONG, null);
 
     this.timestamp = System.currentTimeMillis();
     this.networkId = from != null ? from.getNetworkId() : (byte) P2pConstant.MAINNET_ID;
     this.networkVersion = from != null ? from.getNetworkVersion() : P2pConstant.MAINNET_VERSION;
     this.from = from;
+    this.echo = echo == null ? Bytes32.ZERO : echo;
 
     SimpleEncoder enc = new SimpleEncoder();
-    enc.writeByte(networkId);
-    enc.writeShort(networkVersion);
-    enc.writeLong(timestamp);
-
-    // Include sender node information for DHT
-    if (from != null) {
-      enc.writeBytes(from.toBytes());
-    }
-
+    encode(enc);
     this.body = enc.toBytes();
+  }
+
+  /** A pong that answers nothing in particular (kept for callers that only need a well-formed message). */
+  public KadPongMessage(Node from) {
+    this(from, Bytes32.ZERO);
   }
 
   public KadPongMessage(byte[] body) {
@@ -69,22 +72,16 @@ public class KadPongMessage extends Message {
     this.networkId = dec.readByte();
     this.networkVersion = dec.readShort();
     this.timestamp = dec.readLong();
-
-    // Decode sender node information if present
-    // Minimum size without from field: 1 (byte) + 2 (short) + 8 (long) = 11 bytes
-    Node fromNode = null;
-    if (body != null && body.length > 11) {
-      try {
-        byte[] fromBytes = dec.readBytes();
-        if (fromBytes != null && fromBytes.length > 0) {
-          fromNode = new Node(fromBytes);
-        }
-      } catch (Exception e) {
-        // Backward compatibility: older messages without from field
-        fromNode = null;
-      }
+    byte[] fromBytes = dec.readBytes();
+    if (fromBytes == null || fromBytes.length == 0) {
+      throw new IllegalArgumentException("Invalid KadPongMessage: 'from' node data is missing");
     }
-    this.from = fromNode;
+    this.from = new Node(fromBytes);
+    byte[] echoBytes = dec.readBytes();
+    if (echoBytes == null || echoBytes.length != Bytes32.SIZE) {
+      throw new IllegalArgumentException("Invalid KadPongMessage: echo must be 32 bytes");
+    }
+    this.echo = Bytes32.wrap(echoBytes);
 
     this.body = body;
   }
@@ -94,9 +91,8 @@ public class KadPongMessage extends Message {
     enc.writeByte(networkId);
     enc.writeShort(networkVersion);
     enc.writeLong(timestamp);
-    if (from != null) {
-      enc.writeBytes(from.toBytes());
-    }
+    enc.writeBytes(from != null ? from.toBytes() : new byte[0]);
+    enc.writeBytes(echo.toArray());
   }
 
   @Override

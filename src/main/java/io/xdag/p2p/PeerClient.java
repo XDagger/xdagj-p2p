@@ -37,6 +37,9 @@ import io.xdag.p2p.channel.P2pChannelInitializer;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.config.P2pConstant;
 import io.xdag.p2p.discover.Node;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 
@@ -60,15 +63,25 @@ public class PeerClient {
     }
 
     public void stop() {
-        workerGroup.shutdownGracefully();
-        workerGroup.terminationFuture().syncUninterruptibly();
+        if (workerGroup != null) {
+            workerGroup.shutdownGracefully();
+            workerGroup.terminationFuture().syncUninterruptibly();
+        }
     }
 
+    /**
+     * Dials a peer and waits until the connection is made or has failed (at most the connection timeout). It
+     * used to wait until the connection was closed again, which could be forever.
+     */
     public void connect(String host, int port) {
         try {
             ChannelFuture f = connectAsync(host, port);
             if (f != null) {
-                f.sync().channel().closeFuture().sync();
+                f.await(P2pConstant.NODE_CONNECTION_TIMEOUT + 1000, TimeUnit.MILLISECONDS);
+                if (!f.isSuccess()) {
+                    log.debug("PeerClient can't connect to {}:{} ({})", host, port,
+                            f.cause() != null ? f.cause().getMessage() : "timeout");
+                }
             }
         } catch (Exception e) {
             log.warn("PeerClient can't connect to {}:{} ({})", host, port, e.getMessage());
@@ -76,13 +89,14 @@ public class PeerClient {
     }
 
     public ChannelFuture connect(Node node, ChannelFutureListener future) {
-        ChannelFuture channelFuture =
-                connectAsync(
-                        node.getPreferInetSocketAddress().getAddress().getHostAddress(),
-                        node.getPort());
-        if (channelManager.isShutdown()) {
+        if (channelManager != null && channelManager.isShutdown()) {
             return null;
         }
+        InetSocketAddress address = node.getPreferInetSocketAddress();
+        if (address == null || address.getAddress() == null) {
+            return null;
+        }
+        ChannelFuture channelFuture = connectAsync(address.getAddress().getHostAddress(), address.getPort());
         if (channelFuture != null && future != null) {
             channelFuture.addListener(future);
         }
@@ -90,44 +104,46 @@ public class PeerClient {
     }
 
     public ChannelFuture connectAsync(Node node) {
-        ChannelFuture channelFuture =
-                connectAsync(
-                        node.getPreferInetSocketAddress().getAddress().getHostAddress(),
-                        node.getPort());
-        if (channelManager.isShutdown()) {
+        return connect(node, (ChannelFutureListener) future -> {
+            if (!future.isSuccess()) {
+                log.debug("Connect to peer {} fail, cause:{}", node.getPreferInetSocketAddress(),
+                        future.cause() == null ? "unknown" : future.cause().getMessage());
+                future.channel().close();
+            }
+        });
+    }
+
+    private ChannelFuture connectAsync(String host, int port) {
+        if (workerGroup == null) {
+            log.warn("PeerClient is not started");
             return null;
         }
-        if (channelFuture != null) {
-            channelFuture.addListener(
-                    (ChannelFutureListener)
-                            future -> {
-                                if (!future.isSuccess()) {
-                                    log.warn(
-                                            "Connect to peer {} fail, cause:{}",
-                                            node.getPreferInetSocketAddress(),
-                                            future.cause().getMessage());
-                                    future.channel().close();
-                                }
-                            });
+        try {
+            InetAddress target = InetAddress.getByName(host);
+            Bootstrap b = new Bootstrap();
+            b.group(workerGroup);
+            b.channel(NioSocketChannel.class);
+            b.option(ChannelOption.SO_KEEPALIVE, true);
+            b.option(ChannelOption.TCP_NODELAY, true);
+            b.option(ChannelOption.MESSAGE_SIZE_ESTIMATOR, DefaultMessageSizeEstimator.DEFAULT);
+            b.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, P2pConstant.NODE_CONNECTION_TIMEOUT);
+            b.remoteAddress(new InetSocketAddress(target, port));
+            b.handler(new P2pChannelInitializer(p2pConfig, channelManager, p2pConfig.getNodeKey(), true));
+
+            ChannelFuture future = b.connect();
+            if (channelManager != null) {
+                // an outbound connection holds a slot like an inbound one, from the moment it is dialled
+                ChannelManager.Refusal refusal = channelManager.admit(future.channel(), target, false);
+                if (refusal != null) {
+                    log.debug("Not connecting to {}:{}: {}", host, port, refusal);
+                    future.channel().close();
+                    return null;
+                }
+            }
+            return future;
+        } catch (Exception e) {
+            log.warn("Connect to {}:{} failed: {}", host, port, e.toString());
         }
-        return channelFuture;
+        return null;
     }
-
-private ChannelFuture connectAsync(String host, int port) {
-    try {
-        Bootstrap b = new Bootstrap();
-        b.group(workerGroup);
-        b.channel(NioSocketChannel.class);
-        b.option(ChannelOption.SO_KEEPALIVE, true);
-        b.option(ChannelOption.MESSAGE_SIZE_ESTIMATOR, DefaultMessageSizeEstimator.DEFAULT);
-        b.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, P2pConstant.NODE_CONNECTION_TIMEOUT);
-        b.remoteAddress(host, port);
-        b.handler(new P2pChannelInitializer(p2pConfig, channelManager, p2pConfig.getNodeKey(), true));
-
-        return b.connect();
-    } catch (Exception e) {
-        log.warn("Connect to {}:{} failed", host, port, e);
-    }
-    return null;
-}
 }

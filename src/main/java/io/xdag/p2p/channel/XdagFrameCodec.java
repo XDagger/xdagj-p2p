@@ -26,12 +26,21 @@ package io.xdag.p2p.channel;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageCodec;
+import io.netty.handler.codec.CorruptedFrameException;
+import io.netty.handler.codec.EncoderException;
 import io.netty.util.AttributeKey;
 import io.xdag.p2p.config.P2pConfig;
-import java.io.IOException;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Frames on the wire: 20-byte header (see {@link XdagFrame}) followed by the body.
+ *
+ * <p>A TCP stream never loses or reorders bytes, so a header that does not parse means the other side does not
+ * speak this protocol (or is feeding us garbage). The connection is closed at the first such header: searching
+ * the stream for the next magic number - what this codec used to do - lets a peer keep a connection alive on
+ * garbage while every byte of it is scanned again and again and logged.
+ */
 @Slf4j
 public class XdagFrameCodec extends ByteToMessageCodec<XdagFrame> {
 
@@ -47,18 +56,18 @@ public class XdagFrameCodec extends ByteToMessageCodec<XdagFrame> {
     @Override
     protected void encode(ChannelHandlerContext ctx, XdagFrame frame, ByteBuf out) {
         if (frame.getVersion() != XdagFrame.VERSION) {
-            log.error("Invalid frame version: {}", frame.getVersion());
-            return;
+            throw new EncoderException("Invalid frame version: " + frame.getVersion());
         }
 
-        int bodySize = frame.getBody().length;
-        if (bodySize > config.getNetMaxFrameBodySize()) {
-            log.error("Frame body too large: {}", bodySize);
-            return;
+        int bodySize = frame.getBody() == null ? 0 : frame.getBody().length;
+        if (bodySize != frame.getBodySize() || bodySize > config.getNetMaxFrameBodySize()) {
+            throw new EncoderException("Invalid frame body size: " + bodySize);
         }
 
         frame.writeHeader(out);
-        out.writeBytes(frame.getBody());
+        if (bodySize > 0) {
+            out.writeBytes(frame.getBody());
+        }
 
         // Track network layer send - record total frame size (header + body)
         int totalFrameSize = XdagFrame.HEADER_SIZE + bodySize;
@@ -71,8 +80,7 @@ public class XdagFrameCodec extends ByteToMessageCodec<XdagFrame> {
     }
 
     @Override
-    protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws IOException {
-        // Need at least 20 bytes for header (with magic)
+    protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
         if (in.readableBytes() < XdagFrame.HEADER_SIZE) {
             return;
         }
@@ -82,66 +90,35 @@ public class XdagFrameCodec extends ByteToMessageCodec<XdagFrame> {
         try {
             frame = XdagFrame.readHeader(in);
         } catch (IllegalArgumentException e) {
-            // Invalid magic number - try to resync
-            in.resetReaderIndex();
-            log.warn("Invalid magic number detected, channel={}, readable={}, error={}",
-                    ctx.channel(), in.readableBytes(), e.getMessage());
-
-            // Try to resync by searching for magic number
-            if (tryResyncByMagic(in)) {
-                log.info("Successfully resynced to magic number, channel={}", ctx.channel());
-                return;  // Retry decode on next call
-            }
-
-            // If resync failed, skip one byte and retry
-            in.skipBytes(1);
-            return;
+            throw new CorruptedFrameException(e.getMessage());
         }
-
-        // Validate frame version
         if (frame.getVersion() != XdagFrame.VERSION) {
-            in.resetReaderIndex();
-            log.warn("Invalid frame version: expected={}, actual={}, channel={}, readable={}",
-                    XdagFrame.VERSION, frame.getVersion(), ctx.channel(), in.readableBytes());
-
-            // Try to resync by searching for magic number
-            if (tryResyncByMagic(in)) {
-                log.info("Successfully resynced after version error, channel={}", ctx.channel());
-                return;
-            }
-
-            in.skipBytes(1);
-            return;
+            throw new CorruptedFrameException("Unsupported frame version: " + frame.getVersion());
         }
-
-        // Validate body size
-        if (frame.getBodySize() > config.getNetMaxFrameBodySize()) {
-            in.resetReaderIndex();
-            log.warn("Frame body too large: expected <{}, actual={}, channel={}, readable={}",
-                    config.getNetMaxFrameBodySize(), frame.getBodySize(), ctx.channel(), in.readableBytes());
-
-            // Try to resync by searching for magic number
-            if (tryResyncByMagic(in)) {
-                log.info("Successfully resynced after body size error, channel={}", ctx.channel());
-                return;
-            }
-
-            in.skipBytes(1);
-            return;
+        if (frame.getCompressType() != XdagFrame.COMPRESS_NONE && frame.getCompressType() != XdagFrame.COMPRESS_SNAPPY) {
+            throw new CorruptedFrameException("Unsupported compress type: " + frame.getCompressType());
+        }
+        int bodySize = frame.getBodySize();
+        int packetSize = frame.getPacketSize();
+        if (bodySize < 0 || bodySize > config.getNetMaxFrameBodySize()) {
+            throw new CorruptedFrameException("Invalid frame body size: " + bodySize);
+        }
+        if (packetSize < 0 || packetSize > config.getNetMaxPacketSize() || bodySize > packetSize) {
+            throw new CorruptedFrameException("Invalid packet size: " + packetSize);
         }
 
         // Check if we have enough bytes for the body
-        if (in.readableBytes() < frame.getBodySize()) {
+        if (in.readableBytes() < bodySize) {
             in.resetReaderIndex();
             return;
         }
 
-        byte[] body = new byte[frame.getBodySize()];
+        byte[] body = new byte[bodySize];
         in.readBytes(body);
         frame.setBody(body);
 
         // Track network layer receive - record total frame size (header + body)
-        int totalFrameSize = XdagFrame.HEADER_SIZE + frame.getBodySize();
+        int totalFrameSize = XdagFrame.HEADER_SIZE + bodySize;
 
         // Retrieve Channel from context attributes
         Channel channel = ctx.channel().attr(CHANNEL_ATTRIBUTE).get();
@@ -150,35 +127,5 @@ public class XdagFrameCodec extends ByteToMessageCodec<XdagFrame> {
         }
 
         out.add(frame);
-    }
-
-    /**
-     * Tries to resync the stream by searching for the magic number
-     *
-     * @param in ByteBuf to search in
-     * @return true if magic number found and reader index repositioned, false otherwise
-     */
-    private boolean tryResyncByMagic(ByteBuf in) {
-        in.resetReaderIndex();
-        int maxSearchBytes = Math.min(in.readableBytes(), config.getNetMaxFrameBodySize());
-
-        for (int i = 0; i < maxSearchBytes - 4; i++) {
-            in.markReaderIndex();
-            int possibleMagic = in.readInt();
-
-            if (possibleMagic == XdagFrame.MAGIC_NUMBER) {
-                // Found magic! Reset to just before it so next decode will read it properly
-                in.resetReaderIndex();
-                return true;
-            }
-
-            // Not magic, move one byte forward
-            in.resetReaderIndex();
-            in.skipBytes(1);
-        }
-
-        // Magic not found, reset to beginning
-        in.resetReaderIndex();
-        return false;
     }
 }

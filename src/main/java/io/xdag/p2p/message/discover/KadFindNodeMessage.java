@@ -34,28 +34,40 @@ import org.apache.tuweni.bytes.Bytes;
 @Getter
 public class KadFindNodeMessage extends Message {
 
+    /** Length of a target: a node id is the 20 bytes of an address. */
+    public static final int TARGET_LENGTH = 20;
+
     private final Node from;
     private final Bytes target;
     private final long timestamp;
 
     public KadFindNodeMessage(Node from, Bytes target) {
         super(MessageCode.KAD_FIND_NODE, KadNeighborsMessage.class);
+        if (target == null || target.size() != TARGET_LENGTH) {
+            throw new IllegalArgumentException("target must be " + TARGET_LENGTH + " bytes");
+        }
         this.from = from;
         this.target = target;
         this.timestamp = System.currentTimeMillis();
 
         SimpleEncoder enc = new SimpleEncoder();
-        enc.writeBytes(from.toBytes());
-        enc.writeBytes(target.toArray());
-        enc.writeLong(timestamp);
+        encode(enc);
         this.body = enc.toBytes();
     }
 
     public KadFindNodeMessage(byte[] body) {
         super(MessageCode.KAD_FIND_NODE, KadNeighborsMessage.class);
         SimpleDecoder dec = new SimpleDecoder(body);
-        this.from = new Node(dec.readBytes());
-        this.target = Bytes.wrap(dec.readBytes());
+        byte[] fromBytes = dec.readBytes();
+        if (fromBytes == null || fromBytes.length == 0) {
+            throw new IllegalArgumentException("Invalid KadFindNodeMessage: 'from' node data is missing");
+        }
+        this.from = new Node(fromBytes);
+        byte[] targetBytes = dec.readBytes();
+        if (targetBytes == null || targetBytes.length != TARGET_LENGTH) {
+            throw new IllegalArgumentException("Invalid KadFindNodeMessage: target must be " + TARGET_LENGTH + " bytes");
+        }
+        this.target = Bytes.wrap(targetBytes);
         this.timestamp = dec.readLong();
         this.body = body;
     }

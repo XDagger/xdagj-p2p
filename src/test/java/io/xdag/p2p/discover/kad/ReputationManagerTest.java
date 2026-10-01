@@ -341,15 +341,10 @@ class ReputationManagerTest {
     @Test
     @DisplayName("Should handle null node ID gracefully")
     void testNullNodeId() {
-        // When/Then - ConcurrentHashMap doesn't accept null keys
-        // Both get and set should throw NPE - this is expected behavior
-        assertThrows(NullPointerException.class, () -> {
-            reputationManager.setReputation(null, 150);
-        }, "Setting null node ID should throw NullPointerException");
-
-        assertThrows(NullPointerException.class, () -> {
-            reputationManager.getReputation(null);
-        }, "Getting null node ID should throw NullPointerException");
+        // a null id is nobody: nothing is stored and the neutral score is reported
+        reputationManager.setReputation(null, 150);
+        assertEquals(0, reputationManager.size());
+        assertEquals(100, reputationManager.getReputation(null));
     }
 
     @Test

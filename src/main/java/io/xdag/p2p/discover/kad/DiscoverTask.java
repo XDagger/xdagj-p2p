@@ -64,7 +64,7 @@ public class DiscoverTask {
         1,
         KademliaOptions.DISCOVER_CYCLE,
         TimeUnit.MILLISECONDS);
-    log.info("DiscoverTask initialized and scheduled with {}ms interval", KademliaOptions.DISCOVER_CYCLE);
+    log.debug("DiscoverTask initialized and scheduled with {}ms interval", KademliaOptions.DISCOVER_CYCLE);
   }
 
   Bytes nextTargetId() {
@@ -86,7 +86,11 @@ public class DiscoverTask {
     for (Node n : closest) {
       if (!tried.contains(n) && !prevTriedNodes.contains(n)) {
         try {
-          kadService.getNodeHandler(n).sendFindNode(nodeId.toArray());
+          NodeHandler handler = kadService.getNodeHandler(n);
+          if (handler == null) {
+            continue;
+          }
+          handler.sendFindNode(nodeId.toArray());
           tried.add(n);
         } catch (Exception e) {
           log.error("Unexpected Exception occurred while sending FindNodeMessage", e);

@@ -53,9 +53,12 @@ public class XdagFrame {
     public static final int HEADER_SIZE = 20;
 
     /**
-     * Current protocol version
+     * Current protocol version.
+     * <p>
+     * 2: the handshake lets both sides contribute a nonce and the discovery packets are signed; a node that
+     * speaks version 1 is turned away at the first frame instead of half-way through the handshake.
      */
-    public static final short VERSION = 1;
+    public static final short VERSION = 2;
 
     public static final byte COMPRESS_NONE = 0;
     public static final byte COMPRESS_SNAPPY = 1;

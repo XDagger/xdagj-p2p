@@ -121,13 +121,16 @@ public class DnsNode extends Node implements Comparable<DnsNode> {
    * @return list of DNS nodes
    * @throws UnknownHostException if the host address is invalid
    */
+  /** Most nodes in one DNS entry. */
+  public static final int MAX_NODES_PER_ENTRY = 1024;
+
   public static List<DnsNode> decompress(String base64Content)
       throws UnknownHostException {
     Bytes data = EncodeUtils.decode64(base64Content);
     SimpleDecoder dec = new SimpleDecoder(data.toArray());
 
-    // Read the number of nodes
-    int nodeCount = dec.readInt();
+    // Read the number of nodes - a claim of the (DNS) publisher, bounded before anything is allocated
+    int nodeCount = dec.readCount(MAX_NODES_PER_ENTRY, 1 + 2 + 2 + 4);
     List<DnsNode> dnsNodes = new ArrayList<>(nodeCount);
     
     for (int i = 0; i < nodeCount; i++) {

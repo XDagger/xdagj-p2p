@@ -230,7 +230,7 @@ public class MessageFactoryTest {
         io.xdag.p2p.discover.Node fromNode = new io.xdag.p2p.discover.Node(
             fromId, new java.net.InetSocketAddress("127.0.0.1", 9001)
         );
-        Bytes targetId = Bytes.random(64);
+        Bytes targetId = Bytes.random(KadFindNodeMessage.TARGET_LENGTH);
         KadFindNodeMessage originalMsg = new KadFindNodeMessage(fromNode, targetId);
         SimpleEncoder enc = new SimpleEncoder();
         originalMsg.encode(enc);

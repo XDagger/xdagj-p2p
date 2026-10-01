@@ -76,7 +76,8 @@ public class KadPongMessageTest {
     @Test
     public void testEncodeDecodeRoundTrip() {
         // Test that encoding and then decoding produces equivalent message
-        KadPongMessage original = new KadPongMessage((Node) null);
+        Node from = new Node("0x" + "ab".repeat(20), "10.0.0.1", null, 30303);
+        KadPongMessage original = new KadPongMessage(from, org.apache.tuweni.bytes.Bytes32.random());
         
         // Get the encoded body
         byte[] encoded = original.getBody();
@@ -90,6 +91,8 @@ public class KadPongMessageTest {
         assertEquals(original.getNetworkId(), decoded.getNetworkId());
         assertEquals(original.getNetworkVersion(), decoded.getNetworkVersion());
         assertEquals(original.getTimestamp(), decoded.getTimestamp());
+        assertEquals(original.getEcho(), decoded.getEcho());
+        assertEquals(from.getId(), decoded.getFrom().getId());
     }
 
     @Test

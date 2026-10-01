@@ -34,6 +34,9 @@ import io.xdag.p2p.PeerClient;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.discover.NodeManager;
+import io.xdag.p2p.message.node.HandshakeMessage;
+import io.xdag.p2p.utils.NetUtils;
+import io.netty.util.AttributeKey;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
@@ -57,7 +60,7 @@ public class ChannelManager {
 
     private final P2pConfig config;
     private final NodeManager nodeManager;
-    private PeerClient peerClient;
+    private volatile PeerClient peerClient;
 
     @Getter
     private final Map<InetSocketAddress, Channel> channels = new ConcurrentHashMap<>();
@@ -76,6 +79,40 @@ public class ChannelManager {
     private final AtomicInteger passivePeersCount = new AtomicInteger(0);
     private final AtomicInteger activePeersCount = new AtomicInteger(0);
     private final AtomicInteger connectingPeersCount = new AtomicInteger(0);
+
+    // ---- admission control: every TCP connection, from the moment it is accepted or dialled ----
+    /** Marks a connection that holds a slot in the counters below. */
+    static final AttributeKey<ConnectionSlot> SLOT = AttributeKey.valueOf("p2p.slot");
+    private final Object admissionLock = new Object();
+    private final Map<InetAddress, Integer> connectionsPerIp = new java.util.HashMap<>();
+    private final Map<String, Integer> connectionsPerSubnet = new java.util.HashMap<>();
+    private int inboundConnections;
+    private int pendingInbound;
+    private int totalConnections;
+    /** Addresses that turned out to be this node itself; never dialled again. */
+    private final Set<InetSocketAddress> selfAddresses = ConcurrentHashMap.newKeySet();
+    /** Upper bound on remembered bans: the map must not grow with the number of addresses that misbehave. */
+    private static final int MAX_BAN_ENTRIES = 50_000;
+    private static final long MAX_BAN_TIME_MS = 30L * 24 * 60 * 60 * 1000;
+
+    /** One admitted TCP connection. */
+    static final class ConnectionSlot {
+        final InetAddress address;
+        final boolean inbound;
+        boolean pending;
+
+        ConnectionSlot(InetAddress address, boolean inbound) {
+            this.address = address;
+            this.inbound = inbound;
+            this.pending = inbound;
+        }
+    }
+
+    /** Why a connection was not admitted (null: it was). */
+    public enum Refusal {
+        BANNED, NOT_A_CONFIGURED_PEER, TOO_MANY_CONNECTIONS, TOO_MANY_PENDING, TOO_MANY_FROM_IP, TOO_MANY_FROM_SUBNET,
+        SHUTDOWN
+    }
 
     // Cached local NodeId for deterministic duplicate connection resolution
     private volatile String localNodeId;
@@ -110,9 +147,14 @@ public class ChannelManager {
     }
 
     /**
-     * Trigger an immediate connection attempt without waiting for the next scheduled run.
+     * Trigger an immediate connection attempt without waiting for the next scheduled run. Does nothing before
+     * {@link #start} (there is nothing to dial with yet, and the node table is not there either) and after
+     * {@link #stop}.
      */
     public void triggerImmediateConnect() {
+        if (peerClient == null || poolLoopExecutor.isShutdown()) {
+            return;
+        }
         try {
             poolLoopExecutor.execute(this::connectLoop);
         } catch (Exception e) {
@@ -148,7 +190,7 @@ public class ChannelManager {
 
         // Check whitelist
         if (whitelist.contains(inetAddress)) {
-            log.info("Attempted to ban whitelisted node {}, ignoring", inetAddress);
+            log.debug("Attempted to ban whitelisted node {}, ignoring", inetAddress);
             return;
         }
 
@@ -160,20 +202,25 @@ public class ChannelManager {
         int currentCount = count.incrementAndGet();
 
         // Apply graduated ban duration for repeat offenders
-        long adjustedBanTime = banTimeMs;
+        long adjustedBanTime = Math.min(banTimeMs, MAX_BAN_TIME_MS);
         if (currentCount > 1) {
-            // Double ban time for each repeat offense, up to 30 days max
-            adjustedBanTime = Math.min(banTimeMs * (long) Math.pow(2, currentCount - 1),
-                                       30L * 24 * 60 * 60 * 1000);
+            // Double ban time for each repeat offense, up to 30 days max. Computed by shifting with a bound:
+            // the former banTimeMs * (long) Math.pow(2, count - 1) overflowed after some 48 offences, the result
+            // went negative, Math.min() picked it, and the ban expired before it began.
+            int doublings = Math.min(currentCount - 1, 40);
+            adjustedBanTime = adjustedBanTime >= (MAX_BAN_TIME_MS >> doublings)
+                    ? MAX_BAN_TIME_MS
+                    : adjustedBanTime << doublings;
             banExpiry = now + adjustedBanTime;
-            log.info("Repeat offender {} (count: {}), increasing ban duration to {}ms",
+            log.debug("Repeat offender {} (count: {}), increasing ban duration to {}ms",
                      inetAddress, currentCount, adjustedBanTime);
         }
+        pruneBans(now);
 
         BanInfo banInfo = new BanInfo(inetAddress, banExpiry, currentCount);
         bannedNodes.put(inetAddress, banInfo);
 
-        log.info("Banned node {} - count: {}, duration: {}, expires: {}",
+        log.debug("Banned node {} - count: {}, duration: {}, expires: {}",
                  inetAddress, currentCount, formatDuration(adjustedBanTime), banExpiry);
 
         // Close any existing connections from this IP - optimized to avoid stream
@@ -181,6 +228,167 @@ public class ChannelManager {
             if (ch.getInetAddress() != null && ch.getInetAddress().equals(inetAddress)) {
                 log.debug("Closing existing connection from banned node: {}", ch.getRemoteAddress());
                 ch.closeWithoutBan(); // Use closeWithoutBan() to prevent infinite recursion
+            }
+        }
+    }
+
+    /** Forget expired bans (and, if there are still too many, the offence counters of addresses not banned now). */
+    private void pruneBans(long now) {
+        if (bannedNodes.size() < MAX_BAN_ENTRIES && banCounts.size() < MAX_BAN_ENTRIES) {
+            return;
+        }
+        bannedNodes.values().removeIf(info -> info.banExpiryTimestamp() <= now);
+        banCounts.keySet().removeIf(address -> !bannedNodes.containsKey(address));
+    }
+
+    // =====================================================================================================
+    // Admission control
+    // =====================================================================================================
+
+    /**
+     * Decide whether a new TCP connection may exist, and if so reserve its slot. Called for every accepted
+     * connection before any handler is installed, and for every connection this node dials.
+     *
+     * <p>Limits: bans; in a closed network only configured peers; total and inbound connections; inbound
+     * connections that have not finished the handshake; connections per IP address and per network. Configured
+     * peers are exempt from the per-address limits (the operator chose them) but not from the totals.
+     *
+     * @return null if admitted, otherwise the reason
+     */
+    public Refusal admit(io.netty.channel.Channel nettyChannel, InetAddress address, boolean inbound) {
+        if (address == null) {
+            return Refusal.NOT_A_CONFIGURED_PEER;
+        }
+        boolean configured = config.isConfiguredPeer(address);
+        if (isBanned(address)) {
+            return Refusal.BANNED;
+        }
+        if (!config.isPermissionless() && !configured) {
+            return Refusal.NOT_A_CONFIGURED_PEER;
+        }
+        String subnet = NetUtils.subnetKey(address);
+        synchronized (admissionLock) {
+            if (totalConnections >= config.getMaxConnections() + config.getMaxPendingHandshakes()) {
+                return Refusal.TOO_MANY_CONNECTIONS;
+            }
+            if (inbound) {
+                if (inboundConnections - pendingInbound >= config.getMaxInboundConnections() && !configured) {
+                    return Refusal.TOO_MANY_CONNECTIONS;
+                }
+                if (pendingInbound >= config.getMaxPendingHandshakes()) {
+                    return Refusal.TOO_MANY_PENDING;
+                }
+            }
+            if (!configured) {
+                if (connectionsPerIp.getOrDefault(address, 0) >= config.getMaxConnectionsPerIp()) {
+                    return Refusal.TOO_MANY_FROM_IP;
+                }
+                if (connectionsPerSubnet.getOrDefault(subnet, 0) >= config.getMaxConnectionsPerSubnet()) {
+                    return Refusal.TOO_MANY_FROM_SUBNET;
+                }
+            }
+            ConnectionSlot slot = new ConnectionSlot(address, inbound);
+            totalConnections++;
+            connectionsPerIp.merge(address, 1, Integer::sum);
+            connectionsPerSubnet.merge(subnet, 1, Integer::sum);
+            if (inbound) {
+                inboundConnections++;
+                pendingInbound++;
+            }
+            nettyChannel.attr(SLOT).set(slot);
+        }
+        nettyChannel.closeFuture().addListener(f -> release(nettyChannel));
+        return null;
+    }
+
+    private void release(io.netty.channel.Channel nettyChannel) {
+        ConnectionSlot slot = nettyChannel.attr(SLOT).getAndSet(null);
+        if (slot == null) {
+            return;
+        }
+        synchronized (admissionLock) {
+            totalConnections--;
+            connectionsPerIp.computeIfPresent(slot.address, (k, v) -> v <= 1 ? null : v - 1);
+            connectionsPerSubnet.computeIfPresent(NetUtils.subnetKey(slot.address), (k, v) -> v <= 1 ? null : v - 1);
+            if (slot.inbound) {
+                inboundConnections--;
+                if (slot.pending) {
+                    pendingInbound--;
+                }
+            }
+        }
+    }
+
+    /** The handshake of an inbound connection is done: it no longer counts as pending. */
+    private void handshakeFinished(io.netty.channel.Channel nettyChannel) {
+        ConnectionSlot slot = nettyChannel.attr(SLOT).get();
+        if (slot == null) {
+            return;
+        }
+        synchronized (admissionLock) {
+            if (slot.pending) {
+                slot.pending = false;
+                pendingInbound--;
+            }
+        }
+    }
+
+    /** Whether one more connection to this address would be admitted right now (checked before dialling). */
+    private boolean mayDial(InetAddress address) {
+        if (address == null || isBanned(address)) {
+            return false;
+        }
+        boolean configured = config.isConfiguredPeer(address);
+        if (!config.isPermissionless() && !configured) {
+            return false;
+        }
+        if (!configured && !config.isAllowPrivateAddresses() && !NetUtils.isPublicAddress(address)) {
+            return false;
+        }
+        synchronized (admissionLock) {
+            return configured
+                    || (connectionsPerIp.getOrDefault(address, 0) < config.getMaxConnectionsPerIp()
+                    && connectionsPerSubnet.getOrDefault(NetUtils.subnetKey(address), 0) < config.getMaxConnectionsPerSubnet());
+        }
+    }
+
+    /** Number of TCP connections that currently hold a slot (handshake done or not). */
+    public int getTotalConnections() {
+        synchronized (admissionLock) {
+            return totalConnections;
+        }
+    }
+
+    public int getInboundConnections() {
+        synchronized (admissionLock) {
+            return inboundConnections;
+        }
+    }
+
+    public int getPendingInboundConnections() {
+        synchronized (admissionLock) {
+            return pendingInbound;
+        }
+    }
+
+    /**
+     * The handshake showed that the other end is this very node (it dialled one of its own addresses, e.g.
+     * because another node announced it). The address is not dialled again.
+     */
+    public void onSelfConnection(InetSocketAddress remote, boolean outbound) {
+        if (outbound && remote != null) {
+            selfAddresses.add(remote);
+        }
+    }
+
+    /**
+     * Drop every connection that is not with a configured peer. Called when a network is closed at run time
+     * ({@link P2pConfig#setPermissionless} false).
+     */
+    public void closeUnconfiguredPeers() {
+        for (Channel ch : new ArrayList<>(channels.values())) {
+            if (ch.getInetAddress() != null && !config.isConfiguredPeer(ch.getInetAddress())) {
+                ch.closeWithoutBan();
             }
         }
     }
@@ -337,45 +545,63 @@ public class ChannelManager {
 
 
     private void connectLoop() {
+        try {
+            doConnectLoop();
+        } catch (Throwable t) {
+            // an exception that escapes would silently cancel the periodic task
+            log.warn("connect loop failed: {}", t.toString());
+        }
+    }
+
+    private void doConnectLoop() {
         if (activePeers.size() >= config.getMaxConnections()) {
             return;
         }
 
-        int desiredConnections = config.getMinConnections() - activePeers.size();
-        if (desiredConnections <= 0) {
-            return;
+        // Nodes the operator listed to stay connected to ("active nodes") are dialled whenever they are missing,
+        // on top of the minimum number of connections. In a closed network they and the seeds are all there is.
+        List<Node> candidates = new ArrayList<>();
+        int wanted = 0;
+        for (InetSocketAddress active : config.getActiveNodes()) {
+            if (active.getAddress() != null && !hasActiveConnectionTo(active)) {
+                candidates.add(new Node(null, active));
+                wanted++;
+            }
         }
-        log.debug(
-                "Pool before-connect: active={}, min={}, desired={}",
-                activePeers.size(),
-                config.getMinConnections(),
-                desiredConnections);
 
-        List<Node> connectableNodes = new ArrayList<>(nodeManager.getConnectableNodes());
-
-        if (connectableNodes.isEmpty()) {
-            // Fallback: directly try boot seeds to bootstrap TCP handshake (independent of KAD)
-            log.debug("No discovered nodes yet; will try boot seeds via TCP");
+        int desiredConnections = Math.max(0, config.getMinConnections() - activePeers.size());
+        if (desiredConnections > 0) {
+            List<Node> connectableNodes = new ArrayList<>();
+            if (config.isPermissionless()) {
+                connectableNodes.addAll(nodeManager.getConnectableNodes());
+            }
+            // The seeds are always candidates: a node whose discovered neighbours all went away must be able to
+            // find its way back, and in a closed network there are no discovered neighbours at all.
             try {
                 connectableNodes.addAll(nodeManager.getBootNodes());
             } catch (Throwable ignore) {
                 // ignore if not available
             }
+            Collections.shuffle(connectableNodes);
+            candidates.addAll(connectableNodes);
         }
-
-        Collections.shuffle(connectableNodes);
+        wanted += desiredConnections;
+        if (wanted <= 0) {
+            return;
+        }
+        log.debug("Pool before-connect: active={}, min={}, wanted={}", activePeers.size(), config.getMinConnections(), wanted);
 
         // Get home node's port to avoid self-connection
         int homePort = config.getPort();
 
         int connectCount = 0;
-        for (Node node : connectableNodes) {
-            if (connectCount >= desiredConnections) {
+        for (Node node : candidates) {
+            if (connectCount >= wanted) {
                 break;
             }
 
             InetSocketAddress address = node.getPreferInetSocketAddress();
-            if (address == null) {
+            if (address == null || address.getAddress() == null) {
                 continue;
             }
 
@@ -385,10 +611,18 @@ public class ChannelManager {
                 log.debug("Skipping self-connection to {}", address);
                 continue;
             }
+            if (selfAddresses.contains(address)) {
+                continue;
+            }
 
-            // Skip if already connected to this Node ID (prevents duplicate connections in local testing)
-            if (node.getId() != null && connectedNodeIds.containsKey(node.getId())) {
+            // Skip if already connected to this node. The discovery layer names a node by the hex form of its
+            // address, the handshake by the Base58 form: compare like with like.
+            if (node.getId() != null && connectedNodeIds.containsKey(toPeerId(node.getId()))) {
                 log.debug("Skipping connection to {} - already connected to Node ID {}", address, node.getId());
+                continue;
+            }
+
+            if (!mayDial(address.getAddress())) {
                 continue;
             }
 
@@ -410,17 +644,26 @@ public class ChannelManager {
                 continue;
             }
 
-            // Skip banned nodes
-            if (isBanned(address.getAddress())) {
-                log.debug("Skipping banned node: {}", address);
-                continue;
-            }
-
             log.debug("Attempting to connect to {}", address);
             connectAsync(node, false);
             connectCount++;
         }
 
+    }
+
+    /**
+     * The handshake form (Base58Check of the 20-byte address) of a node id given in the discovery form
+     * ("0x" + hex). Anything else is returned unchanged.
+     */
+    static String toPeerId(String nodeId) {
+        if (!Node.isValidId(nodeId)) {
+            return nodeId;
+        }
+        try {
+            return Base58.encodeCheck(org.apache.tuweni.bytes.Bytes.fromHexString(nodeId));
+        } catch (RuntimeException e) {
+            return nodeId;
+        }
     }
 
 
@@ -463,65 +706,18 @@ public class ChannelManager {
             }
         }
 
-        // Additional check: Look through all connected nodes to see if any has
-        // a remoteAddress matching our target (handles outbound connections)
-        InetAddress targetHost = targetAddress.getAddress();
-        int targetPort = targetAddress.getPort();
-
-        // DIAGNOSTIC: Log the current state of connectedNodeIds
-        if (log.isDebugEnabled()) {
-            log.debug("hasActiveConnectionTo({}) - checking connectedNodeIds (size={})", targetAddress, connectedNodeIds.size());
-            for (Map.Entry<String, Channel> entry : connectedNodeIds.entrySet()) {
-                Channel ch = entry.getValue();
-                InetSocketAddress addr = ch.getRemoteAddress();
-                boolean isActive = ch.getCtx() != null && ch.getCtx().channel() != null && ch.getCtx().channel().isActive();
-                log.debug("  connectedNodeIds[{}]: remoteAddr={}, nodeId={}, isActive={}",
-                        entry.getKey().substring(0, Math.min(8, entry.getKey().length())) + "...",
-                        addr, ch.getNodeId(), isActive);
-            }
-        }
-
+        // A node that dialled us is connected from an ephemeral port; what identifies it is the address it
+        // listens on, which it announced in the handshake. (This used to be guessed: on the loopback interface
+        // any connection from the same IP counted as "this node", so a node on a single machine never connected
+        // to a second neighbour.)
         for (Channel channel : connectedNodeIds.values()) {
+            if (!isNettyChannelOpen(channel)) {
+                continue;
+            }
             InetSocketAddress remoteAddr = channel.getRemoteAddress();
-            if (remoteAddr != null) {
-                // Exact match (works for outbound connections where remoteAddress = target)
-                if (remoteAddr.getAddress().equals(targetHost) &&
-                    remoteAddr.getPort() == targetPort) {
-                    // Verify the channel is actually active
-                    if (channel.getCtx() != null &&
-                        channel.getCtx().channel() != null &&
-                        channel.getCtx().channel().isActive()) {
-                        log.debug("hasActiveConnectionTo({}) = TRUE (exact match in connectedNodeIds)", targetAddress);
-                        return true;
-                    }
-                }
-
-                // For loopback/local addresses: if we have any active connection from the same IP,
-                // and that connection has a nodeId, assume it's the same node
-                // This handles the case where node2 connects to node1 (inbound), then node1 tries to connect to node2
-                if (targetHost.isLoopbackAddress() &&
-                    remoteAddr.getAddress().equals(targetHost)) {
-                    if (channel.getNodeId() != null && !channel.getNodeId().isEmpty()) {
-                        // We have an active connection from this loopback IP with a known nodeId
-                        // Very likely the same node, skip reconnection attempt
-                        if (channel.getCtx() != null &&
-                            channel.getCtx().channel() != null &&
-                            channel.getCtx().channel().isActive()) {
-                            log.debug("hasActiveConnectionTo({}) = TRUE (loopback match: same IP {}, has nodeId {})",
-                                    targetAddress, remoteAddr, channel.getNodeId());
-                            return true;
-                        } else {
-                            log.debug("hasActiveConnectionTo({}) - loopback match but channel inactive (remoteAddr={}, nodeId={}, ctx={}, netty={})",
-                                    targetAddress, remoteAddr, channel.getNodeId(),
-                                    channel.getCtx() != null,
-                                    channel.getCtx() != null && channel.getCtx().channel() != null ?
-                                        channel.getCtx().channel().isActive() : "null");
-                        }
-                    } else {
-                        log.debug("hasActiveConnectionTo({}) - loopback IP match but no nodeId (remoteAddr={})",
-                                targetAddress, remoteAddr);
-                    }
-                }
+            if (targetAddress.equals(remoteAddr) || targetAddress.equals(channel.getListenAddress())) {
+                log.debug("hasActiveConnectionTo({}) = TRUE (connected node {})", targetAddress, channel.getNodeId());
+                return true;
             }
         }
 
@@ -539,7 +735,7 @@ public class ChannelManager {
 
         if (!peersToDisconnect.isEmpty()) {
             Channel peerToDisconnect = peersToDisconnect.get(new Random().nextInt(peersToDisconnect.size()));
-            log.info("Max connection limit reached. Disconnecting a random peer without penalty: {}", peerToDisconnect.getRemoteAddress());
+            log.debug("Max connection limit reached. Disconnecting a random peer without penalty: {}", peerToDisconnect.getRemoteAddress());
             peerToDisconnect.closeWithoutBan();
         }
     }
@@ -555,9 +751,10 @@ public class ChannelManager {
             return null;  // Don't even attempt the connection
         }
 
-        if (address != null) {
-            recentConnections.put(address, System.currentTimeMillis());
+        if (address == null || address.getAddress() == null || peerClient == null) {
+            return null;
         }
+        recentConnections.put(address, System.currentTimeMillis());
         return peerClient.connect(node, future -> {
             if (!future.isSuccess()) {
                 log.warn("Connect to peer {} fail, cause:{}", node.getPreferInetSocketAddress(),
@@ -613,9 +810,9 @@ public class ChannelManager {
                     boolean newIsOutbound = channel.isActive();
                     boolean existingIsOutbound = existingChannel.isActive();
 
-                    log.info("Duplicate connection to NodeId {}. Deterministic resolution: localId={}, remoteId={}, preferOutbound={}",
+                    log.debug("Duplicate connection to NodeId {}. Deterministic resolution: localId={}, remoteId={}, preferOutbound={}",
                              nodeId, localNodeId.substring(0, 8) + "...", nodeId.substring(0, 8) + "...", preferOutbound);
-                    log.info("  Existing: {} (outbound={}), New: {} (outbound={})",
+                    log.debug("  Existing: {} (outbound={}), New: {} (outbound={})",
                              existingChannel.getRemoteAddress(), existingIsOutbound,
                              channel.getRemoteAddress(), newIsOutbound);
 
@@ -633,13 +830,13 @@ public class ChannelManager {
                             // BUG-P2P-004 FIX: Both outbound (our preferred direction)
                             // Keep NEW connection (just completed handshake, guaranteed alive)
                             // Existing might be half-open/stale
-                            log.info("  Both connections are OUTBOUND (our preferred) - keeping NEW (guaranteed alive)");
+                            log.debug("  Both connections are OUTBOUND (our preferred) - keeping NEW (guaranteed alive)");
                             channelToKeep = channel;
                             channelToClose = existingChannel;
                         } else {
                             // BUG-P2P-004 FIX: Both inbound (NOT our preferred direction)
                             // Keep NEW connection (just completed handshake, guaranteed alive)
-                            log.info("  Both connections are INBOUND but we prefer OUTBOUND - keeping NEW (guaranteed alive)");
+                            log.debug("  Both connections are INBOUND but we prefer OUTBOUND - keeping NEW (guaranteed alive)");
                             channelToKeep = channel;
                             channelToClose = existingChannel;
                         }
@@ -656,13 +853,13 @@ public class ChannelManager {
                         } else if (!existingIsOutbound && !newIsOutbound) {
                             // BUG-P2P-004 FIX: Both inbound (our preferred direction)
                             // Keep NEW connection (just completed handshake, guaranteed alive)
-                            log.info("  Both connections are INBOUND (our preferred) - keeping NEW (guaranteed alive)");
+                            log.debug("  Both connections are INBOUND (our preferred) - keeping NEW (guaranteed alive)");
                             channelToKeep = channel;
                             channelToClose = existingChannel;
                         } else {
                             // BUG-P2P-004 FIX: Both outbound (NOT our preferred direction)
                             // Keep NEW connection (just completed handshake, guaranteed alive)
-                            log.info("  Both connections are OUTBOUND but we prefer INBOUND - keeping NEW (guaranteed alive)");
+                            log.debug("  Both connections are OUTBOUND but we prefer INBOUND - keeping NEW (guaranteed alive)");
                             channelToKeep = channel;
                             channelToClose = existingChannel;
                         }
@@ -675,19 +872,19 @@ public class ChannelManager {
                 }
 
                 if (channelToClose == channel) {
-                    log.info("  → Closing NEW connection, keeping existing");
+                    log.debug("  → Closing NEW connection, keeping existing");
                     shouldClose[0] = true;
                     result[0] = existingChannel;
                     return existingChannel;
                 } else {
-                    log.info("  → Closing EXISTING connection, keeping new");
+                    log.debug("  → Closing EXISTING connection, keeping new");
                     cleanupStaleChannel(existingChannel);
                     result[0] = channel;
                     return channel;
                 }
             } else {
                 // Existing channel is stale, replace it
-                log.info("Replacing stale connection for NodeId {}. Old: {}, New: {}",
+                log.debug("Replacing stale connection for NodeId {}. Old: {}, New: {}",
                          nodeId, existingChannel.getRemoteAddress(), channel.getRemoteAddress());
                 cleanupStaleChannel(existingChannel);
                 result[0] = channel;
@@ -721,6 +918,11 @@ public class ChannelManager {
      *   <li>isOpen() - False when channel is closed</li>
      * </ul>
      */
+    private boolean isNettyChannelOpen(Channel channel) {
+        return channel != null && channel.getCtx() != null && channel.getCtx().channel() != null
+                && channel.getCtx().channel().isActive();
+    }
+
     private boolean isNettyChannelActive(Channel channel) {
         if (channel == null || channel.getCtx() == null || channel.getCtx().channel() == null) {
             return false;
@@ -745,7 +947,7 @@ public class ChannelManager {
                 passivePeersCount.incrementAndGet();
             }
 
-            log.info("New channel connected: {} (NodeId: {}). Total channels: {}, Unique peers: {}",
+            log.debug("New channel connected: {} (NodeId: {}). Total channels: {}, Unique peers: {}",
                      channel.getRemoteAddress(), nodeId, channels.size(), connectedNodeIds.size());
 
             // Notify application handlers
@@ -809,11 +1011,31 @@ public class ChannelManager {
      * @param nodeId the peer's node ID (for duplicate connection detection)
      * @param isOutbound true if this is an outbound connection (we initiated), false if inbound (peer initiated)
      */
+    public void markHandshakeSuccess(ChannelHandlerContext ctx, HandshakeMessage handshake, boolean isOutbound) {
+        InetSocketAddress remote = (InetSocketAddress) ctx.channel().remoteAddress();
+        Channel ch = register(remote, ctx, handshake.getPeerId(), isOutbound, handshake);
+        if (ch == null) {
+            throw new IllegalStateException("connection could not be registered");
+        }
+    }
+
     public void markHandshakeSuccess(java.net.InetSocketAddress remote, ChannelHandlerContext ctx, String nodeId, boolean isOutbound) {
+        register(remote, ctx, nodeId, isOutbound, null);
+    }
+
+    private Channel register(java.net.InetSocketAddress remote, ChannelHandlerContext ctx, String nodeId, boolean isOutbound,
+            HandshakeMessage handshake) {
         try {
             Channel ch = new Channel(this);
             ch.setP2pConfig(config);
             ch.setChannelHandlerContext(ctx);
+            if (handshake != null && remote != null) {
+                ch.setPeer(handshake.getPeer(remote.getAddress().getHostAddress()));
+                if (remote.getAddress() != null && handshake.getPort() > 0 && handshake.getPort() <= 65535) {
+                    ch.setListenAddress(new InetSocketAddress(remote.getAddress(), handshake.getPort()));
+                }
+            }
+            handshakeFinished(ctx.channel());
             // Set nodeId BEFORE calling onChannelActive() so duplicate detection works
             ch.setNodeId(nodeId);
             ch.setFinishHandshake(true);
@@ -825,8 +1047,10 @@ public class ChannelManager {
             int min = config.getMinConnections();
             int nowDesired = Math.max(0, min - nowActive);
             log.debug("Pool after-connect: active={}, min={}, desired={}", nowActive, min, nowDesired);
+            return ch;
         } catch (Exception e) {
             log.warn("Failed to mark handshake success for {}: {}", remote, e.getMessage());
+            return null;
         }
     }
 
@@ -872,7 +1096,7 @@ public class ChannelManager {
                 passivePeersCount.decrementAndGet();
             }
 
-            log.info("Channel disconnected: {}. Total channels: {}", channel.getRemoteAddress(), channels.size());
+            log.debug("Channel disconnected: {}. Total channels: {}", channel.getRemoteAddress(), channels.size());
             // Notify application handlers
             try {
                 for (var h : config.getHandlerList()) {

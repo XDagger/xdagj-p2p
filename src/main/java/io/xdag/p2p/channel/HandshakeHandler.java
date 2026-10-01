@@ -26,11 +26,14 @@ package io.xdag.p2p.channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelPipeline;
+import io.netty.handler.codec.DecoderException;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.xdag.crypto.encoding.Base58;
+import io.xdag.crypto.hash.HashUtils;
 import io.xdag.crypto.keys.AddressUtils;
 import io.xdag.crypto.keys.ECKeyPair;
 import io.xdag.p2p.config.P2pConfig;
+import io.xdag.p2p.config.P2pConstant;
 import io.xdag.p2p.handler.node.KeepAliveHandler;
 import io.xdag.p2p.handler.node.XdagBusinessHandler;
 import io.xdag.p2p.message.Message;
@@ -39,15 +42,40 @@ import io.xdag.p2p.message.node.HandshakeMessage;
 import io.xdag.p2p.message.node.HelloMessage;
 import io.xdag.p2p.message.node.InitMessage;
 import io.xdag.p2p.message.node.WorldMessage;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.tuweni.bytes.Bytes;
 
+/**
+ * Mutual authentication of the two ends of a TCP connection.
+ *
+ * <pre>
+ *   dialling side (A)                         accepting side (B)
+ *   INIT(nonceA)                  ------&gt;
+ *                                 &lt;------     INIT(nonceB)
+ *                                 &lt;------     HELLO(.., secret = nonceA, signed by B)
+ *   WORLD(.., secret = H(nonceB | id of B), signed by A)   ------&gt;
+ * </pre>
+ *
+ * <p>Each side signs a value the <em>other</em> side chose for this connection, so a recorded message is of no use
+ * later. (Until frame version 2 only the dialling side chose a nonce and signed it itself in WORLD; anyone who
+ * had once been dialled by a node could replay that node's WORLD for the five minutes its timestamp was
+ * accepted and pass as that node.) A's signature also covers the identity of the node it believes it is talking
+ * to, so a third node cannot hand B a WORLD that A produced for a connection to somebody else.
+ *
+ * <p>What the handshake does not do is protect the connection afterwards: messages are neither encrypted nor
+ * authenticated. Everything the application receives has to be verified on its own merits.
+ */
 @Slf4j
 public class HandshakeHandler extends ChannelInboundHandlerAdapter {
+
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final P2pConfig config;
     private final ChannelManager channelManager;
@@ -56,7 +84,10 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
     private final AtomicBoolean isHandshakeDone = new AtomicBoolean(false);
 
     private ScheduledFuture<?> timeoutFuture;
+    /** The nonce this side chose for the other side to sign. */
     private byte[] secret;
+    /** The nonce the other side chose for this side to sign. */
+    private byte[] peerSecret;
 
     public HandshakeHandler(P2pConfig config, ChannelManager channelManager, ECKeyPair myKey, boolean isOutbound) {
         this.config = config;
@@ -70,23 +101,29 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
         log.debug("Handshake handler active for channel: {}", ctx.channel().remoteAddress());
         timeoutFuture = ctx.executor().schedule(() -> {
             if (!isHandshakeDone.get()) {
-                log.warn("Handshake timeout, disconnecting channel: {}", ctx.channel().remoteAddress());
+                log.debug("Handshake timeout, disconnecting channel: {}", ctx.channel().remoteAddress());
                 ctx.close();
             }
-        }, config.getNetHandshakeExpiry(), TimeUnit.MILLISECONDS);
+        }, config.getNetHandshakeTimeout(), TimeUnit.MILLISECONDS);
 
         if (isOutbound) {
-            startHandshake(ctx);
+            sendInit(ctx);
         }
         super.channelActive(ctx);
     }
 
-    private void startHandshake(ChannelHandlerContext ctx) {
-        this.secret = new byte[InitMessage.SECRET_LENGTH];
-        new SecureRandom().nextBytes(secret);
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        if (timeoutFuture != null) {
+            timeoutFuture.cancel(false);
+        }
+        super.channelInactive(ctx);
+    }
 
-        InitMessage initMessage = new InitMessage(secret, System.currentTimeMillis());
-        writeMessage(ctx, initMessage);
+    private void sendInit(ChannelHandlerContext ctx) {
+        this.secret = new byte[InitMessage.SECRET_LENGTH];
+        RANDOM.nextBytes(secret);
+        writeMessage(ctx, new InitMessage(secret, System.currentTimeMillis()));
     }
 
     @Override
@@ -99,9 +136,9 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
         XdagFrame frame = (XdagFrame) msg;
         MessageCode code = MessageCode.of(frame.getPacketType());
 
-        if (code == null) {
-            log.warn("Received unknown message code during handshake: {}", frame.getPacketType());
-            ctx.close();
+        // handshake messages are small and never split or compressed
+        if (code == null || frame.isChunked() || frame.getCompressType() != XdagFrame.COMPRESS_NONE) {
+            fail(ctx, "unexpected frame during handshake: type " + frame.getPacketType());
             return;
         }
 
@@ -109,64 +146,118 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
             case HANDSHAKE_INIT -> handleInit(ctx, frame.getBody());
             case HANDSHAKE_HELLO -> handleHello(ctx, frame.getBody());
             case HANDSHAKE_WORLD -> handleWorld(ctx, frame.getBody());
-            default -> {
-                log.warn("Received unexpected message during handshake: {}", code);
-                ctx.close();
-            }
+            case DISCONNECT -> ctx.close();
+            default -> fail(ctx, "unexpected message during handshake: " + code);
         }
     }
 
     private void handleInit(ChannelHandlerContext ctx, byte[] body) {
-        if (isOutbound) {
-            log.warn("Received INIT message on an outbound connection. Ignoring.");
+        if (peerSecret != null) {
+            fail(ctx, "second INIT");
             return;
         }
-
-        InitMessage initMessage = new InitMessage(body);
-        if (!initMessage.validate()) {
-            log.warn("Invalid INIT message received.");
-            ctx.close();
+        InitMessage initMessage;
+        try {
+            initMessage = new InitMessage(body);
+        } catch (RuntimeException e) {
+            fail(ctx, "malformed INIT");
             return;
         }
+        if (!initMessage.validate()
+                || Math.abs(System.currentTimeMillis() - initMessage.getTimestamp()) > config.getNetHandshakeExpiry()) {
+            fail(ctx, "invalid INIT");
+            return;
+        }
+        this.peerSecret = initMessage.getSecret();
 
-        this.secret = initMessage.getSecret();
-        HelloMessage helloMessage = createHelloMessage(secret);
-        writeMessage(ctx, helloMessage);
+        if (!isOutbound) {
+            // accepting side: issue our own challenge, then answer theirs
+            sendInit(ctx);
+            writeMessage(ctx, createHelloMessage(peerSecret));
+        }
+        // dialling side: this is the challenge of the accepting side; it is answered in WORLD, after HELLO
     }
 
     private void handleHello(ChannelHandlerContext ctx, byte[] body) {
         if (!isOutbound) {
-            log.warn("Received HELLO message on an inbound connection. Ignoring.");
+            fail(ctx, "HELLO on an inbound connection");
             return;
         }
-
-        HelloMessage helloMessage = new HelloMessage(body);
+        if (peerSecret == null) {
+            fail(ctx, "HELLO before INIT");
+            return;
+        }
+        HelloMessage helloMessage;
+        try {
+            helloMessage = new HelloMessage(body);
+        } catch (RuntimeException e) {
+            fail(ctx, "malformed HELLO");
+            return;
+        }
         if (!Arrays.equals(secret, helloMessage.getSecret()) || !helloMessage.validate(config)) {
-            log.warn("Invalid HELLO message received.");
-            ctx.close();
+            fail(ctx, "invalid HELLO");
+            return;
+        }
+        if (getMyPeerId().equals(helloMessage.getPeerId())) {
+            onSelfConnection(ctx);
             return;
         }
 
-        WorldMessage worldMessage = createWorldMessage(secret);
-        writeMessage(ctx, worldMessage);
-
+        writeMessage(ctx, createWorldMessage(bind(peerSecret, helloMessage.getPeerId())));
         handshakeComplete(ctx, helloMessage);
     }
 
     private void handleWorld(ChannelHandlerContext ctx, byte[] body) {
         if (isOutbound) {
-            log.warn("Received WORLD message on an outbound connection. Ignoring.");
+            fail(ctx, "WORLD on an outbound connection");
             return;
         }
-
-        WorldMessage worldMessage = new WorldMessage(body);
-        if (!Arrays.equals(secret, worldMessage.getSecret()) || !worldMessage.validate(config)) {
-            log.warn("Invalid WORLD message received.");
-            ctx.close();
+        if (secret == null) {
+            fail(ctx, "WORLD before INIT");
+            return;
+        }
+        WorldMessage worldMessage;
+        try {
+            worldMessage = new WorldMessage(body);
+        } catch (RuntimeException e) {
+            fail(ctx, "malformed WORLD");
+            return;
+        }
+        if (!Arrays.equals(bind(secret, getMyPeerId()), worldMessage.getSecret()) || !worldMessage.validate(config)) {
+            fail(ctx, "invalid WORLD");
+            return;
+        }
+        if (getMyPeerId().equals(worldMessage.getPeerId())) {
+            onSelfConnection(ctx);
             return;
         }
 
         handshakeComplete(ctx, worldMessage);
+    }
+
+    /**
+     * What the dialling side signs: the nonce of the accepting side together with the identity it expects there.
+     */
+    static byte[] bind(byte[] nonce, String peerId) {
+        return HashUtils.sha256(Bytes.concatenate(Bytes.wrap(nonce), Bytes.wrap(peerId.getBytes(StandardCharsets.UTF_8))))
+                .toArray();
+    }
+
+    private void onSelfConnection(ChannelHandlerContext ctx) {
+        log.debug("Connected to ourselves at {}, closing", ctx.channel().remoteAddress());
+        if (ctx.channel().remoteAddress() instanceof InetSocketAddress remote) {
+            channelManager.onSelfConnection(remote, isOutbound);
+        }
+        ctx.close();
+    }
+
+    /** The other side does not speak the protocol: close, and do not talk to that address again for a while. */
+    private void fail(ChannelHandlerContext ctx, String why) {
+        log.debug("Handshake with {} failed: {}", ctx.channel().remoteAddress(), why);
+        if (ctx.channel().remoteAddress() instanceof InetSocketAddress remote) {
+            channelManager.banNode(remote.getAddress(), P2pConstant.DEFAULT_BAN_TIME);
+        }
+        ctx.close();
     }
 
     private void handshakeComplete(ChannelHandlerContext ctx, HandshakeMessage msg) {
@@ -174,7 +265,7 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
             if (timeoutFuture != null) {
                 timeoutFuture.cancel(false);
             }
-            log.info("Handshake successful with peer: {}", msg.getPeerId());
+            log.debug("Handshake successful with peer: {}", msg.getPeerId());
 
             ChannelPipeline pipeline = ctx.pipeline();
             // Add handlers for post-handshake communication BEFORE registering the channel,
@@ -184,11 +275,13 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
             pipeline.addLast("xdagMessageHandler", new XdagMessageHandler(config));
             pipeline.addLast("businessHandler", new XdagBusinessHandler(config, channelManager));
             // Register channel to manager to count as active (this triggers app onConnect callbacks)
-            // Pass nodeId for duplicate connection detection
-            // Pass isOutbound to correctly identify connection direction
             try {
-                channelManager.markHandshakeSuccess((java.net.InetSocketAddress) ctx.channel().remoteAddress(), ctx, msg.getPeerId(), isOutbound);
-            } catch (Exception ignored) {}
+                channelManager.markHandshakeSuccess(ctx, msg, isOutbound);
+            } catch (Exception e) {
+                log.warn("Registering the connection with {} failed: {}", ctx.channel().remoteAddress(), e.getMessage());
+                ctx.close();
+                return;
+            }
 
             // Remove this handler from the pipeline
             pipeline.remove(this);
@@ -207,7 +300,7 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
                 config.getPort(),
                 config.getClientId(),
                 config.getCapabilities(),
-                0,
+                latestBlockNumber(),
                 secret,
                 myKey,
                 config.isEnableGenerateBlock(),
@@ -223,12 +316,20 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
                 config.getPort(),
                 config.getClientId(),
                 config.getCapabilities(),
-                0,
+                latestBlockNumber(),
                 secret,
                 myKey,
                 config.isEnableGenerateBlock(),
                 config.getNodeTag()
         );
+    }
+
+    private long latestBlockNumber() {
+        try {
+            return Math.max(0, config.getLatestBlockNumberSupplier().getAsLong());
+        } catch (RuntimeException e) {
+            return 0;
+        }
     }
 
     private void writeMessage(ChannelHandlerContext ctx, Message msg) {
@@ -238,7 +339,11 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        log.error("Exception in HandshakeHandler", cause);
-        ctx.close();
+        log.debug("Exception in HandshakeHandler for {}: {}", ctx.channel().remoteAddress(), cause.toString());
+        if (cause instanceof DecoderException) {
+            fail(ctx, "garbage instead of a handshake");
+        } else {
+            ctx.close();
+        }
     }
 }

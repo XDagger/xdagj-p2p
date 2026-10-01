@@ -136,6 +136,9 @@ public class Peer {
      * @param dec SimpleDecoder to read data from
      * @return decoded Peer instance
      */
+    /** Most capabilities a peer may list. */
+    public static final int MAX_CAPABILITIES = 32;
+
     public static Peer decode(SimpleDecoder dec) {
         byte networkId = dec.readByte();
         short networkVersion = dec.readShort();
@@ -144,8 +147,8 @@ public class Peer {
         int port = dec.readInt();
         String clientId = dec.readString();
         
-        // Decode capabilities array
-        int capabilitiesCount = dec.readInt();
+        // Decode capabilities array (the count is a claim of the sender: bounded before allocating)
+        int capabilitiesCount = dec.readCount(MAX_CAPABILITIES, 1);
         String[] capabilities = new String[capabilitiesCount];
         for (int i = 0; i < capabilitiesCount; i++) {
             capabilities[i] = dec.readString();

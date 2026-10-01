@@ -54,15 +54,57 @@ public class P2pConfig {
   private List<InetSocketAddress> seedNodes = new CopyOnWriteArrayList<>();
   private List<InetSocketAddress> activeNodes = new CopyOnWriteArrayList<>();
   private List<InetAddress> trustNodes = new CopyOnWriteArrayList<>();
-  private String ipV4 = getDefaultIpv4();
-  private String lanIpV4 = NetUtils.getLanIpV4();
-  private String ipV6 = NetUtils.getExternalIpV6();
+  /**
+   * Address this node announces to others. Creating a config never talks to the network: the default is the
+   * first LAN address. Set the public address explicitly, or call {@link #detectExternalIp()} to ask the
+   * "what is my address" services (third parties - that is a decision for the operator, not a default).
+   */
+  private String ipV4 = NetUtils.getLanIpV4();
+  private String lanIpV4 = ipV4;
+  private String ipV6;
   private int port = 16783;
+  /** Local address the TCP listener and the discovery socket bind to (null or empty: all interfaces). */
+  private String bindIp;
 
   private int minConnections = 8;
   private int maxConnections = 50;
   private boolean discoverEnable = true;
   private boolean disconnectionPolicyEnable = false;
+
+  // ---- admission control -------------------------------------------------------------------------------
+
+  /**
+   * false = closed network: connections are only accepted from, and made to, the configured seed / active /
+   * trust nodes, and nodes learnt by discovery are ignored. The application can switch this at run time.
+   */
+  private volatile boolean permissionless = true;
+  /** Most inbound connections (handshake done or not); the rest of {@link #maxConnections} is kept for outbound. */
+  private int maxInboundConnections = 40;
+  /** Most connections, in either direction, with one IP address. */
+  private int maxConnectionsPerIp = 2;
+  /** Most connections with one network (IPv4 /24, IPv6 /48): makes it expensive to surround a node. */
+  private int maxConnectionsPerSubnet = 8;
+  /** Most inbound connections that have not finished the handshake yet. */
+  private int maxPendingHandshakes = 32;
+  /** A connection that has not finished the handshake after this long is closed. */
+  private long netHandshakeTimeout = 10_000;
+  /**
+   * Whether private, loopback and other non-public addresses learnt from other nodes may be pinged and dialled.
+   * Off by default: otherwise any peer could point this node at localhost or at machines of its LAN. Turn it on
+   * for test networks that live on one machine or one LAN. Configured seed / active nodes are always allowed.
+   */
+  private boolean allowPrivateAddresses = false;
+  /** Inbound traffic of one connection: sustained bytes per second and burst; beyond that the peer is dropped. */
+  private long maxInboundBytesPerSecond = 4L * 1024 * 1024;
+  private long maxInboundBurstBytes = 32L * 1024 * 1024;
+  /** Outbound data queued for a peer that does not read; beyond that the peer is dropped. */
+  private int maxOutboundQueueBytes = 32 * 1024 * 1024;
+  /** Discovery packets accepted from one IP address: sustained per second and burst. */
+  private int maxDiscoveryPacketsPerSecond = 20;
+  private int maxDiscoveryBurst = 60;
+
+  /** Height reported in the handshake; the application may plug in its chain. */
+  private java.util.function.LongSupplier latestBlockNumberSupplier = () -> 0L;
 
   // data directory for persistent storage (reputation, bans, etc.)
   private String dataDir = "data";
@@ -85,7 +127,7 @@ public class P2pConfig {
   private int netMaxFrameBodySize = 128 * 1024;
   private int netMaxPacketSize = 4 * 1024 * 1024; // 4MB total packet limit
   private boolean enableFrameCompression = true;
-  private String clientId = "xdagj-p2p/0.1.5";
+  private String clientId = "xdagj-p2p/0.1.8";
   private String[] capabilities = new String[]{"DISCV5"};
   private boolean enableGenerateBlock = false;
   private String nodeTag = "default-node";
@@ -94,18 +136,48 @@ public class P2pConfig {
   private ECKeyPair nodeKey;
 
   /**
-   * Get the default IP address with fallback to LAN IP if external IP is not available.
+   * Ask the public "what is my address" services for this node's external addresses and announce those.
+   * This sends HTTPS requests to third parties, so it only happens when the application asks for it.
    *
-   * @return IP address string
+   * @return true if an external IPv4 or IPv6 address was found
    */
-  private String getDefaultIpv4() {
+  public boolean detectExternalIp() {
+    boolean found = false;
     String externalIpv4 = NetUtils.getExternalIpV4();
     if (externalIpv4 != null && !externalIpv4.trim().isEmpty()) {
-      return externalIpv4;
+      this.ipV4 = externalIpv4;
+      found = true;
     }
-    // Fallback to LAN IP if external IP is not available
-    String lanIpv4 = NetUtils.getLanIpV4();
-    return lanIpv4 != null ? lanIpv4 : "127.0.0.1";
+    String externalIpv6 = NetUtils.getExternalIpV6();
+    if (externalIpv6 != null && !externalIpv6.trim().isEmpty()) {
+      this.ipV6 = externalIpv6;
+      found = true;
+    }
+    return found;
+  }
+
+  /**
+   * Whether the address is one the operator configured (seed, active or trust node). Such peers are chosen by
+   * the operator: they may be on private addresses and they are the only peers of a closed network.
+   */
+  public boolean isConfiguredPeer(InetAddress address) {
+    if (address == null) {
+      return false;
+    }
+    if (trustNodes.contains(address)) {
+      return true;
+    }
+    for (InetSocketAddress a : seedNodes) {
+      if (address.equals(a.getAddress())) {
+        return true;
+      }
+    }
+    for (InetSocketAddress a : activeNodes) {
+      if (address.equals(a.getAddress())) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public void addP2pEventHandle(P2pEventHandler p2PEventHandler) throws P2pException {

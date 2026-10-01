@@ -25,6 +25,9 @@ package io.xdag.p2p.discover.kad.table;
 
 import io.xdag.p2p.discover.Node;
 import io.xdag.p2p.utils.BytesUtils;
+import io.xdag.p2p.utils.NetUtils;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -37,13 +40,24 @@ import org.apache.tuweni.bytes.Bytes;
 @Getter
 public class NodeTable {
 
+  /** Most table entries per bucket from one IP address, and in the whole table from one network. */
+  public static final int MAX_PER_IP_PER_BUCKET = 2;
+  public static final int MAX_PER_SUBNET = 10;
+
   private final Node node; // our node
   private transient NodeBucket[] buckets;
   private transient Map<String, NodeEntry> nodes;
   private final ReadWriteLock lock = new ReentrantReadWriteLock();
+  /** Whether private and loopback addresses are exempt from the per-address limits (test networks). */
+  private final boolean privateUnlimited;
 
   public NodeTable(Node n) {
+    this(n, false);
+  }
+
+  public NodeTable(Node n, boolean privateUnlimited) {
     this.node = n;
+    this.privateUnlimited = privateUnlimited;
     initialize();
   }
 
@@ -83,7 +97,13 @@ public class NodeTable {
       }
 
       NodeEntry e = new NodeEntry(node.getId() != null ? BytesUtils.fromHexString(node.getId()) : Bytes.EMPTY, n);
-      NodeEntry lastSeen = buckets[getBucketId(e)].addNode(e);
+      int bucketId = getBucketId(e);
+      if (!withinAddressLimits(n, bucketId)) {
+        // Somebody with many keys but few addresses must not be able to fill the table: without these
+        // limits a single machine could become most of what this node knows about the network.
+        return null;
+      }
+      NodeEntry lastSeen = buckets[bucketId].addNode(e);
       if (lastSeen != null) {
         return lastSeen.getNode();
       }
@@ -92,6 +112,37 @@ public class NodeTable {
     } finally {
       lock.writeLock().unlock();
     }
+  }
+
+  private boolean withinAddressLimits(Node n, int bucketId) {
+    InetSocketAddress address = n.getPreferInetSocketAddress();
+    if (address == null || address.getAddress() == null) {
+      return false;
+    }
+    InetAddress ip = address.getAddress();
+    if (privateUnlimited && !NetUtils.isPublicAddress(ip)) {
+      return true;
+    }
+    int sameIpInBucket = 0;
+    for (NodeEntry other : buckets[bucketId].getNodes()) {
+      InetSocketAddress otherAddress = other.getNode().getPreferInetSocketAddress();
+      if (otherAddress != null && ip.equals(otherAddress.getAddress())) {
+        sameIpInBucket++;
+      }
+    }
+    if (sameIpInBucket >= MAX_PER_IP_PER_BUCKET) {
+      return false;
+    }
+    String subnet = NetUtils.subnetKey(ip);
+    int sameSubnet = 0;
+    for (NodeEntry other : nodes.values()) {
+      InetSocketAddress otherAddress = other.getNode().getPreferInetSocketAddress();
+      if (otherAddress != null && otherAddress.getAddress() != null
+          && subnet.equals(NetUtils.subnetKey(otherAddress.getAddress()))) {
+        sameSubnet++;
+      }
+    }
+    return sameSubnet < MAX_PER_SUBNET;
   }
 
   public void dropNode(Node n) {

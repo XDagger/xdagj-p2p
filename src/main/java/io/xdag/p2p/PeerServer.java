@@ -31,46 +31,84 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.MultiThreadIoEventLoopGroup;
 import io.netty.channel.nio.NioIoHandler;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.logging.LoggingHandler;
 import io.xdag.p2p.channel.ChannelManager;
 import io.xdag.p2p.channel.P2pChannelInitializer;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.config.P2pConstant;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 
 @Slf4j(topic = "net")
 public class PeerServer {
 
+  /** How long {@link #start()} waits for the listener to be bound (a matter of milliseconds unless the machine is busy). */
+  private static final long BIND_WAIT_MS = 10_000;
+
   private final P2pConfig p2pConfig;
   private final ChannelManager channelManager;
-  private ChannelFuture channelFuture;
-  private boolean listening;
+  private volatile ChannelFuture channelFuture;
+  private volatile boolean stopped;
 
   public PeerServer(P2pConfig p2pConfig, ChannelManager channelManager) {
     this.p2pConfig = p2pConfig;
     this.channelManager = channelManager;
   }
 
+  /**
+   * Starts the TCP listener on the configured port (none, if that is not positive) and returns when it is
+   * bound: a peer that dials this node from then on is accepted. It used to return at once, with the listener
+   * still coming up on its own thread - a node started right after this one was refused, and {@link #stop()}
+   * called early left the listener running for good.
+   *
+   * <p>A port that cannot be bound is logged; the node goes on without accepting connections
+   * ({@link #isListening()} tells).
+   */
   public void start() {
     int port = p2pConfig.getPort();
-    if (port > 0) {
-      new Thread(() -> start(port), "PeerServer").start();
+    if (port <= 0) {
+      return;
+    }
+    stopped = false;
+    CountDownLatch bound = new CountDownLatch(1);
+    new Thread(() -> serve(port, bound), "PeerServer").start();
+    try {
+      if (!bound.await(BIND_WAIT_MS, TimeUnit.MILLISECONDS)) {
+        log.warn("TCP listener on port {} is not bound after {} ms, going on without waiting for it", port, BIND_WAIT_MS);
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
     }
   }
 
+  /** Whether the listener is bound and accepting connections. */
+  public boolean isListening() {
+    ChannelFuture future = channelFuture;
+    return future != null && future.channel().isActive();
+  }
+
   public void stop() {
-    if (listening && channelFuture != null && channelFuture.channel().isOpen()) {
+    // (also for a listener that is being bound at this moment: it closes as soon as it is)
+    stopped = true;
+    ChannelFuture future = channelFuture;
+    if (future != null && future.channel().isOpen()) {
       try {
         log.info("Closing TCP server...");
-        channelFuture.channel().close().sync();
+        future.channel().close().sync();
       } catch (Exception e) {
         log.warn("Closing TCP server failed.", e);
       }
     }
   }
 
+  /** Binds the listener and serves until it is closed: this call blocks. */
   public void start(int port) {
+    serve(port, new CountDownLatch(1));
+  }
+
+  /** @param bound counted down when the listener is bound, or when it is clear that it will not be */
+  private void serve(int port, CountDownLatch bound) {
     EventLoopGroup bossGroup =
         new MultiThreadIoEventLoopGroup(
             1,
@@ -82,9 +120,9 @@ public class PeerServer {
             P2pConstant.TCP_NETTY_WORK_THREAD_NUM,
             BasicThreadFactory.builder().namingPattern("peerWorker-%d").build(),
             NioIoHandler.newFactory());
-    P2pChannelInitializer p2pChannelInitializer =
-        new P2pChannelInitializer(p2pConfig, channelManager, p2pConfig.getNodeKey(), false);
     try {
+      P2pChannelInitializer p2pChannelInitializer =
+          new P2pChannelInitializer(p2pConfig, channelManager, p2pConfig.getNodeKey(), false);
       ServerBootstrap b = new ServerBootstrap();
 
       b.group(bossGroup, workerGroup);
@@ -92,28 +130,33 @@ public class PeerServer {
 
       b.option(ChannelOption.MESSAGE_SIZE_ESTIMATOR, DefaultMessageSizeEstimator.DEFAULT);
       b.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, P2pConstant.NODE_CONNECTION_TIMEOUT);
+      b.option(ChannelOption.SO_BACKLOG, 128);
+      b.option(ChannelOption.SO_REUSEADDR, true);
+      b.childOption(ChannelOption.SO_KEEPALIVE, true);
+      b.childOption(ChannelOption.TCP_NODELAY, true);
 
-      b.handler(new LoggingHandler());
       b.childHandler(p2pChannelInitializer);
 
-      // Start the client.
-      log.info("TCP listener started, bind port {}", port);
-
-      channelFuture = b.bind(port).sync();
-
-      listening = true;
+      String bindIp = p2pConfig.getBindIp();
+      ChannelFuture future = (bindIp == null || bindIp.isBlank() ? b.bind(port) : b.bind(bindIp, port)).sync();
+      channelFuture = future;
+      log.info("TCP listener started, bind {}:{}", bindIp == null || bindIp.isBlank() ? "*" : bindIp, port);
+      if (stopped) {
+        future.channel().close();
+      }
+      bound.countDown();
 
       // Wait until the connection is closed.
-      channelFuture.channel().closeFuture().sync();
+      future.channel().closeFuture().sync();
 
       log.info("TCP listener closed");
 
     } catch (Exception e) {
       log.error("Start TCP server failed", e);
     } finally {
+      bound.countDown();
       workerGroup.shutdownGracefully();
       bossGroup.shutdownGracefully();
-      listening = false;
     }
   }
 }

@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2020-2030 The XdagJ Developers
+ * Copyright (c) 2022-2030 The XdagJ Developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -38,13 +38,14 @@ public class KeepAliveHandler extends ChannelDuplexHandler {
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-        if (evt instanceof IdleStateEvent) {
-            IdleStateEvent e = (IdleStateEvent) evt;
+        if (evt instanceof IdleStateEvent e) {
             if (e.state() == IdleState.WRITER_IDLE || e.state() == IdleState.READER_IDLE) {
-                log.info("{} idle, sending Ping to {}", e.state(), ctx.channel().remoteAddress());
+                log.trace("{} idle, sending Ping to {}", e.state(), ctx.channel().remoteAddress());
                 writeMessage(ctx, new PingMessage());
                 lastPingTimestamp = System.currentTimeMillis();
             }
+        } else {
+            super.userEventTriggered(ctx, evt);
         }
     }
 
@@ -57,10 +58,9 @@ public class KeepAliveHandler extends ChannelDuplexHandler {
     private void writeMessage(ChannelHandlerContext ctx, io.xdag.p2p.message.Message msg) {
         XdagFrame frame = new XdagFrame(XdagFrame.VERSION, XdagFrame.COMPRESS_NONE, msg.getCode().toByte(), 0, msg.getBody().length, msg.getBody().length, msg.getBody());
         ctx.writeAndFlush(frame).addListener(future -> {
-            if (future.isSuccess()) {
-                log.info("PING frame sent successfully to {}", ctx.channel().remoteAddress());
-            } else {
-                log.warn("PING frame send failed to {}", ctx.channel().remoteAddress(), future.cause());
+            if (!future.isSuccess()) {
+                log.debug("PING frame send failed to {}: {}", ctx.channel().remoteAddress(),
+                        future.cause() == null ? "unknown" : future.cause().toString());
             }
         });
     }

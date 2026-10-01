@@ -151,7 +151,7 @@ public class KadFindNodeMessageTest {
     @Test
     public void testTargetSerialization() {
         // Test that target ID is correctly serialized and deserialized
-        Bytes customTarget = Bytes.fromHexString("0x" + "a".repeat(128)); // 64 bytes
+        Bytes customTarget = Bytes.fromHexString("0x" + "a".repeat(40)); // 20 bytes
         KadFindNodeMessage original = new KadFindNodeMessage(fromNode, customTarget);
         KadFindNodeMessage decoded = new KadFindNodeMessage(original.getBody());
         
@@ -188,42 +188,17 @@ public class KadFindNodeMessageTest {
     }
 
     @Test
-    public void testEmptyTarget() {
-        // Test with an empty target (edge case)
-        Bytes emptyTarget = Bytes.EMPTY;
-        KadFindNodeMessage msg = new KadFindNodeMessage(fromNode, emptyTarget);
-        
-        assertEquals(emptyTarget, msg.getTarget());
-        
-        // Verify it can be decoded
-        KadFindNodeMessage decoded = new KadFindNodeMessage(msg.getBody());
-        assertEquals(emptyTarget, decoded.getTarget());
-    }
-
-    @Test
-    public void testSmallTarget() {
-        // Test with a small target (less than 64 bytes)
-        Bytes smallTarget = Bytes.fromHexString("0x1234567890abcdef");
-        KadFindNodeMessage msg = new KadFindNodeMessage(fromNode, smallTarget);
-        
-        assertEquals(smallTarget, msg.getTarget());
-        
-        // Verify it can be decoded
-        KadFindNodeMessage decoded = new KadFindNodeMessage(msg.getBody());
-        assertEquals(smallTarget, decoded.getTarget());
-    }
-
-    @Test
-    public void testLargeTarget() {
-        // Test with a larger target (more than 64 bytes)
-        Bytes largeTarget = Bytes.random(128);
-        KadFindNodeMessage msg = new KadFindNodeMessage(fromNode, largeTarget);
-        
-        assertEquals(largeTarget, msg.getTarget());
-        
-        // Verify it can be decoded
-        KadFindNodeMessage decoded = new KadFindNodeMessage(msg.getBody());
-        assertEquals(largeTarget, decoded.getTarget());
+    public void testTargetsOfTheWrongLengthAreRefused() {
+        // a target is a node id: exactly 20 bytes, on both sides of the wire
+        for (Bytes bad : new Bytes[]{Bytes.EMPTY, Bytes.fromHexString("0x1234567890abcdef"), Bytes.random(128)}) {
+            assertThrows(IllegalArgumentException.class, () -> new KadFindNodeMessage(fromNode, bad));
+        }
+        KadFindNodeMessage good = new KadFindNodeMessage(fromNode, Bytes.random(KadFindNodeMessage.TARGET_LENGTH));
+        io.xdag.p2p.utils.SimpleEncoder enc = new io.xdag.p2p.utils.SimpleEncoder();
+        enc.writeBytes(fromNode.toBytes());
+        enc.writeBytes(new byte[21]);
+        enc.writeLong(good.getTimestamp());
+        assertThrows(IllegalArgumentException.class, () -> new KadFindNodeMessage(enc.toBytes()));
     }
 
     @Test
@@ -289,13 +264,13 @@ public class KadFindNodeMessageTest {
 
     @Test
     public void testTargetWith128CharHexString() {
-        // Test with a typical Kademlia node ID (64 bytes = 128 hex chars)
-        String hexId = "0123456789abcdef".repeat(8); // 128 chars
+        // Test with a typical node ID (20 bytes = 40 hex chars)
+        String hexId = "0123456789".repeat(4); // 40 chars
         Bytes target = Bytes.fromHexString("0x" + hexId);
         
         KadFindNodeMessage msg = new KadFindNodeMessage(fromNode, target);
         assertEquals(target, msg.getTarget());
-        assertEquals(64, msg.getTarget().size()); // 64 bytes
+        assertEquals(20, msg.getTarget().size()); // 20 bytes
         
         // Verify round-trip
         KadFindNodeMessage decoded = new KadFindNodeMessage(msg.getBody());
