@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-10-01
+
+Start-up fixes. No change on the wire: 0.1.8 and 0.1.7 nodes talk to each other.
+
+### Fixed
+- `P2pService.start()` returned while the TCP listener and the discovery socket were still being
+  bound on their own threads: a node started right after another dialled too early, was refused,
+  and tried again 30 s later; `stop()` / `close()` called early found nothing to close and left
+  the socket open for the life of the process. `PeerServer.start()` and `DiscoverServer.init()`
+  now return when the socket is bound (or could not be, which is logged and reported by
+  `isListening()`); `start()` twice starts once.
+- `P2pService.setPermissionless(true)` before `start()` ran the connect loop on a service without
+  a node table or a client (a `NullPointerException`, logged as a warning). On a service that is
+  not running only the setting changes; `ChannelManager.triggerImmediateConnect()` does nothing
+  before `start` and after `stop`; `NodeManager` returns empty node lists before `init()`.
+
+### Added
+- `PeerServer.isListening()`, `NodeManager.isDiscoveryListening()`, `P2pService.isStarted()`.
+
 ## [0.1.7] - 2026-09-30
 
 Security hardening for open (permissionless) networks. The wire protocol changes
@@ -50,16 +69,6 @@ Security hardening for open (permissionless) networks. The wire protocol changes
 - `PeerClient.connect(host, port)` blocked until the connection closed; `stop()` without
   `start()` threw.
 - Remote-triggered log lines at INFO/WARN downgraded.
-- `P2pService.start()` returned while the TCP listener and the discovery socket were still being
-  bound on their own threads: a node started right after another dialled too early, was refused,
-  and tried again 30 s later; `stop()` / `close()` called early found nothing to close and left
-  the socket open for the life of the process. `PeerServer.start()` and `DiscoverServer.init()`
-  now return when the socket is bound (or could not be, which is logged and reported by
-  `isListening()`); `start()` twice starts once.
-- `P2pService.setPermissionless(true)` before `start()` ran the connect loop on a service without
-  a node table or a client (a `NullPointerException`, logged as a warning). On a service that is
-  not running only the setting changes; `ChannelManager.triggerImmediateConnect()` does nothing
-  before `start` and after `stop`; `NodeManager` returns empty node lists before `init()`.
 - Tests are hermetic (no fixed ports leaked, no internet needed).
 
 ### Added
