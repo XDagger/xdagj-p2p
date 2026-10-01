@@ -98,13 +98,14 @@ public class DiscoverServer {
                   public void initChannel(NioDatagramChannel ch) {
                     // Use custom UDP message codec only; no protobuf length framing for discovery
                     ch.pipeline().addLast(new P2pPacketDecoder(p2pConfig));
-                    MessageHandler messageHandler = new MessageHandler(ch, eventHandler);
+                    MessageHandler messageHandler = new MessageHandler(ch, eventHandler, p2pConfig);
                     eventHandler.setMessageSender(messageHandler);
                     ch.pipeline().addLast(messageHandler);
                   }
                 });
 
-        channel = b.bind(port).sync().channel();
+        String bindIp = p2pConfig.getBindIp();
+        channel = (bindIp == null || bindIp.isBlank() ? b.bind(port) : b.bind(bindIp, port)).sync().channel();
 
         log.info("Discovery server started, bind port {}", port);
         // Note: channelActivated() is called automatically by Netty via MessageHandler.channelActive()

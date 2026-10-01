@@ -23,68 +23,109 @@
  */
 package io.xdag.p2p.handler.discover;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.socket.DatagramPacket;
 import io.netty.handler.codec.MessageToMessageDecoder;
-import io.xdag.p2p.P2pException;
 import io.xdag.p2p.config.P2pConfig;
-import io.xdag.p2p.utils.BytesUtils;
+import io.xdag.p2p.message.discover.KadPacket;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.tuweni.bytes.Bytes;
 
+/**
+ * Datagram -&gt; {@link UdpEvent}. A datagram that is not a well-formed, correctly signed discovery message of
+ * this network is dropped without a word at any level above debug: the sender of such a datagram is not
+ * somebody to talk to, and an address on a datagram is not proof of who sent it.
+ */
 @Slf4j(topic = "net")
 public class P2pPacketDecoder extends MessageToMessageDecoder<DatagramPacket> {
 
-  public static final int MAXSIZE = 2048;
+  public static final int MAXSIZE = KadPacket.MAX_LENGTH;
 
   private final P2pConfig p2pConfig;
+  /**
+   * Datagrams accepted per source address, counted before the signature is checked: verifying a signature
+   * costs far more than sending a datagram, so a flood must be cut off before that.
+   */
+  private final Cache<InetAddress, TokenBucket> limits =
+      CacheBuilder.newBuilder().maximumSize(20_000).expireAfterAccess(2, TimeUnit.MINUTES).build();
 
   public P2pPacketDecoder(P2pConfig p2pConfig) {
     this.p2pConfig = p2pConfig;
+  }
+
+  private boolean allowed(InetSocketAddress sender) {
+    if (sender == null || sender.getAddress() == null) {
+      return false;
+    }
+    try {
+      return limits.get(sender.getAddress(), () -> new TokenBucket(p2pConfig.getMaxDiscoveryBurst(),
+          p2pConfig.getMaxDiscoveryPacketsPerSecond())).tryAcquire();
+    } catch (ExecutionException e) {
+      return true;
+    }
   }
 
   @Override
   public void decode(ChannelHandlerContext ctx, DatagramPacket packet, List<Object> out) {
     ByteBuf buf = packet.content();
     int length = buf.readableBytes();
-    if (length <= 1 || length >= MAXSIZE) {
-      log.warn("UDP rcv bad packet, from {} length = {}", ctx.channel().remoteAddress(), length);
+    if (length <= KadPacket.HEADER_LENGTH || length > MAXSIZE) {
+      log.debug("UDP rcv bad packet, from {} length = {}", packet.sender(), length);
+      return;
+    }
+    if (!allowed(packet.sender())) {
+      log.trace("UDP rate limit, dropping packet from {}", packet.sender());
       return;
     }
 
-    // Use Tuweni Bytes for more efficient byte handling
     byte[] encoded = new byte[length];
     buf.readBytes(encoded);
-    Bytes encodedBytes = Bytes.wrap(encoded);
 
     try {
-      UdpEvent event = new UdpEvent(io.xdag.p2p.message.MessageFactory.parse(p2pConfig, encodedBytes), packet.sender());
-      out.add(event);
-    } catch (Exception pe) {
-      if (pe instanceof P2pException pe1 && pe1.getType().equals(P2pException.TypeEnum.BAD_MESSAGE)) {
-        log.error(
-            "Message validation failed, type {}, len {}, address {}",
-            encoded[0],
-            encoded.length,
-            packet.sender());
-      } else {
-        log.info(
-            "Parse msg failed, type {}, len {}, address {}",
-            encoded[0],
-            encoded.length,
-            packet.sender());
+      KadPacket kadPacket = KadPacket.decode(Bytes.wrap(encoded), p2pConfig.getNetworkId());
+      out.add(new UdpEvent(kadPacket.getMessage(), packet.sender(), kadPacket.getNodeId(), kadPacket.getHash()));
+    } catch (Exception e) {
+      log.debug("Dropping UDP packet from {} (type {}, len {}): {}", packet.sender(), encoded[0], encoded.length,
+          e.getMessage());
+    }
+  }
+
+  @Override
+  public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+    // an error while reading one datagram must not close the discovery socket
+    log.debug("UDP decoder exception: {}", String.valueOf(cause));
+  }
+
+  /** A token bucket: {@code rate} tokens per second, at most {@code burst} saved up. */
+  static final class TokenBucket {
+    private final double burst;
+    private final double rate;
+    private double tokens;
+    private long last = System.nanoTime();
+
+    TokenBucket(double burst, double rate) {
+      this.burst = Math.max(1, burst);
+      this.rate = Math.max(0, rate);
+      this.tokens = this.burst;
+    }
+
+    synchronized boolean tryAcquire() {
+      long now = System.nanoTime();
+      tokens = Math.min(burst, tokens + (now - last) / 1e9 * rate);
+      last = now;
+      if (tokens >= 1) {
+        tokens -= 1;
+        return true;
       }
-    } catch (Throwable e) {
-      log.error(
-          "An exception occurred while parsing the message, type {}, len {}, address {}, "
-              + "data {}",
-          encoded[0],
-          encoded.length,
-          packet.sender(),
-          BytesUtils.toHexString(encodedBytes),
-          e);
+      return false;
     }
   }
 }

@@ -97,29 +97,27 @@ public class XdagFrameCodecTest {
 
     @Test
     void testDecodeInvalidVersion() {
-        // With the new fault-tolerant design, invalid version frames are skipped, not rejected with exception
+        // A header that does not parse means the other side does not speak this protocol: the connection is
+        // closed with an exception instead of scanning the stream for the next magic number.
         XdagFrame frame = new XdagFrame((short) (XdagFrame.VERSION + 1), XdagFrame.COMPRESS_NONE, (byte) 1, 1, 4, 4, new byte[4]);
         ByteBuf buf = Unpooled.buffer();
         frame.writeHeader(buf);
         buf.writeBytes(frame.getBody());
 
-        // The codec will skip invalid version frames instead of throwing exception
-        assertFalse(channel.writeInbound(buf));
-        assertNull(channel.readInbound()); // No frame should be decoded
+        assertThrows(io.netty.handler.codec.DecoderException.class, () -> channel.writeInbound(buf));
+        assertNull(channel.readInbound());
     }
 
     @Test
     void testDecodeFrameTooLarge() {
-        // With the new fault-tolerant design, oversized frames are skipped, not rejected with exception
         byte[] body = new byte[config.getNetMaxFrameBodySize() + 1];
         XdagFrame frame = new XdagFrame(XdagFrame.VERSION, XdagFrame.COMPRESS_NONE, (byte) 1, 1, body.length, body.length, body);
 
         ByteBuf buf = Unpooled.buffer();
         frame.writeHeader(buf); // Header contains the large size
 
-        // The codec will skip oversized frames instead of throwing exception
-        assertFalse(channel.writeInbound(buf));
-        assertNull(channel.readInbound()); // No frame should be decoded
+        assertThrows(io.netty.handler.codec.DecoderException.class, () -> channel.writeInbound(buf));
+        assertNull(channel.readInbound());
     }
 
     @Test
@@ -127,12 +125,8 @@ public class XdagFrameCodecTest {
         byte[] body = new byte[config.getNetMaxFrameBodySize() + 1];
         XdagFrame largeFrame = new XdagFrame(XdagFrame.VERSION, XdagFrame.COMPRESS_NONE, (byte) 1, 1, body.length, body.length, body);
 
-        // The encoder will log an error and not write anything when the frame is too large
-        assertTrue(channel.writeOutbound(largeFrame));
-
-        // The encoder rejects the frame by not writing to the buffer, so we get an empty ByteBuf
-        ByteBuf encoded = channel.readOutbound();
-        assertNotNull(encoded);
-        assertEquals(0, encoded.readableBytes(), "Encoder should not produce any bytes for frames that are too large");
+        // an invalid outbound frame is a programming error and is refused, never written half
+        assertThrows(io.netty.handler.codec.EncoderException.class, () -> channel.writeOutbound(largeFrame));
+        assertNull(channel.readOutbound());
     }
 }

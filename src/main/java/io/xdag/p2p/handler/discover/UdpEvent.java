@@ -27,6 +27,7 @@ import io.xdag.p2p.message.Message;
 import java.net.InetSocketAddress;
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.tuweni.bytes.Bytes32;
 
 @Getter
 @Setter
@@ -35,11 +36,22 @@ public class UdpEvent {
   // when receive UdpEvent, this is a sender address
   // when send UdpEvent, this is a target address
   private InetSocketAddress address;
+  /** Received events: id of the node that signed the packet (null for events built for sending). */
+  private String nodeId;
+  /** Received events: the signed hash of the packet (what a pong to it must echo). */
+  private Bytes32 hash;
 
   public UdpEvent() {}
 
   public UdpEvent(Message message, InetSocketAddress address) {
     this.message = message;
     this.address = address;
+  }
+
+  public UdpEvent(Message message, InetSocketAddress address, String nodeId, Bytes32 hash) {
+    this.message = message;
+    this.address = address;
+    this.nodeId = nodeId;
+    this.hash = hash;
   }
 }

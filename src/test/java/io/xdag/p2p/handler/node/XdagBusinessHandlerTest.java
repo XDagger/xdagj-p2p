@@ -25,6 +25,7 @@ package io.xdag.p2p.handler.node;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -61,6 +62,8 @@ class XdagBusinessHandlerTest {
     private Channel xdagChannel;
     private InetSocketAddress remoteAddress;
     private Map<InetSocketAddress, Channel> channelMap;
+    /** An application message code: what the generic dispatch tests are about. */
+    private static final io.xdag.p2p.message.IMessageCode APP_CODE = () -> (byte) 0x20;
 
     @BeforeEach
     void setUp() {
@@ -141,7 +144,7 @@ class XdagBusinessHandlerTest {
 
         byte[] fullData = new byte[]{0x01, 0x02, 0x03, 0x04};
         Message customMessage = mock(Message.class);
-        when(customMessage.getCode()).thenReturn(MessageCode.DISCONNECT);
+        when(customMessage.getCode()).thenReturn(APP_CODE);
         when(customMessage.getBody()).thenReturn(new byte[]{0x02, 0x03, 0x04});
         when(customMessage.getSendData()).thenReturn(Bytes.wrap(fullData));
 
@@ -163,7 +166,7 @@ class XdagBusinessHandlerTest {
         when(nettyChannel.remoteAddress()).thenReturn(unknownAddress);
 
         Message message = mock(Message.class);
-        when(message.getCode()).thenReturn(MessageCode.DISCONNECT);
+        when(message.getCode()).thenReturn(APP_CODE);
 
         P2pEventHandler messageHandler = mock(P2pEventHandler.class);
         when(config.getHandlerList()).thenReturn(List.of(messageHandler));
@@ -184,7 +187,7 @@ class XdagBusinessHandlerTest {
         when(config.getHandlerList()).thenReturn(List.of(faultyHandler));
 
         Message message = mock(Message.class);
-        when(message.getCode()).thenReturn(MessageCode.DISCONNECT);
+        when(message.getCode()).thenReturn(APP_CODE);
         when(message.getSendData()).thenReturn(Bytes.wrap(new byte[]{1, 2, 3}));
         when(message.getBody()).thenReturn(new byte[]{2, 3});
 
@@ -213,7 +216,7 @@ class XdagBusinessHandlerTest {
         when(config.getHandlerList()).thenReturn(List.of(handler1, handler2, handler3));
 
         Message message = mock(Message.class);
-        when(message.getCode()).thenReturn(MessageCode.DISCONNECT);
+        when(message.getCode()).thenReturn(APP_CODE);
         when(message.getSendData()).thenReturn(Bytes.wrap(new byte[]{1, 2, 3}));
         when(message.getBody()).thenReturn(new byte[]{2, 3});
 
@@ -242,7 +245,7 @@ class XdagBusinessHandlerTest {
         when(config.getHandlerList()).thenReturn(new ArrayList<>());
 
         Message message = mock(Message.class);
-        when(message.getCode()).thenReturn(MessageCode.DISCONNECT);
+        when(message.getCode()).thenReturn(APP_CODE);
         when(message.getSendData()).thenReturn(Bytes.wrap(new byte[]{1, 2, 3}));
         when(message.getBody()).thenReturn(new byte[]{2, 3});
 
@@ -296,9 +299,9 @@ class XdagBusinessHandlerTest {
         when(config.getHandlerList()).thenReturn(List.of(messageHandler));
 
         Message message = mock(Message.class);
-        when(message.getCode()).thenReturn(MessageCode.DISCONNECT);
+        when(message.getCode()).thenReturn(APP_CODE);
         when(message.getBody()).thenReturn(new byte[0]);
-        when(message.getSendData()).thenReturn(Bytes.wrap(new byte[]{MessageCode.DISCONNECT.toByte()}));
+        when(message.getSendData()).thenReturn(Bytes.wrap(new byte[]{APP_CODE.toByte()}));
 
         // When
         handler.channelRead0(ctx, message);
@@ -315,24 +318,37 @@ class XdagBusinessHandlerTest {
         P2pEventHandler messageHandler = mock(P2pEventHandler.class);
         when(config.getHandlerList()).thenReturn(List.of(messageHandler));
 
-        // Test DISCONNECT message
+        // A DISCONNECT closes the connection and is not the application's business
         Message disconnectMsg = mock(Message.class);
         when(disconnectMsg.getCode()).thenReturn(MessageCode.DISCONNECT);
         when(disconnectMsg.getSendData()).thenReturn(Bytes.wrap(new byte[]{1}));
         when(disconnectMsg.getBody()).thenReturn(new byte[]{1});
-
-        // When
         handler.channelRead0(ctx, disconnectMsg);
+        verify(ctx).close();
+        verify(messageHandler, never()).onMessage(any(), any());
 
-        // Then
-        verify(messageHandler).onMessage(eq(xdagChannel), any(Bytes.class));
+        // A handshake message after the handshake is a protocol violation: the peer is dropped and banned
+        Message hello = mock(Message.class);
+        when(hello.getCode()).thenReturn(MessageCode.HANDSHAKE_HELLO);
+        when(hello.getBody()).thenReturn(new byte[]{1});
+        handler.channelRead0(ctx, hello);
+        verify(xdagChannel).close(anyLong());
+        verify(messageHandler, never()).onMessage(any(), any());
+
+        // An application message is handed over as [code | body]
+        Message app = mock(Message.class);
+        when(app.getCode()).thenReturn(APP_CODE);
+        when(app.getSendData()).thenReturn(Bytes.wrap(new byte[]{0x20, 7}));
+        when(app.getBody()).thenReturn(new byte[]{7});
+        handler.channelRead0(ctx, app);
+        verify(messageHandler).onMessage(eq(xdagChannel), eq(Bytes.wrap(new byte[]{0x20, 7})));
     }
 
     @Test
     void testChannelManagerIntegration() {
         // Given
         Message message = mock(Message.class);
-        when(message.getCode()).thenReturn(MessageCode.DISCONNECT);
+        when(message.getCode()).thenReturn(APP_CODE);
         when(message.getSendData()).thenReturn(Bytes.wrap(new byte[]{1, 2}));
         when(message.getBody()).thenReturn(new byte[]{2});
 
@@ -355,7 +371,7 @@ class XdagBusinessHandlerTest {
         when(config.getHandlerList()).thenReturn(List.of(goodHandler1, faultyHandler, goodHandler2));
 
         Message message = mock(Message.class);
-        when(message.getCode()).thenReturn(MessageCode.DISCONNECT);
+        when(message.getCode()).thenReturn(APP_CODE);
         when(message.getSendData()).thenReturn(Bytes.wrap(new byte[]{1, 2, 3}));
         when(message.getBody()).thenReturn(new byte[]{2, 3});
 

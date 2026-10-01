@@ -24,6 +24,7 @@
 package io.xdag.p2p.message.discover;
 
 import io.xdag.p2p.discover.Node;
+import io.xdag.p2p.discover.kad.table.KademliaOptions;
 import io.xdag.p2p.message.Message;
 import io.xdag.p2p.message.MessageCode;
 import io.xdag.p2p.utils.SimpleDecoder;
@@ -35,23 +36,26 @@ import lombok.Getter;
 @Getter
 public class KadNeighborsMessage extends Message {
 
+    /** Most nodes in one message: a bucket's worth. */
+    public static final int MAX_NEIGHBORS = KademliaOptions.BUCKET_SIZE;
+    /** Smallest encoding of a node (all strings null), with its length prefix: bounds the count before reading. */
+    private static final int MIN_NODE_LENGTH = 2 + 1 + 2 + 3 + 4 + 4 + 8;
+
     private final Node from;
     private final List<Node> neighbors;
     private final long timestamp;
 
     public KadNeighborsMessage(Node from, List<Node> neighbors) {
         super(MessageCode.KAD_NEIGHBORS, null);
+        if (neighbors.size() > MAX_NEIGHBORS) {
+            throw new IllegalArgumentException("at most " + MAX_NEIGHBORS + " neighbours per message");
+        }
         this.from = from;
         this.neighbors = neighbors;
         this.timestamp = System.currentTimeMillis();
 
         SimpleEncoder enc = new SimpleEncoder();
-        enc.writeBytes(from.toBytes());
-        enc.writeInt(neighbors.size());
-        for (Node n : neighbors) {
-            enc.writeBytes(n.toBytes());
-        }
-        enc.writeLong(timestamp);
+        encode(enc);
         this.body = enc.toBytes();
     }
 
@@ -59,8 +63,13 @@ public class KadNeighborsMessage extends Message {
         super(MessageCode.KAD_NEIGHBORS, null);
         this.body = body;
         SimpleDecoder dec = new SimpleDecoder(body);
-        this.from = new Node(dec.readBytes());
-        int size = dec.readInt();
+        byte[] fromBytes = dec.readBytes();
+        if (fromBytes == null || fromBytes.length == 0) {
+            throw new IllegalArgumentException("Invalid KadNeighborsMessage: 'from' node data is missing");
+        }
+        this.from = new Node(fromBytes);
+        // the count is a claim of the sender: bounded before anything is allocated for it
+        int size = dec.readCount(MAX_NEIGHBORS, MIN_NODE_LENGTH);
         this.neighbors = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             this.neighbors.add(new Node(dec.readBytes()));

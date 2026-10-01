@@ -148,10 +148,12 @@ public class ConnectionFlappingRootCauseTest {
         InetSocketAddress existingAddress = new InetSocketAddress("127.0.0.1", 54321);
         String nodeId = "node2-actual-id-from-handshake";
 
-        // Create mock channel representing the existing INBOUND connection
+        // Create mock channel representing the existing INBOUND connection; the peer announced the port it
+        // listens on in the handshake, which is what identifies it (not "same loopback IP")
         Channel mockChannel = mock(Channel.class);
         when(mockChannel.getRemoteAddress()).thenReturn(existingAddress);
         when(mockChannel.getNodeId()).thenReturn(nodeId);
+        when(mockChannel.getListenAddress()).thenReturn(targetAddress);
 
         ChannelHandlerContext mockCtx = mock(ChannelHandlerContext.class);
         io.netty.channel.Channel mockNettyChannel = mock(io.netty.channel.Channel.class);
@@ -165,11 +167,16 @@ public class ConnectionFlappingRootCauseTest {
         // TEST: Does hasActiveConnectionTo recognize the connection?
         boolean result = (boolean) method.invoke(channelManager, targetAddress);
 
-        // EXPECTED: TRUE (because of loopback IP match + nodeId check)
-        // If this fails, it explains why new connections are being attempted!
+        // EXPECTED: TRUE (the peer announced that it listens on the target address)
         assertTrue(result,
                 "hasActiveConnectionTo should return TRUE for loopback with different port " +
                 "when an active connection exists with valid nodeId");
+
+        // A second node on the same machine that listens elsewhere is NOT the same peer: the former
+        // "any connection from the same loopback IP counts" heuristic made a node on one machine unable
+        // to connect to a second neighbour.
+        assertFalse((boolean) method.invoke(channelManager, new InetSocketAddress("127.0.0.1", 8003)),
+                "another listening port on the same machine is another node");
     }
 
     /**
@@ -208,6 +215,7 @@ public class ConnectionFlappingRootCauseTest {
         Channel mockChannel = mock(Channel.class);
         when(mockChannel.getRemoteAddress()).thenReturn(inboundAddress);
         when(mockChannel.getNodeId()).thenReturn(actualNodeId);
+        when(mockChannel.getListenAddress()).thenReturn(new InetSocketAddress("127.0.0.1", 8002));
 
         ChannelHandlerContext mockCtx = mock(ChannelHandlerContext.class);
         io.netty.channel.Channel mockNettyChannel = mock(io.netty.channel.Channel.class);
@@ -320,6 +328,7 @@ public class ConnectionFlappingRootCauseTest {
         when(inboundChannel.getRemoteAddress()).thenReturn(node2InboundAddr);
         when(inboundChannel.getNodeId()).thenReturn(node2Id);
         when(inboundChannel.isActive()).thenReturn(false); // INBOUND
+        when(inboundChannel.getListenAddress()).thenReturn(new InetSocketAddress("127.0.0.1", 8002));
 
         ChannelHandlerContext ctx = mock(ChannelHandlerContext.class);
         io.netty.channel.Channel nettyChannel = mock(io.netty.channel.Channel.class);

@@ -27,10 +27,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -332,8 +334,6 @@ class ChannelTest {
 
     // Then
     verify(nettyChannel).writeAndFlush(any());
-    verify(message).needToLog();
-    // Note: getSendData is not called in Message send path, only in Bytes send path
   }
 
   @Test
@@ -459,13 +459,21 @@ class ChannelTest {
     when(channelFuture.isSuccess()).thenReturn(false);
     when(channelFuture.cause()).thenReturn(new RuntimeException("Send failed"));
 
-    Bytes testData = Bytes.wrap(new byte[]{0x01, 0x02, 0x03});
+    Bytes testData = Bytes.wrap(new byte[]{0x20, 0x02, 0x03});
 
     // When
     channel.send(testData);
 
     // Then
     verify(nettyChannel).writeAndFlush(any());
+  }
+
+  @Test
+  void testSendBytesRefusesFrameworkCodes() {
+    // [code | body] with a code below 0x16 belongs to the P2P layer itself and cannot be sent by an application
+    channel.setChannelHandlerContext(ctx);
+    assertThrows(IllegalArgumentException.class, () -> channel.send(Bytes.wrap(new byte[]{0x01, 0x02})));
+    verify(nettyChannel, never()).writeAndFlush(any());
   }
 
   @Test

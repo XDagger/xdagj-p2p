@@ -23,11 +23,17 @@
  */
 package io.xdag.p2p.discover.kad;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -38,15 +44,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 
 /**
- * Manages node reputation persistence to disk.
+ * Remembers, across restarts, how nodes behaved in discovery: a score per node id that decays towards neutral.
  *
- * <p>Features:
- * <ul>
- *   <li>Automatic periodic saves</li>
- *   <li>Atomic file operations with backup</li>
- *   <li>Reputation decay over time</li>
- *   <li>Thread-safe operations</li>
- * </ul>
+ * <p>The store is bounded ({@link #MAX_ENTRIES}; the least recently updated entries go first) because node ids
+ * are cheap to make up, and it is a plain text file (one {@code id score timestamp} line per node) rather than
+ * Java serialisation, so loading it cannot instantiate anything.
  */
 @Slf4j
 public class ReputationManager {
@@ -55,6 +57,11 @@ public class ReputationManager {
   private static final String BACKUP_SUFFIX = ".bak";
   private static final long DEFAULT_SAVE_INTERVAL_MS = 60_000; // 1 minute
   private static final int DEFAULT_INITIAL_REPUTATION = 100;
+  private static final int MIN_SCORE = 0;
+  private static final int MAX_SCORE = 200;
+  /** Most node ids remembered. */
+  public static final int MAX_ENTRIES = 20_000;
+  private static final String FILE_HEADER = "# xdagj-p2p reputation v1";
 
   private final Path reputationFile;
   private final Path backupFile;
@@ -62,21 +69,10 @@ public class ReputationManager {
   private final ScheduledExecutorService saveExecutor;
   private volatile boolean running = false;
 
-  /**
-   * Creates a reputation manager with default settings.
-   *
-   * @param dataDir the directory to store reputation data
-   */
   public ReputationManager(String dataDir) {
     this(dataDir, DEFAULT_SAVE_INTERVAL_MS);
   }
 
-  /**
-   * Creates a reputation manager with custom save interval.
-   *
-   * @param dataDir the directory to store reputation data
-   * @param saveIntervalMs how often to save reputation data (in milliseconds)
-   */
   public ReputationManager(String dataDir, long saveIntervalMs) {
     Path dir = Paths.get(dataDir);
     try {
@@ -105,37 +101,44 @@ public class ReputationManager {
         saveIntervalMs,
         TimeUnit.MILLISECONDS);
 
-    log.info("ReputationManager started: file={}, saveInterval={}ms",
+    log.debug("ReputationManager started: file={}, saveInterval={}ms",
              reputationFile, saveIntervalMs);
   }
 
-  /**
-   * Gets the reputation score for a node, with decay applied.
-   *
-   * @param nodeId the node identifier
-   * @return the current reputation score (with decay)
-   */
   public int getReputation(String nodeId) {
-    ReputationData data = reputations.get(nodeId);
+    ReputationData data = nodeId == null ? null : reputations.get(nodeId);
     if (data == null) {
       return DEFAULT_INITIAL_REPUTATION;
     }
     return data.getDecayedScore();
   }
 
-  /**
-   * Updates the reputation score for a node.
-   *
-   * @param nodeId the node identifier
-   * @param score the new reputation score
-   */
   public void setReputation(String nodeId, int score) {
-    reputations.put(nodeId, new ReputationData(score, System.currentTimeMillis()));
+    if (nodeId == null) {
+      return;
+    }
+    reputations.put(nodeId, new ReputationData(clamp(score), System.currentTimeMillis()));
+    if (reputations.size() > MAX_ENTRIES) {
+      evictOldest();
+    }
   }
 
-  /**
-   * Loads reputation data from disk.
-   */
+  private static int clamp(int score) {
+    return Math.max(MIN_SCORE, Math.min(MAX_SCORE, score));
+  }
+
+  private synchronized void evictOldest() {
+    int excess = reputations.size() - MAX_ENTRIES;
+    if (excess <= 0) {
+      return;
+    }
+    List<Map.Entry<String, ReputationData>> entries = new ArrayList<>(reputations.entrySet());
+    entries.sort(Comparator.comparingLong(e -> e.getValue().getTimestamp()));
+    for (int i = 0; i < excess + MAX_ENTRIES / 100 && i < entries.size(); i++) {
+      reputations.remove(entries.get(i).getKey(), entries.get(i).getValue());
+    }
+  }
+
   public synchronized void load() {
     Path fileToLoad = reputationFile;
 
@@ -146,35 +149,42 @@ public class ReputationManager {
     }
 
     if (!Files.exists(fileToLoad)) {
-      log.info("No existing reputation data found");
+      log.debug("No existing reputation data found");
       return;
     }
 
-    try (ObjectInputStream ois = new ObjectInputStream(
-        new BufferedInputStream(Files.newInputStream(fileToLoad)))) {
-
-      @SuppressWarnings("unchecked")
-      Map<String, ReputationData> loaded = (Map<String, ReputationData>) ois.readObject();
+    Map<String, ReputationData> loaded = new ConcurrentHashMap<>();
+    try (BufferedReader reader = Files.newBufferedReader(fileToLoad, StandardCharsets.UTF_8)) {
+      String line;
+      while ((line = reader.readLine()) != null && loaded.size() < MAX_ENTRIES) {
+        if (line.isBlank() || line.startsWith("#")) {
+          continue;
+        }
+        String[] parts = line.trim().split("\\s+");
+        if (parts.length != 3) {
+          continue;
+        }
+        try {
+          loaded.put(parts[0], new ReputationData(clamp(Integer.parseInt(parts[1])), Long.parseLong(parts[2])));
+        } catch (NumberFormatException e) {
+          // a damaged line: skipped
+        }
+      }
       reputations.clear();
       reputations.putAll(loaded);
-
-      log.info("Loaded {} node reputations from {}", reputations.size(), fileToLoad);
-
-    } catch (IOException | ClassNotFoundException e) {
+      log.debug("Loaded {} node reputations from {}", reputations.size(), fileToLoad);
+    } catch (IOException e) {
       log.error("Failed to load reputation data from {}", fileToLoad, e);
     }
   }
 
-  /**
-   * Saves reputation data to disk atomically.
-   */
   public synchronized void save() {
     if (!running) {
       return;
     }
 
     if (reputations.isEmpty()) {
-      log.debug("No reputation data to save");
+      log.trace("No reputation data to save");
       return;
     }
 
@@ -183,10 +193,17 @@ public class ReputationManager {
       // Write to temp file first
       tempFile = Files.createTempFile(reputationFile.getParent(), "reputation", ".tmp");
 
-      try (ObjectOutputStream oos = new ObjectOutputStream(
-          new BufferedOutputStream(Files.newOutputStream(tempFile)))) {
-        oos.writeObject(new ConcurrentHashMap<>(reputations));
-        oos.flush();
+      try (BufferedWriter writer = Files.newBufferedWriter(tempFile, StandardCharsets.UTF_8)) {
+        writer.write(FILE_HEADER);
+        writer.newLine();
+        for (Map.Entry<String, ReputationData> entry : reputations.entrySet()) {
+          String id = entry.getKey();
+          if (id.isEmpty() || id.chars().anyMatch(Character::isWhitespace)) {
+            continue;
+          }
+          writer.write(id + " " + entry.getValue().score + " " + entry.getValue().timestamp);
+          writer.newLine();
+        }
       }
 
       // Backup existing file if it exists
@@ -197,7 +214,7 @@ public class ReputationManager {
       // Atomically replace with new file
       Files.move(tempFile, reputationFile, StandardCopyOption.REPLACE_EXISTING);
 
-      log.debug("Saved {} node reputations to {}", reputations.size(), reputationFile);
+      log.trace("Saved {} node reputations to {}", reputations.size(), reputationFile);
 
     } catch (IOException e) {
       log.error("Failed to save reputation data to {}", reputationFile, e);
@@ -213,15 +230,14 @@ public class ReputationManager {
     }
   }
 
-  /**
-   * Stops the reputation manager and performs final save.
-   */
   public void stop() {
-    log.info("Stopping ReputationManager");
+    log.debug("Stopping ReputationManager");
     running = false;
 
     // Perform final save
+    running = true;
     save();
+    running = false;
 
     // Shutdown executor
     saveExecutor.shutdown();
@@ -235,29 +251,16 @@ public class ReputationManager {
     }
   }
 
-  /**
-   * Gets the number of nodes with reputation data.
-   *
-   * @return the count of tracked nodes
-   */
   public int size() {
     return reputations.size();
   }
 
-  /**
-   * Clears all reputation data (useful for testing).
-   */
   public void clear() {
     reputations.clear();
-    log.info("Cleared all reputation data");
+    log.debug("Cleared all reputation data");
   }
 
-  /**
-   * Internal data structure for storing reputation with timestamp.
-   */
-  private static class ReputationData implements Serializable {
-    @Serial
-    private static final long serialVersionUID = 1L;
+  private static class ReputationData {
 
     // Decay parameters
     private static final long DECAY_INTERVAL_MS = 86_400_000; // 1 day
@@ -268,27 +271,21 @@ public class ReputationManager {
     @Getter
     private final long timestamp;
 
-    public ReputationData(int score, long timestamp) {
+    ReputationData(int score, long timestamp) {
       this.score = score;
       this.timestamp = timestamp;
     }
 
-    /**
-     * Gets the reputation score with time-based decay applied.
-     * Scores decay towards neutral (100) over time.
-     *
-     * @return the decayed reputation score
-     */
-    public int getDecayedScore() {
+    int getDecayedScore() {
       long ageMs = System.currentTimeMillis() - timestamp;
       long daysSinceUpdate = ageMs / DECAY_INTERVAL_MS;
 
-      if (daysSinceUpdate == 0) {
+      if (daysSinceUpdate <= 0) {
         return score;
       }
 
       // Decay towards neutral score
-      int totalDecay = (int) (daysSinceUpdate * DECAY_AMOUNT);
+      int totalDecay = (int) Math.min(Integer.MAX_VALUE, daysSinceUpdate * DECAY_AMOUNT);
 
       if (score > NEUTRAL_SCORE) {
         // Good reputation decays down towards neutral

@@ -25,6 +25,8 @@ package io.xdag.p2p.handler.discover;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.socket.nio.NioDatagramChannel;
+import io.xdag.crypto.keys.ECKeyPair;
+import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.message.Message;
 import io.xdag.p2p.message.MessageCode;
 import org.apache.tuweni.bytes.Bytes;
@@ -43,6 +45,7 @@ class MessageHandlerTest {
     private NioDatagramChannel mockChannel;
     private EventHandler mockEventHandler;
     private ChannelHandlerContext mockCtx;
+    private P2pConfig config;
 
     @BeforeEach
     void setUp() {
@@ -50,7 +53,9 @@ class MessageHandlerTest {
         mockEventHandler = mock(EventHandler.class);
         mockCtx = mock(ChannelHandlerContext.class);
 
-        messageHandler = new MessageHandler(mockChannel, mockEventHandler);
+        config = new P2pConfig();
+        config.setNodeKey(ECKeyPair.generate());
+        messageHandler = new MessageHandler(mockChannel, mockEventHandler, config);
     }
 
     // ==================== Constructor Tests ====================
@@ -62,7 +67,7 @@ class MessageHandlerTest {
 
     @Test
     void testConstructorWithValidParams() {
-        MessageHandler handler = new MessageHandler(mockChannel, mockEventHandler);
+        MessageHandler handler = new MessageHandler(mockChannel, mockEventHandler, config);
         assertNotNull(handler, "Should create handler with valid parameters");
     }
 
@@ -91,6 +96,8 @@ class MessageHandlerTest {
         // Create mock message
         Message mockMessage = mock(Message.class);
         when(mockMessage.getType()).thenReturn(MessageCode.KAD_PING);
+        when(mockMessage.getCode()).thenReturn(MessageCode.KAD_PING);
+        when(mockMessage.getBody()).thenReturn(new byte[]{1, 2, 3});
         Bytes mockData = Bytes.wrap(new byte[]{1, 2, 3, 4, 5});
         when(mockMessage.getSendData()).thenReturn(mockData);
 
@@ -112,6 +119,8 @@ class MessageHandlerTest {
         // Test PING message
         Message pingMessage = mock(Message.class);
         when(pingMessage.getType()).thenReturn(MessageCode.KAD_PING);
+        when(pingMessage.getCode()).thenReturn(MessageCode.KAD_PING);
+        when(pingMessage.getBody()).thenReturn(new byte[]{1, 2, 3});
         when(pingMessage.getSendData()).thenReturn(Bytes.wrap(new byte[10]));
         UdpEvent pingEvent = new UdpEvent(pingMessage, address);
         messageHandler.channelRead0(mockCtx, pingEvent);
@@ -119,6 +128,8 @@ class MessageHandlerTest {
         // Test PONG message
         Message pongMessage = mock(Message.class);
         when(pongMessage.getType()).thenReturn(MessageCode.KAD_PONG);
+        when(pongMessage.getCode()).thenReturn(MessageCode.KAD_PONG);
+        when(pongMessage.getBody()).thenReturn(new byte[]{1, 2, 3});
         when(pongMessage.getSendData()).thenReturn(Bytes.wrap(new byte[15]));
         UdpEvent pongEvent = new UdpEvent(pongMessage, address);
         messageHandler.channelRead0(mockCtx, pongEvent);
@@ -126,6 +137,8 @@ class MessageHandlerTest {
         // Test FIND_NODE message
         Message findNodeMessage = mock(Message.class);
         when(findNodeMessage.getType()).thenReturn(MessageCode.KAD_FIND_NODE);
+        when(findNodeMessage.getCode()).thenReturn(MessageCode.KAD_FIND_NODE);
+        when(findNodeMessage.getBody()).thenReturn(new byte[]{1, 2, 3});
         when(findNodeMessage.getSendData()).thenReturn(Bytes.wrap(new byte[20]));
         UdpEvent findNodeEvent = new UdpEvent(findNodeMessage, address);
         messageHandler.channelRead0(mockCtx, findNodeEvent);
@@ -137,6 +150,8 @@ class MessageHandlerTest {
     void testChannelRead0WithEmptyData() {
         Message mockMessage = mock(Message.class);
         when(mockMessage.getType()).thenReturn(MessageCode.KAD_PING);
+        when(mockMessage.getCode()).thenReturn(MessageCode.KAD_PING);
+        when(mockMessage.getBody()).thenReturn(new byte[]{1, 2, 3});
         when(mockMessage.getSendData()).thenReturn(Bytes.EMPTY);
 
         InetSocketAddress address = new InetSocketAddress("127.0.0.1", 10000);
@@ -151,6 +166,8 @@ class MessageHandlerTest {
     void testChannelRead0WithLargeData() {
         Message mockMessage = mock(Message.class);
         when(mockMessage.getType()).thenReturn(MessageCode.KAD_NEIGHBORS);
+        when(mockMessage.getCode()).thenReturn(MessageCode.KAD_NEIGHBORS);
+        when(mockMessage.getBody()).thenReturn(new byte[]{1, 2, 3});
         byte[] largeData = new byte[1500]; // MTU size
         when(mockMessage.getSendData()).thenReturn(Bytes.wrap(largeData));
 
@@ -168,6 +185,8 @@ class MessageHandlerTest {
     void testAcceptSendsPacket() {
         Message mockMessage = mock(Message.class);
         when(mockMessage.getType()).thenReturn(MessageCode.KAD_PING);
+        when(mockMessage.getCode()).thenReturn(MessageCode.KAD_PING);
+        when(mockMessage.getBody()).thenReturn(new byte[]{1, 2, 3});
         Bytes sendData = Bytes.wrap(new byte[]{10, 20, 30});
         when(mockMessage.getSendData()).thenReturn(sendData);
 
@@ -184,6 +203,8 @@ class MessageHandlerTest {
     void testAcceptWithDifferentAddresses() {
         Message mockMessage = mock(Message.class);
         when(mockMessage.getType()).thenReturn(MessageCode.KAD_PONG);
+        when(mockMessage.getCode()).thenReturn(MessageCode.KAD_PONG);
+        when(mockMessage.getBody()).thenReturn(new byte[]{1, 2, 3});
         when(mockMessage.getSendData()).thenReturn(Bytes.wrap(new byte[]{1, 2, 3}));
 
         // Test localhost
@@ -206,6 +227,8 @@ class MessageHandlerTest {
     void testAcceptWithEmptyMessage() {
         Message mockMessage = mock(Message.class);
         when(mockMessage.getType()).thenReturn(MessageCode.KAD_PING);
+        when(mockMessage.getCode()).thenReturn(MessageCode.KAD_PING);
+        when(mockMessage.getBody()).thenReturn(new byte[]{1, 2, 3});
         when(mockMessage.getSendData()).thenReturn(Bytes.EMPTY);
 
         InetSocketAddress address = new InetSocketAddress("127.0.0.1", 10000);
@@ -324,6 +347,8 @@ class MessageHandlerTest {
         // Simulate receiving a message
         Message receiveMessage = mock(Message.class);
         when(receiveMessage.getType()).thenReturn(MessageCode.KAD_PING);
+        when(receiveMessage.getCode()).thenReturn(MessageCode.KAD_PING);
+        when(receiveMessage.getBody()).thenReturn(new byte[]{1, 2, 3});
         when(receiveMessage.getSendData()).thenReturn(Bytes.wrap(new byte[]{1, 2, 3}));
         InetSocketAddress receiveAddr = new InetSocketAddress("192.168.1.100", 10000);
         UdpEvent receiveEvent = new UdpEvent(receiveMessage, receiveAddr);
@@ -333,6 +358,8 @@ class MessageHandlerTest {
         // Simulate sending a response
         Message sendMessage = mock(Message.class);
         when(sendMessage.getType()).thenReturn(MessageCode.KAD_PONG);
+        when(sendMessage.getCode()).thenReturn(MessageCode.KAD_PONG);
+        when(sendMessage.getBody()).thenReturn(new byte[]{1, 2, 3});
         when(sendMessage.getSendData()).thenReturn(Bytes.wrap(new byte[]{4, 5, 6}));
         InetSocketAddress sendAddr = new InetSocketAddress("192.168.1.100", 10000);
         UdpEvent sendEvent = new UdpEvent(sendMessage, sendAddr);
@@ -351,6 +378,8 @@ class MessageHandlerTest {
         for (int i = 0; i < 100; i++) {
             Message mockMessage = mock(Message.class);
             when(mockMessage.getType()).thenReturn(MessageCode.KAD_PING);
+            when(mockMessage.getCode()).thenReturn(MessageCode.KAD_PING);
+            when(mockMessage.getBody()).thenReturn(new byte[]{1, 2, 3});
             when(mockMessage.getSendData()).thenReturn(Bytes.wrap(new byte[]{(byte) i}));
 
             InetSocketAddress address = new InetSocketAddress("127.0.0.1", 10000 + i);
@@ -368,6 +397,8 @@ class MessageHandlerTest {
         for (int i = 0; i < 100; i++) {
             Message mockMessage = mock(Message.class);
             when(mockMessage.getType()).thenReturn(MessageCode.KAD_PONG);
+            when(mockMessage.getCode()).thenReturn(MessageCode.KAD_PONG);
+            when(mockMessage.getBody()).thenReturn(new byte[]{1, 2, 3});
             when(mockMessage.getSendData()).thenReturn(Bytes.wrap(new byte[]{(byte) i}));
 
             InetSocketAddress address = new InetSocketAddress("127.0.0.1", 10000 + i);
@@ -389,6 +420,8 @@ class MessageHandlerTest {
         // 2. Receive some messages
         Message msg1 = mock(Message.class);
         when(msg1.getType()).thenReturn(MessageCode.KAD_PING);
+        when(msg1.getCode()).thenReturn(MessageCode.KAD_PING);
+        when(msg1.getBody()).thenReturn(new byte[]{1, 2, 3});
         when(msg1.getSendData()).thenReturn(Bytes.wrap(new byte[]{1}));
         messageHandler.channelRead0(mockCtx, new UdpEvent(msg1, new InetSocketAddress("127.0.0.1", 10000)));
 
@@ -399,6 +432,8 @@ class MessageHandlerTest {
         // 4. Send response
         Message msg2 = mock(Message.class);
         when(msg2.getType()).thenReturn(MessageCode.KAD_PONG);
+        when(msg2.getCode()).thenReturn(MessageCode.KAD_PONG);
+        when(msg2.getBody()).thenReturn(new byte[]{1, 2, 3});
         when(msg2.getSendData()).thenReturn(Bytes.wrap(new byte[]{2}));
         messageHandler.accept(new UdpEvent(msg2, new InetSocketAddress("127.0.0.1", 10000)));
 

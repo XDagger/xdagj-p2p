@@ -31,7 +31,6 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.MultiThreadIoEventLoopGroup;
 import io.netty.channel.nio.NioIoHandler;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.logging.LoggingHandler;
 import io.xdag.p2p.channel.ChannelManager;
 import io.xdag.p2p.channel.P2pChannelInitializer;
 import io.xdag.p2p.config.P2pConfig;
@@ -92,14 +91,17 @@ public class PeerServer {
 
       b.option(ChannelOption.MESSAGE_SIZE_ESTIMATOR, DefaultMessageSizeEstimator.DEFAULT);
       b.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, P2pConstant.NODE_CONNECTION_TIMEOUT);
+      b.option(ChannelOption.SO_BACKLOG, 128);
+      b.option(ChannelOption.SO_REUSEADDR, true);
+      b.childOption(ChannelOption.SO_KEEPALIVE, true);
+      b.childOption(ChannelOption.TCP_NODELAY, true);
 
-      b.handler(new LoggingHandler());
       b.childHandler(p2pChannelInitializer);
 
-      // Start the client.
-      log.info("TCP listener started, bind port {}", port);
+      String bindIp = p2pConfig.getBindIp();
+      log.info("TCP listener started, bind {}:{}", bindIp == null || bindIp.isBlank() ? "*" : bindIp, port);
 
-      channelFuture = b.bind(port).sync();
+      channelFuture = (bindIp == null || bindIp.isBlank() ? b.bind(port) : b.bind(bindIp, port)).sync();
 
       listening = true;
 

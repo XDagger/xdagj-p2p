@@ -62,6 +62,9 @@ public class NetUtils {
   private static final Pattern IPV4_PATTERN = Pattern.compile(
       "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$");
 
+  /** Connect and read timeout of the "what is my address" lookups. */
+  private static final int EXTERNAL_IP_TIMEOUT_MS = 5000;
+
   /** Pre-compiled IPv6 validation pattern for performance */
   private static final Pattern IPV6_PATTERN = Pattern.compile("^[0-9a-fA-F:]+$");
 
@@ -116,6 +119,102 @@ public class NetUtils {
     } catch (Exception e) {
       return false;
     }
+  }
+
+  /**
+   * Whether the text is an IPv4 address literal (four decimal octets), checked without any name lookup.
+   */
+  public static boolean isIpV4Literal(String ip) {
+    return ip != null && ip.length() <= 15 && IPV4_PATTERN.matcher(ip).matches();
+  }
+
+  /**
+   * Whether the text is an IPv6 address literal, checked without any name lookup: only hex digits, colons and
+   * (for an embedded IPv4 tail) dots, and accepted by the JDK's literal parser. A scope id ("%eth0") is refused.
+   */
+  public static boolean isIpV6Literal(String ip) {
+    if (ip == null || ip.length() < 2 || ip.length() > 45 || ip.indexOf(':') < 0) {
+      return false;
+    }
+    for (int i = 0; i < ip.length(); i++) {
+      char c = ip.charAt(i);
+      boolean hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+      if (!hex && c != ':' && c != '.') {
+        return false;
+      }
+    }
+    try {
+      // a string that contains ':' is only ever parsed as a literal by the JDK, it is never resolved
+      return InetAddress.getByName(ip) instanceof Inet6Address;
+    } catch (Exception e) {
+      return false;
+    }
+  }
+
+  /**
+   * Whether an address can belong to a node on the public internet: not the wildcard, loopback, link-local,
+   * site-local (10/8, 172.16/12, 192.168/16), carrier-grade NAT (100.64/10), multicast, broadcast,
+   * documentation / benchmark ranges, nor IPv6 unique-local (fc00::/7). Addresses learnt from other nodes are
+   * only dialled or pinged if they pass this check (unless the node is configured for a private network):
+   * otherwise any peer could make us probe our own LAN or localhost.
+   */
+  public static boolean isPublicAddress(InetAddress address) {
+    if (address == null
+        || address.isAnyLocalAddress()
+        || address.isLoopbackAddress()
+        || address.isLinkLocalAddress()
+        || address.isSiteLocalAddress()
+        || address.isMulticastAddress()) {
+      return false;
+    }
+    byte[] b = address.getAddress();
+    if (b.length == 4) {
+      int b0 = b[0] & 0xff;
+      int b1 = b[1] & 0xff;
+      int b2 = b[2] & 0xff;
+      if (b0 == 0 || b0 >= 240) {
+        return false; // "this network", reserved, broadcast
+      }
+      if (b0 == 100 && b1 >= 64 && b1 <= 127) {
+        return false; // 100.64.0.0/10 carrier-grade NAT
+      }
+      if (b0 == 192 && b1 == 0 && (b2 == 0 || b2 == 2)) {
+        return false; // 192.0.0.0/24 protocol assignments, 192.0.2.0/24 documentation
+      }
+      if (b0 == 198 && (b1 == 18 || b1 == 19)) {
+        return false; // 198.18.0.0/15 benchmarking
+      }
+      if ((b0 == 198 && b1 == 51 && b2 == 100) || (b0 == 203 && b1 == 0 && b2 == 113)) {
+        return false; // documentation
+      }
+      return true;
+    }
+    if (b.length == 16) {
+      int b0 = b[0] & 0xff;
+      if ((b0 & 0xfe) == 0xfc) {
+        return false; // fc00::/7 unique local
+      }
+      if (b0 == 0x20 && (b[1] & 0xff) == 0x01 && (b[2] & 0xff) == 0x0d && (b[3] & 0xff) == 0xb8) {
+        return false; // 2001:db8::/32 documentation
+      }
+      // IPv4-mapped (::ffff:a.b.c.d) addresses are turned into Inet4Address by the JDK and never get here
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * The group an address is counted in when connections or table entries per network are limited: the /24 of an
+   * IPv4 address, the /48 of an IPv6 address.
+   */
+  public static String subnetKey(InetAddress address) {
+    byte[] b = address.getAddress();
+    StringBuilder sb = new StringBuilder();
+    int n = b.length == 4 ? 3 : 6;
+    for (int i = 0; i < n; i++) {
+      sb.append(String.format("%02x", b[i]));
+    }
+    return sb.toString();
   }
 
   public static boolean validNode(Node node) {
@@ -196,15 +295,20 @@ public class NetUtils {
     try {
       // Use URI.toURL() instead of deprecated URL(String) constructor
       URLConnection urlConnection = URI.create(url).toURL().openConnection();
+      // without timeouts a service that accepts the connection and then says nothing blocks the caller forever
+      urlConnection.setConnectTimeout(EXTERNAL_IP_TIMEOUT_MS);
+      urlConnection.setReadTimeout(EXTERNAL_IP_TIMEOUT_MS);
       in = new BufferedReader(new InputStreamReader(urlConnection.getInputStream()));
       ip = in.readLine();
-      if (ip == null || ip.trim().isEmpty()) {
-        throw new IOException("Invalid address: " + ip);
+      if (ip != null) {
+        ip = ip.trim();
       }
-      try {
-        InetAddress.getByName(ip);
-      } catch (Exception e) {
-        throw new IOException("Invalid address: " + ip);
+      // The answer comes from a third party: only an IP literal is accepted. (InetAddress.getByName() would
+      // resolve anything else as a host name.)
+      if (ip == null || !(isIpV4Literal(ip) || isIpV6Literal(ip))) {
+        String shown = ip == null ? "null" : ip.substring(0, Math.min(ip.length(), 64));
+        ip = null;
+        throw new IOException("Invalid address: " + shown);
       }
       return ip;
     } catch (Exception e) {
@@ -323,7 +427,7 @@ public class NetUtils {
   private static String getIp(List<String> multiSrcUrls) {
     ExecutorService executor =
         Executors.newCachedThreadPool(
-            BasicThreadFactory.builder().namingPattern("getIp").build());
+            BasicThreadFactory.builder().namingPattern("getIp").daemon(true).build());
     CompletionService<String> completionService = new ExecutorCompletionService<>(executor);
 
     List<Callable<String>> tasks = new ArrayList<>();
@@ -333,13 +437,28 @@ public class NetUtils {
       completionService.submit(task);
     }
 
-    Future<String> future;
+    // The first service that gives a usable answer wins. (It used to be the first one that finished, even if
+    // it had failed, and there was no upper bound on the wait.)
     String result = null;
+    long deadline = System.currentTimeMillis() + 2L * EXTERNAL_IP_TIMEOUT_MS;
     try {
-      future = completionService.take();
-      result = future.get();
-    } catch (InterruptedException | ExecutionException e) {
-      // ignore
+      for (int i = 0; i < tasks.size() && result == null; i++) {
+        long wait = deadline - System.currentTimeMillis();
+        if (wait <= 0) {
+          break;
+        }
+        Future<String> future = completionService.poll(wait, java.util.concurrent.TimeUnit.MILLISECONDS);
+        if (future == null) {
+          break;
+        }
+        try {
+          result = future.get();
+        } catch (ExecutionException e) {
+          // try the next one
+        }
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
     } finally {
       executor.shutdownNow();
     }

@@ -29,10 +29,8 @@ import io.xdag.p2p.message.MessageCode;
 import io.xdag.p2p.utils.SimpleDecoder;
 import io.xdag.p2p.utils.SimpleEncoder;
 import lombok.Getter;
-import lombok.Setter;
 
 @Getter
-@Setter
 public class KadPingMessage extends Message {
 
   private final byte networkId;
@@ -52,13 +50,7 @@ public class KadPingMessage extends Message {
     this.to = to;
 
     SimpleEncoder enc = new SimpleEncoder();
-    enc.writeByte(networkId);
-    enc.writeShort(networkVersion);
-    enc.writeLong(timestamp);
-
-    enc.writeBytes(from.toBytes());
-    enc.writeBytes(to.toBytes());
-
+    encode(enc);
     this.body = enc.toBytes();
   }
 
@@ -94,7 +86,6 @@ public class KadPingMessage extends Message {
     this.body = body;
   }
 
-
   @Override
   public void encode(SimpleEncoder enc) {
     enc.writeByte(networkId);
@@ -112,6 +103,4 @@ public class KadPingMessage extends Message {
         ", timestamp=" + timestamp +
         "]";
   }
-
-
 }

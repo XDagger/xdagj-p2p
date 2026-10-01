@@ -49,6 +49,10 @@ import org.apache.tuweni.bytes.Bytes32;
 @Setter
 public abstract class HandshakeMessage extends Message {
 
+    public static final int MAX_CAPABILITIES = 32;
+    public static final int MAX_CAPABILITY_LENGTH = 64;
+    public static final int MAX_TAG_LENGTH = 64;
+
     protected final byte networkId;
     protected final short networkVersion;
 
@@ -116,8 +120,9 @@ public abstract class HandshakeMessage extends Message {
         this.peerId = dec.readString();
         this.port = dec.readInt();
         this.clientId = dec.readString();
+        // the count is a claim of the sender: bounded before anything is read for it
         List<String> capabilities = new ArrayList<>();
-        for (int i = 0, size = dec.readInt(); i < size; i++) {
+        for (int i = 0, size = dec.readCount(MAX_CAPABILITIES, 1); i < size; i++) {
             capabilities.add(dec.readString());
         }
         this.capabilities = capabilities.toArray(new String[0]);
@@ -158,16 +163,30 @@ public abstract class HandshakeMessage extends Message {
     }
 
     public boolean validate(P2pConfig config) {
-        SimpleEncoder enc = encodeBasicInfo();
-        Bytes32 hash = HashUtils.sha256(Bytes.wrap(enc.toBytes()));
-        if(publicKey == null && signature !=null) {
-            publicKey = Signer.recoverPublicKey(hash, signature);
+        if (capabilities == null || secret == null || signature == null) {
+            return false;
+        }
+        Bytes32 hash;
+        try {
+            SimpleEncoder enc = encodeBasicInfo();
+            hash = HashUtils.sha256(Bytes.wrap(enc.toBytes()));
+            if (publicKey == null) {
+                publicKey = Signer.recoverPublicKey(hash, signature);
+            }
+        } catch (RuntimeException e) {
+            // a signature that no key can be recovered from
+            return false;
+        }
+        if (publicKey == null) {
+            return false;
         }
         if (networkId == config.getNetworkId()
                 && networkVersion == config.getNetworkVersion()
                 && peerId != null && peerId.length() <= 64
                 && port > 0 && port <= 65535
                 && clientId != null && clientId.length() < 128
+                && capabilitiesAreSane()
+                && (nodeTag == null || nodeTag.length() <= MAX_TAG_LENGTH)
                 && latestBlockNumber >= 0
                 && secret != null && secret.length == InitMessage.SECRET_LENGTH
                 && Math.abs(System.currentTimeMillis() - timestamp) <= config.getNetHandshakeExpiry()
@@ -178,6 +197,18 @@ public abstract class HandshakeMessage extends Message {
         } else {
             return false;
         }
+    }
+
+    private boolean capabilitiesAreSane() {
+        if (capabilities == null || capabilities.length > MAX_CAPABILITIES) {
+            return false;
+        }
+        for (String capability : capabilities) {
+            if (capability == null || capability.length() > MAX_CAPABILITY_LENGTH) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

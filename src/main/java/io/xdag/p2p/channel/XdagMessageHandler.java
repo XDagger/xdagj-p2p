@@ -27,28 +27,34 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToMessageCodec;
 import io.xdag.p2p.config.P2pConfig;
 import io.xdag.p2p.message.Message;
-import io.xdag.p2p.message.MessageCode;
 import io.xdag.p2p.message.MessageException;
 import io.xdag.p2p.message.MessageFactory;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
 import org.xerial.snappy.Snappy;
 
+/**
+ * Messages &lt;-&gt; frames: compression and splitting of a message into frames of at most
+ * {@code netMaxFrameBodySize} bytes, and the reverse.
+ *
+ * <p>The sender writes all frames of a message one after the other, so at any time at most one message is being
+ * put together on the receiving side. Anything else is a protocol violation that closes the connection: a frame
+ * of another packet in between, a frame whose header disagrees with the first one, an empty frame of a split
+ * packet, more bytes than announced. The receiver therefore buffers at most one packet of at most
+ * {@code netMaxPacketSize} bytes per connection. (It used to keep a map of half-received packets that a peer
+ * could fill with as many packets as it liked, each pinned until completed.)
+ */
 @Slf4j
 public class XdagMessageHandler extends MessageToMessageCodec<XdagFrame, Message> {
-
-    private static final int MAX_INFLIGHT_PACKETS = 64;
-    private final Map<Integer, PacketAggregate> inFlight = new ConcurrentHashMap<>();
 
     private final P2pConfig config;
     private final MessageFactory messageFactory = new MessageFactory();
     private final AtomicInteger packetCounter = new AtomicInteger(0);
+
+    /** The packet that is being put together, if any. Only touched by the channel's event loop. */
+    private Assembly assembly;
 
     public XdagMessageHandler(P2pConfig config) {
         this.config = config;
@@ -58,60 +64,42 @@ public class XdagMessageHandler extends MessageToMessageCodec<XdagFrame, Message
     protected void encode(ChannelHandlerContext ctx, Message msg, List<Object> out) throws Exception {
         // Send raw body; packetType from message code, size is body length
         byte[] data = msg.getBody();
+        if (data == null) {
+            data = new byte[0];
+        }
+        int maxPacket = config.getNetMaxPacketSize();
+        if (data.length > maxPacket) {
+            throw new MessageException("Packet too large, max = " + maxPacket + ", actual = " + data.length);
+        }
         byte[] compressed = data;
-
-        if (config.isEnableFrameCompression()) {
-            try {
-                compressed = Snappy.compress(data);
-            } catch (IOException e) {
-                log.error("Failed to compress data", e);
-                return;
+        boolean compress = config.isEnableFrameCompression();
+        if (compress) {
+            compressed = Snappy.compress(data);
+            if (compressed.length > maxPacket) {
+                throw new MessageException("Packet too large, max = " + maxPacket + ", actual = " + compressed.length);
             }
         }
 
         byte packetType = msg.getCode().toByte();
-        // Log PING/PONG at INFO level for debugging
-        if (packetType == MessageCode.PING.toByte() || packetType == MessageCode.PONG.toByte()) {
-            log.info("Encode message: type=0x{} ({}), bodyLen={}, to={}",
-                    String.format("%02X", packetType),
-                    packetType == MessageCode.PING.toByte() ? "PING" : "PONG",
-                    data != null ? data.length : 0,
-                    ctx.channel().remoteAddress());
-        } else {
+        if (log.isDebugEnabled()) {
             log.debug("Encode message: type=0x{}, bodyLen={}, compressedLen={}, to={}",
-                    String.format("%02X", packetType),
-                    data != null ? data.length : 0,
-                    compressed.length,
-                    ctx.channel().remoteAddress());
+                    String.format("%02X", packetType), data.length, compressed.length, ctx.channel().remoteAddress());
         }
         int packetId = packetCounter.incrementAndGet();
         int packetSize = compressed.length;
 
-        int maxPacket = config.getNetMaxPacketSize();
-        if (data.length > maxPacket || compressed.length > maxPacket) {
-            log.error("Invalid packet size, max = {}, actual = {}", maxPacket, packetSize);
-            return;
-        }
-
         int limit = config.getNetMaxFrameBodySize();
         if (limit <= 0) {
-            log.error("Invalid frame body size limit: {}", limit);
-            return;
+            throw new MessageException("Invalid frame body size limit: " + limit);
         }
 
-        int total = (compressed.length - 1) / limit + 1;
+        byte compressType = compress ? XdagFrame.COMPRESS_SNAPPY : XdagFrame.COMPRESS_NONE;
+        int total = packetSize == 0 ? 1 : (packetSize - 1) / limit + 1;
         for (int i = 0; i < total; i++) {
-            int len = (i < total - 1) ? limit : (compressed.length - i * limit);
+            int len = (i < total - 1) ? limit : (packetSize - i * limit);
             byte[] body = new byte[len];
             System.arraycopy(compressed, i * limit, body, 0, len);
-            out.add(new XdagFrame(
-                    XdagFrame.VERSION,
-                    config.isEnableFrameCompression() ? XdagFrame.COMPRESS_SNAPPY : XdagFrame.COMPRESS_NONE,
-                    packetType,
-                    packetId,
-                    packetSize,
-                    body.length,
-                    body));
+            out.add(new XdagFrame(XdagFrame.VERSION, compressType, packetType, packetId, packetSize, len, body));
         }
     }
 
@@ -120,116 +108,111 @@ public class XdagMessageHandler extends MessageToMessageCodec<XdagFrame, Message
         if (frame == null) {
             throw new MessageException("Frame cannot be null");
         }
+        if (log.isTraceEnabled()) {
+            log.trace("Decode frame: type={}, id={}, bodyLen={}, from {}", frame.getPacketType(), frame.getPacketId(),
+                    frame.getBodySize(), ctx.channel().remoteAddress());
+        }
 
-        // Log PING/PONG frames at INFO level for debugging
-        byte packetType = frame.getPacketType();
-        if (packetType == MessageCode.PING.toByte() || packetType == MessageCode.PONG.toByte()) {
-            log.info("Decode frame: type=0x{} ({}), id={}, bodyLen={}, from {}",
-                    String.format("%02X", packetType),
-                    packetType == MessageCode.PING.toByte() ? "PING" : "PONG",
-                    frame.getPacketId(), frame.getBodySize(), ctx.channel().remoteAddress());
-        } else {
-            log.debug("Decode frame: type={}, id={}, bodyLen={}, from {}", frame.getPacketType(), frame.getPacketId(), frame.getBodySize(), ctx.channel().remoteAddress());
+        int packetSize = frame.getPacketSize();
+        int bodySize = frame.getBodySize();
+        if (packetSize < 0 || packetSize > config.getNetMaxPacketSize()) {
+            throw new MessageException("Invalid packet size: " + packetSize);
+        }
+        if (frame.getBody() == null || frame.getBody().length != bodySize || bodySize > packetSize) {
+            throw new MessageException("Invalid frame body size: " + bodySize);
         }
 
         Message decodedMsg;
-        if (frame.isChunked()) {
-            decodedMsg = onChunked(frame);
+        if (assembly == null && !frame.isChunked()) {
+            decodedMsg = decodePacket(frame.getPacketType(), frame.getCompressType(), frame.getBody());
         } else {
-            decodedMsg = decodeFrames(Collections.singletonList(frame));
+            decodedMsg = onChunk(frame);
         }
 
         if (decodedMsg != null) {
-            log.debug("Decoded Message: {} bodyLen={} from {}", decodedMsg.getCode(), decodedMsg.getBody() != null ? decodedMsg.getBody().length : 0, ctx.channel().remoteAddress());
             out.add(decodedMsg);
         }
     }
 
-    private Message onChunked(XdagFrame frame) throws IOException {
-        int packetId = frame.getPacketId();
-        PacketAggregate agg = inFlight.computeIfAbsent(packetId, k -> new PacketAggregate(frame.getPacketSize()));
-        if (agg.expectedSize < 0 || agg.expectedSize > config.getNetMaxPacketSize()) {
-            throw new IOException("Invalid packet size: " + agg.expectedSize);
+    private Message onChunk(XdagFrame frame) throws IOException {
+        if (frame.getBodySize() == 0) {
+            // a split packet made of empty frames would never complete
+            throw new MessageException("Empty frame in a split packet");
         }
-        agg.frames.add(frame);
-        int remaining = agg.remaining.addAndGet(-frame.getBodySize());
-        if (remaining == 0) {
-            try {
-                return decodeFrames(agg.frames);
-            } finally {
-                inFlight.remove(packetId);
-                if (inFlight.size() > MAX_INFLIGHT_PACKETS) {
-                    // simple back-pressure: clear all to avoid leak in extreme cases
-                    inFlight.clear();
-                }
-            }
-        } else if (remaining < 0) {
-            throw new IOException("Packet remaining size went negative");
+        if (assembly == null) {
+            assembly = new Assembly(frame);
+        } else if (!assembly.matches(frame)) {
+            throw new MessageException("Frame of packet " + frame.getPacketId() + " inside packet " + assembly.packetId);
         }
-        return null;
+        if (assembly.received + frame.getBodySize() > assembly.data.length) {
+            throw new MessageException("Packet " + assembly.packetId + " is longer than announced");
+        }
+        System.arraycopy(frame.getBody(), 0, assembly.data, assembly.received, frame.getBodySize());
+        assembly.received += frame.getBodySize();
+        if (assembly.received < assembly.data.length) {
+            return null;
+        }
+        Assembly done = assembly;
+        assembly = null;
+        return decodePacket(done.packetType, done.compressType, done.data);
     }
 
-    private Message decodeFrames(List<XdagFrame> frames) throws IOException {
-        if (frames == null || frames.isEmpty()) {
-            throw new MessageException("Frames can't be null or empty");
-        }
-        XdagFrame head = frames.getFirst();
-        byte packetType = head.getPacketType();
-        int packetSize = head.getPacketSize();
-        if (packetSize < 0 || packetSize > config.getNetMaxPacketSize()) {
-            throw new MessageException("Invalid packet size: " + packetSize);
-        }
-        byte[] data = new byte[packetSize];
-        int pos = 0;
-        for (XdagFrame frame : frames) {
-            System.arraycopy(frame.getBody(), 0, data, pos, frame.getBodySize());
-            pos += frame.getBodySize();
-        }
-
-        switch (head.getCompressType()) {
+    private Message decodePacket(byte packetType, byte compressType, byte[] data) throws IOException {
+        switch (compressType) {
             case XdagFrame.COMPRESS_SNAPPY -> {
-                // validate uncompressed length
-                int length = Snappy.uncompressedLength(data);
-                if (length > config.getNetMaxPacketSize()) {
+                // the length is announced in the compressed data itself: check it before allocating
+                int length;
+                try {
+                    length = Snappy.uncompressedLength(data);
+                } catch (IOException e) {
+                    throw new MessageException("Malformed compressed data", e);
+                }
+                if (length < 0 || length > config.getNetMaxPacketSize()) {
                     throw new MessageException("Uncompressed data length too big: " + length);
                 }
-                data = Snappy.uncompress(data);
+                try {
+                    data = Snappy.uncompress(data);
+                } catch (IOException e) {
+                    throw new MessageException("Malformed compressed data", e);
+                }
             }
             case XdagFrame.COMPRESS_NONE -> {
                 // no-op
             }
-            default -> throw new MessageException("Unsupported compress type: " + head.getCompressType());
+            default -> throw new MessageException("Unsupported compress type: " + compressType);
         }
 
-        // Check if this is an application-layer message (code >= 0x16)
-        // MessageFactory only handles framework messages (0x00-0x15)
-        // For application/XDAG messages, create a generic wrapper to pass through
+        // Framework messages (KAD 0x00-0x0F, node protocol 0x10-0x15) are decoded here; everything else belongs
+        // to the application and is handed over as it is.
         int codeInt = 0xFF & packetType;
-        log.debug("Decode message: type=0x{}, dataLen={}",
-                String.format("%02X", packetType), data.length);
-
         if (codeInt >= 0x16) {
-            // Application layer or XDAG protocol - create generic message wrapper
-            // These will be decoded by application-specific event handlers
             return new ApplicationMessage(packetType, data);
         } else {
-            // Framework message - use MessageFactory
             return messageFactory.create(packetType, data);
         }
     }
 
-    private static final class PacketAggregate {
-        final List<XdagFrame> frames;
-        final int expectedSize;
-        final AtomicInteger remaining;
+    /** A split packet that is being received. */
+    private static final class Assembly {
+        final int packetId;
+        final byte packetType;
+        final byte compressType;
+        final byte[] data;
+        int received;
 
-        PacketAggregate(int size) {
-            this.expectedSize = size;
-            this.remaining = new AtomicInteger(size);
-            // Pre-allocate list with estimated capacity to reduce resizing
-            // Assume average frame size of 32KB, so estimate frame count
-            int estimatedFrames = Math.max(1, (size / 32768) + 1);
-            this.frames = new ArrayList<>(estimatedFrames);
+        Assembly(XdagFrame first) {
+            this.packetId = first.getPacketId();
+            this.packetType = first.getPacketType();
+            this.compressType = first.getCompressType();
+            // bounded by netMaxPacketSize (checked by the caller)
+            this.data = new byte[first.getPacketSize()];
+        }
+
+        boolean matches(XdagFrame frame) {
+            return frame.getPacketId() == packetId
+                    && frame.getPacketType() == packetType
+                    && frame.getCompressType() == compressType
+                    && frame.getPacketSize() == data.length;
         }
     }
 

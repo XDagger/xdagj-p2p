@@ -103,6 +103,27 @@ public class P2pService {
         log.info("P2P service stopped.");
     }
 
+    /**
+     * Opens or closes the network at run time. Closed: only the configured seed / active / trust nodes are
+     * talked to (existing connections with anybody else are dropped, discovery ignores everybody else). Open:
+     * anybody may connect and discovered nodes are dialled.
+     */
+    public void setPermissionless(boolean permissionless) {
+        boolean was = config.isPermissionless();
+        config.setPermissionless(permissionless);
+        if (was && !permissionless) {
+            log.info("P2P network closed: only configured peers from now on");
+            channelManager.closeUnconfiguredPeers();
+        } else if (!was && permissionless) {
+            log.info("P2P network open: accepting and discovering peers");
+            channelManager.triggerImmediateConnect();
+        }
+    }
+
+    public boolean isPermissionless() {
+        return config.isPermissionless();
+    }
+
     public ChannelFuture connect(InetSocketAddress remoteAddress) {
         Node node = new Node(null, remoteAddress);
         return channelManager.connectAsync(node, false);

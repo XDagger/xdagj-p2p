@@ -23,6 +23,7 @@
  */
 package io.xdag.p2p.discover;
 
+import io.xdag.p2p.utils.NetUtils;
 import io.xdag.p2p.utils.SimpleDecoder;
 import io.xdag.p2p.utils.SimpleEncoder;
 import java.io.Serializable;
@@ -106,6 +107,11 @@ public class Node implements Serializable, Cloneable {
         return encoder.toBytes();
     }
 
+    /**
+     * Decodes a node description that came from the wire. Nothing in it is trusted: the caller has to check it
+     * with {@link #isWellFormed()} before any of the addresses is used, because turning a host string into a
+     * socket address resolves it if it is not an IP literal.
+     */
     public Node(byte[] bytes) {
         SimpleDecoder decoder = new SimpleDecoder(bytes);
         networkId = decoder.readByte();
@@ -116,6 +122,46 @@ public class Node implements Serializable, Cloneable {
         port = decoder.readInt();
         bindPort = decoder.readInt();
         timestamp = decoder.readLong();
+    }
+
+    /** Length of a node id as text: "0x" followed by the 20 bytes of the XDAG address in hex. */
+    public static final int ID_LENGTH = 42;
+
+    /**
+     * Whether the given text is a node id: {@code 0x} + 40 lower-case hex digits.
+     */
+    public static boolean isValidId(String id) {
+        if (id == null || id.length() != ID_LENGTH || id.charAt(0) != '0' || id.charAt(1) != 'x') {
+            return false;
+        }
+        for (int i = 2; i < ID_LENGTH; i++) {
+            char c = id.charAt(i);
+            if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Whether this description can be used as it is: a proper id, at least one host, every host an IP literal
+     * (never a name - a name would be looked up in the DNS the moment an address object is built from it), and
+     * ports in range.
+     */
+    public boolean isWellFormed() {
+        if (!isValidId(id)) {
+            return false;
+        }
+        if (StringUtils.isEmpty(hostV4) && StringUtils.isEmpty(hostV6)) {
+            return false;
+        }
+        if (StringUtils.isNotEmpty(hostV4) && !NetUtils.isIpV4Literal(hostV4)) {
+            return false;
+        }
+        if (StringUtils.isNotEmpty(hostV6) && !NetUtils.isIpV6Literal(hostV6)) {
+            return false;
+        }
+        return port > 0 && port <= 65535 && bindPort > 0 && bindPort <= 65535;
     }
 
     public Node(String id, String hostV4, String hostV6, int port) {

@@ -36,5 +36,13 @@ public abstract class P2pEventHandler {
 
   public void onDisconnect(Channel channel) {}
 
+  /** A message of the application: {@code [code | body]}. */
   public void onMessage(Channel channel, Bytes data) {}
+
+  /**
+   * The peer's connection became writable again, or stopped being writable because the peer reads more slowly
+   * than we send. A sender of bulk data should pause while {@code writable} is false (see
+   * {@link Channel#isWritable()}).
+   */
+  public void onWritabilityChanged(Channel channel, boolean writable) {}
 }

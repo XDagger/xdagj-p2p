@@ -139,6 +139,7 @@ Thumbs.db
 # - pids: process IDs
 # - data: node reputation data (KadService ReputationManager)
 # Clean these before each test run for fresh results
+/data/
 
 # Discovery test runtime data
 test-nodes/discovery-test/discovery-results/

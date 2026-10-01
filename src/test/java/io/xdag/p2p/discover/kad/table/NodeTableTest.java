@@ -57,7 +57,8 @@ public class NodeTableTest {
     @BeforeEach
     public void init() {
         homeNode = new Node(getRandomNodeId(), new InetSocketAddress("127.0.0.1", 10001));
-        nodeTable = new NodeTable(homeNode);
+        // all test nodes live on the loopback address: exempt them from the per-address limits
+        nodeTable = new NodeTable(homeNode, true);
         nodes = new ArrayList<>();
         for (int i = 0; i < KademliaOptions.BUCKET_SIZE + 1; i++) {
             nodes.add(new Node(getRandomNodeId(), new InetSocketAddress("127.0.0.1", 10002 + i)));

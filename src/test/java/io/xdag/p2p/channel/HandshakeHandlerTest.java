@@ -24,6 +24,7 @@
 package io.xdag.p2p.channel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
@@ -103,6 +104,10 @@ class HandshakeHandlerTest {
         XdagFrame initFrame = new XdagFrame(XdagFrame.VERSION, XdagFrame.COMPRESS_NONE, init.getCode().toByte(), 0, init.getBody().length, init.getBody().length, init.getBody());
         ch.writeInbound(initFrame);
 
+        // the accepting side first issues its own challenge, then answers the one it received
+        XdagFrame serverInit = ch.readOutbound();
+        assertNotNull(serverInit);
+        assertEquals(MessageCode.HANDSHAKE_INIT.toByte(), serverInit.getPacketType());
         XdagFrame helloFrame = ch.readOutbound();
         assertNotNull(helloFrame);
         assertEquals(MessageCode.HANDSHAKE_HELLO.toByte(), helloFrame.getPacketType());
@@ -123,13 +128,17 @@ class HandshakeHandlerTest {
         assertNotNull(initFrame, "Init frame should not be null");
         assertEquals(MessageCode.HANDSHAKE_INIT.toByte(), initFrame.getPacketType());
 
-        // 2. Server receives Init, sends Hello
+        // 2. Server receives Init, sends its own Init (challenge) and Hello (answer)
         serverChannel.writeInbound(initFrame);
+        XdagFrame serverInitFrame = serverChannel.readOutbound();
+        assertNotNull(serverInitFrame, "Server init frame should not be null");
+        assertEquals(MessageCode.HANDSHAKE_INIT.toByte(), serverInitFrame.getPacketType());
         XdagFrame helloFrame = serverChannel.readOutbound();
         assertNotNull(helloFrame, "Hello frame should not be null");
         assertEquals(MessageCode.HANDSHAKE_HELLO.toByte(), helloFrame.getPacketType());
 
-        // 3. Client receives Hello, should send World
+        // 3. Client receives Init and Hello, should send World
+        clientChannel.writeInbound(serverInitFrame);
         clientChannel.writeInbound(helloFrame);
 
         // Read World frame
@@ -314,6 +323,8 @@ class HandshakeHandlerTest {
             init.getBody()
         );
         serverChannel.writeInbound(initFrame);
+        XdagFrame serverInitFrame = serverChannel.readOutbound();
+        assertNotNull(serverInitFrame);
         XdagFrame helloFrame = serverChannel.readOutbound();
         assertNotNull(helloFrame);
 
@@ -395,9 +406,12 @@ class HandshakeHandlerTest {
         // Complete handshake flow
         XdagFrame initFrame = clientChannel.readOutbound();
         serverChannel.writeInbound(initFrame);
+        XdagFrame serverInitFrame = serverChannel.readOutbound();
         XdagFrame helloFrame = serverChannel.readOutbound();
+        clientChannel.writeInbound(serverInitFrame);
         clientChannel.writeInbound(helloFrame);
         XdagFrame worldFrame = clientChannel.readOutbound();
+        assertNotNull(worldFrame);
         serverChannel.writeInbound(worldFrame);
 
         // When - send message after handshake complete
@@ -492,5 +506,75 @@ class HandshakeHandlerTest {
 
         // Then - should close connection, no WORLD sent
         assertNull(clientChannel.readOutbound(), "Should not send WORLD for invalid network version");
+    }
+
+    // ==================== Replay ====================
+
+    private static XdagFrame[] runToWorld(P2pConfig cc, io.xdag.crypto.keys.ECKeyPair ck, P2pConfig sc,
+            io.xdag.crypto.keys.ECKeyPair sk, ChannelManager cm) {
+        EmbeddedChannel client = new EmbeddedChannel(new HandshakeHandler(cc, cm, ck, true));
+        EmbeddedChannel server = new EmbeddedChannel(new HandshakeHandler(sc, cm, sk, false));
+        XdagFrame init = client.readOutbound();
+        server.writeInbound(init);
+        XdagFrame serverInit = server.readOutbound();
+        XdagFrame hello = server.readOutbound();
+        client.writeInbound(serverInit);
+        client.writeInbound(hello);
+        XdagFrame world = client.readOutbound();
+        assertNotNull(world);
+        return new XdagFrame[]{init, serverInit, hello, world};
+    }
+
+    @Test
+    void testRecordedWorldCannotBeReplayed() {
+        // A WORLD recorded from one connection is worthless on another: the accepting side chose a fresh nonce.
+        XdagFrame[] first = runToWorld(clientConfig, clientKey, serverConfig, serverKey, channelManager);
+
+        EmbeddedChannel server = new EmbeddedChannel(new HandshakeHandler(serverConfig, channelManager, serverKey, false));
+        server.writeInbound(first[0]);
+        server.readOutbound(); // its INIT
+        server.readOutbound(); // its HELLO
+        server.writeInbound(first[3]); // the old WORLD
+        assertFalse(server.isActive(), "the replayed WORLD must not complete the handshake: the connection is closed");
+        org.mockito.Mockito.verify(channelManager, org.mockito.Mockito.never())
+                .markHandshakeSuccess(org.mockito.ArgumentMatchers.any(io.netty.channel.ChannelHandlerContext.class),
+                        org.mockito.ArgumentMatchers.any(io.xdag.p2p.message.node.HandshakeMessage.class),
+                        org.mockito.ArgumentMatchers.eq(false)); // the accepting side never completed
+    }
+
+    @Test
+    void testWorldIsBoundToTheIdentityOfTheAcceptingSide() {
+        // A WORLD produced for a connection to node X does not pass at node Y even if Y replays X's nonce
+        // (a third node cannot relay A's answer to somebody else).
+        io.xdag.crypto.keys.ECKeyPair otherKey = io.xdag.crypto.keys.ECKeyPair.generate();
+        EmbeddedChannel client = new EmbeddedChannel(new HandshakeHandler(clientConfig, channelManager, clientKey, true));
+        EmbeddedChannel x = new EmbeddedChannel(new HandshakeHandler(serverConfig, channelManager, serverKey, false));
+        XdagFrame init = client.readOutbound();
+        x.writeInbound(init);
+        XdagFrame xInit = x.readOutbound();
+        XdagFrame xHello = x.readOutbound();
+        client.writeInbound(xInit);
+        client.writeInbound(xHello);
+        XdagFrame world = client.readOutbound();
+        assertNotNull(world);
+
+        // Y observed X's nonce and uses it as its own challenge: without the identity in the signed value,
+        // A's answer to X would pass at Y
+        HandshakeHandler xHandler = x.pipeline().get(HandshakeHandler.class);
+        HandshakeHandler yHandler = new HandshakeHandler(serverConfig, channelManager, otherKey, false);
+        try {
+            java.lang.reflect.Field secret = HandshakeHandler.class.getDeclaredField("secret");
+            secret.setAccessible(true);
+            secret.set(yHandler, secret.get(xHandler));
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+        EmbeddedChannel y = new EmbeddedChannel(yHandler);
+        y.writeInbound(world);
+        assertFalse(y.isActive(), "A's WORLD for X must not pass at Y");
+        org.mockito.Mockito.verify(channelManager, org.mockito.Mockito.never())
+                .markHandshakeSuccess(org.mockito.ArgumentMatchers.any(io.netty.channel.ChannelHandlerContext.class),
+                        org.mockito.ArgumentMatchers.any(io.xdag.p2p.message.node.HandshakeMessage.class),
+                        org.mockito.ArgumentMatchers.eq(false)); // the accepting side never completed
     }
 }

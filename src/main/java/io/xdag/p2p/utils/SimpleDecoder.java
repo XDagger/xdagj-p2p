@@ -127,6 +127,11 @@ public class SimpleDecoder {
             return null;
         }
         int len = vlq ? readSize() : readInt();
+        if (len < 0) {
+            // a 4-byte length with the sign bit set; require() would let it through and the allocation below
+            // would throw NegativeArraySizeException instead of the documented IndexOutOfBoundsException
+            throw new IndexOutOfBoundsException("negative length: " + len);
+        }
 
         require(len);
         byte[] buf = new byte[len];
@@ -199,10 +204,32 @@ public class SimpleDecoder {
      * @throws IndexOutOfBoundsException if there are not enough bytes
      */
     protected void require(int n) {
-        if (to - index < n) {
+        if (n < 0 || to - index < n) {
             String msg = String.format("input [%d, %d], require: [%d %d]", from, to, index, index + n);
             throw new IndexOutOfBoundsException(msg);
         }
+    }
+
+    /**
+     * Number of bytes that have not been read yet.
+     */
+    public int remaining() {
+        return to - index;
+    }
+
+    /**
+     * Reads an element count that came from the wire. The count is only a claim of the sender, so it must not be
+     * used to allocate anything before it has been checked: it has to be within {@code [0, max]} and the
+     * remaining input has to be able to hold that many elements of at least {@code minElementSize} bytes.
+     *
+     * @throws IndexOutOfBoundsException if the count is negative, above the limit, or larger than the input allows
+     */
+    public int readCount(int max, int minElementSize) {
+        int count = readInt();
+        if (count < 0 || count > max || (long) count * Math.max(1, minElementSize) > remaining()) {
+            throw new IndexOutOfBoundsException("invalid element count: " + count);
+        }
+        return count;
     }
 
     /**

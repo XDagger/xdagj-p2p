@@ -985,10 +985,11 @@ public class ChannelManagerTest {
     InetSocketAddress existingAddress = new InetSocketAddress("127.0.0.1", 9999);
     String nodeId = "test-loopback-node";
 
-    // Create a mock channel with different port but same loopback IP
+    // Create a mock channel with different port but same loopback IP; it announced port 8080 as its listening port
     Channel mockChannel = mock(Channel.class);
     when(mockChannel.getRemoteAddress()).thenReturn(existingAddress);
     when(mockChannel.getNodeId()).thenReturn(nodeId);
+    when(mockChannel.getListenAddress()).thenReturn(targetAddress);
 
     io.netty.channel.ChannelHandlerContext mockCtx = mock(io.netty.channel.ChannelHandlerContext.class);
     io.netty.channel.Channel mockNettyChannel = mock(io.netty.channel.Channel.class);
@@ -999,9 +1000,11 @@ public class ChannelManagerTest {
     // Add to connectedNodeIds map
     connectedNodeIds.put(nodeId, mockChannel);
 
-    // Test - should return true for loopback address with same IP (even different port) if nodeId exists
+    // Test - should return true: the peer listens on the target address
     boolean result = (boolean) method.invoke(channelManager, targetAddress);
     assertTrue(result, "Should return true for loopback address with same IP and valid nodeId");
+    // ... and false for another listening port on the same machine (another node)
+    assertFalse((boolean) method.invoke(channelManager, new InetSocketAddress("127.0.0.1", 8081)));
   }
 
   @Test
