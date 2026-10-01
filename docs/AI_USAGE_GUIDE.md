@@ -144,6 +144,8 @@ Creates a new P2P service instance with the given configuration.
   - Starts PeerServer and PeerClient
   - Begins connection attempts to seed nodes
   - Registers shutdown hook
+  - Returns when the TCP listener and the discovery socket are bound (a port that cannot be
+    bound is logged; `getPeerServer().isListening()` tells)
 - **Usage**: Call after configuration and event handler registration
 
 **stop()**

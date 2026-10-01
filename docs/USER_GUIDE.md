@@ -273,7 +273,7 @@ The standard dependency JAR (`xdagj-p2p-0.1.6.jar`) contains the core library co
 * `P2pService.start()`
     - @param: (none)
     - @return: void
-    - desc: Starts the P2P service. Initializes NodeManager, starts PeerServer and PeerClient, begins connection attempts to seed nodes
+    - desc: Starts the P2P service. Initializes NodeManager, starts PeerServer and PeerClient, begins connection attempts to seed nodes. Returns when the TCP listener and the discovery socket are bound, so the node can be dialled as soon as the call is back; a port that cannot be bound is logged and the service runs without it (`getPeerServer().isListening()`, `getNodeManager().isDiscoveryListening()`). Calling it twice starts once.
 
 * `P2pService.stop()`
     - @param: (none)

@@ -23,6 +23,7 @@
  */
 package io.xdag.p2p.channel;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -30,10 +31,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.netty.channel.ChannelHandlerContext;
@@ -343,6 +347,31 @@ public class ChannelManagerTest {
 
     // Clean up
     channelManager.stop();
+  }
+
+  @Test
+  public void triggerImmediateConnectOnlyWorksWhileRunning() throws InterruptedException {
+    NodeManager nodes = mock(NodeManager.class);
+    ChannelManager manager = new ChannelManager(p2pConfig, nodes);
+    try {
+      // Not started: there is nothing to dial with and no node table to look into. (The connect loop used to
+      // run all the same, and ended in a NullPointerException that was logged as a warning.)
+      manager.triggerImmediateConnect();
+      Thread.sleep(300);
+      verifyNoInteractions(nodes);
+
+      // Running: the loop looks for nodes to dial at once
+      manager.start(mock(PeerClient.class));
+      manager.triggerImmediateConnect();
+      verify(nodes, timeout(2000).atLeastOnce()).getBootNodes();
+    } finally {
+      manager.stop();
+    }
+    // Stopped: nothing happens, and nothing is thrown
+    clearInvocations(nodes);
+    assertDoesNotThrow(manager::triggerImmediateConnect);
+    Thread.sleep(300);
+    verifyNoInteractions(nodes);
   }
 
   @Test

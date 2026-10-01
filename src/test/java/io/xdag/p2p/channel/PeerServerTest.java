@@ -23,11 +23,20 @@
  */
 package io.xdag.p2p.channel;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.xdag.p2p.PeerServer;
 import io.xdag.p2p.config.P2pConfig;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -63,21 +72,84 @@ class PeerServerTest {
     assertNotNull(server, "PeerServer should be constructed successfully");
   }
 
-  @Test
-  void testStartWithValidPort() {
-    // Given
-    p2pConfig.setPort(8080);
+  /** A port on the loopback interface that nobody listens on at this moment. */
+  private static int freePort() throws IOException {
+    try (ServerSocket socket = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
+      return socket.getLocalPort();
+    }
+  }
 
-    // When & Then - start() spawns a background thread, should not throw
-    assertDoesNotThrow(() -> peerServer.start(),
-        "start() should spawn background thread without throwing");
+  private void listenOnLoopback(int port) {
+    p2pConfig.setBindIp("127.0.0.1");
+    p2pConfig.setPort(port);
+  }
+
+  @Test
+  void testStartWithValidPort() throws IOException {
+    // Given
+    listenOnLoopback(freePort());
+
+    // When & Then
+    assertDoesNotThrow(() -> peerServer.start(), "start() should not throw");
+    assertTrue(peerServer.isListening(), "the listener is bound when start() returns");
 
     // Clean up - stop the server
-    try {
-      Thread.sleep(50); // Give server thread time to start
+    peerServer.stop();
+  }
+
+  @Test
+  void startReturnsWhenTheListenerIsBound() throws IOException {
+    int port = freePort();
+    listenOnLoopback(port);
+
+    peerServer.start();
+    // no waiting, no retrying: a peer that dials right after start() is accepted
+    try (Socket socket = new Socket()) {
+      socket.connect(new InetSocketAddress("127.0.0.1", port), 2000);
+      assertTrue(socket.isConnected());
+    } finally {
       peerServer.stop();
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
+    }
+  }
+
+  /**
+   * Whether the port can be bound within a moment. (A closed channel gives its port back when its selector has
+   * taken note, which is a few milliseconds after the close is reported - not never, which is what this is about.)
+   */
+  private static boolean becomesFree(int port) throws InterruptedException {
+    for (int attempt = 0; attempt < 150; attempt++) {
+      try (ServerSocket socket = new ServerSocket()) {
+        socket.bind(new InetSocketAddress("127.0.0.1", port));
+        return true;
+      } catch (IOException e) {
+        Thread.sleep(20);
+      }
+    }
+    return false;
+  }
+
+  @Test
+  void stopRightAfterStartFreesThePort() throws Exception {
+    int port = freePort();
+    listenOnLoopback(port);
+
+    // (stop() used to find a listener that was still coming up on its own thread, do nothing - and the
+    // listener stayed for the rest of the process)
+    peerServer.start();
+    peerServer.stop();
+
+    assertFalse(peerServer.isListening());
+    assertTrue(becomesFree(port), "the port is free again");
+  }
+
+  @Test
+  void aPortThatIsTakenIsReportedAndDoesNotHoldStartUp() throws IOException {
+    try (ServerSocket taken = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
+      listenOnLoopback(taken.getLocalPort());
+
+      assertTimeoutPreemptively(Duration.ofSeconds(5), () -> peerServer.start());
+      assertFalse(peerServer.isListening(), "the node goes on without a listener, and says so");
+      assertDoesNotThrow(() -> peerServer.stop());
     }
   }
 

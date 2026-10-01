@@ -60,7 +60,7 @@ public class ChannelManager {
 
     private final P2pConfig config;
     private final NodeManager nodeManager;
-    private PeerClient peerClient;
+    private volatile PeerClient peerClient;
 
     @Getter
     private final Map<InetSocketAddress, Channel> channels = new ConcurrentHashMap<>();
@@ -147,9 +147,14 @@ public class ChannelManager {
     }
 
     /**
-     * Trigger an immediate connection attempt without waiting for the next scheduled run.
+     * Trigger an immediate connection attempt without waiting for the next scheduled run. Does nothing before
+     * {@link #start} (there is nothing to dial with yet, and the node table is not there either) and after
+     * {@link #stop}.
      */
     public void triggerImmediateConnect() {
+        if (peerClient == null || poolLoopExecutor.isShutdown()) {
+            return;
+        }
         try {
             poolLoopExecutor.execute(this::connectLoop);
         } catch (Exception e) {
