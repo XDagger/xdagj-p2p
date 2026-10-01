@@ -4,7 +4,7 @@
 [![Maven](https://img.shields.io/badge/Maven-3.6+-blue.svg)](https://maven.apache.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/Tests-923%20Total-brightgreen.svg)](#testing)
-[![Coverage](https://img.shields.io/badge/Coverage-76%25-brightgreen.svg)](#testing)
+[![Coverage](https://img.shields.io/badge/Coverage-75%25-brightgreen.svg)](#testing)
 
 High-performance Java P2P networking library for the XDAG blockchain ecosystem, built with modern Java technologies and comprehensive testing.
 
@@ -225,11 +225,11 @@ Error Rate:            0% (7M+ messages tested)
 
 ### Test Coverage
 ```
-Tests:          923 test cases (100% pass rate)
-Instructions:   76% (12,162 / 15,810)
-Branches:       64% (911 / 1,409)
-Lines:          77% (2,851 / 3,669)
-Execution:      ~30 seconds, zero flaky tests
+Tests:          923 test cases (100% pass rate; 2 are skipped without internet access)
+Instructions:   75.5% (15,100 / 19,994)
+Branches:       59.8% (1,366 / 2,286)
+Lines:          75.5% (3,396 / 4,500)
+Execution:      ~1.5 minutes (mvn test), zero flaky tests
 ```
 
 **See [docs/PERFORMANCE.md](docs/PERFORMANCE.md) for detailed benchmark methodology and results.**
@@ -299,7 +299,7 @@ graph TB
 
 ### Testing
 - **JUnit 5.12.2 + Mockito 5.14.2**: 923 comprehensive tests
-- **JaCoCo**: 76% instruction coverage
+- **JaCoCo**: 75% instruction coverage
 - **Professional test suite**: Multi-node network testing
 
 ---
@@ -494,4 +494,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Status:** v0.1.8 Production-Ready | **Tests:** 923 passing | **Coverage:** 76%
+**Status:** v0.1.8 Production-Ready | **Tests:** 923 passing | **Coverage:** 75%
