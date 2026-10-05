@@ -23,21 +23,21 @@
         <xdagj-crypto.version>0.1.5</xdagj-crypto.version>
 
         <!-- utils -->
-        <lombok.version>1.18.42</lombok.version>
-        <guava.version>33.5.0-jre</guava.version>
-        <commons-lang3.version>3.20.0</commons-lang3.version>
+        <lombok.version>1.18.48</lombok.version>
+        <guava.version>33.7.2-jre</guava.version>
+        <commons-lang3.version>3.21.0</commons-lang3.version>
         <commons-cli.version>1.11.0</commons-cli.version>
         <snappy-java.version>1.1.10.8</snappy-java.version>
 
         <!-- network -->
-        <netty.version>4.2.9.Final</netty.version>
+        <netty.version>4.2.18.Final</netty.version>
 
         <!-- dns -->
-        <dnsjava.version>3.6.4</dnsjava.version>
-        <aws-dns.version>2.41.10</aws-dns.version>
+        <dnsjava.version>3.6.5</dnsjava.version>
+        <aws-dns.version>2.55.10</aws-dns.version>
 
         <!-- log -->
-        <slf4j.version>2.0.17</slf4j.version>
+        <slf4j.version>2.0.20</slf4j.version>
 
         <!-- test -->
         <junit.version>6.0.3</junit.version>
